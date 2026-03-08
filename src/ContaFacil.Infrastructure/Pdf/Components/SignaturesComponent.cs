@@ -1,5 +1,5 @@
 using System.Globalization;
-using ContaFacil.Application.Common.Interfaces;
+using ContaFacil.Application.Common.Models.Pdf;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;

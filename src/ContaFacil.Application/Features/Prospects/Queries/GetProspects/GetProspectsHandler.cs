@@ -1,4 +1,5 @@
 using ContaFacil.Application.Common;
+using ContaFacil.Application.Common.Models;
 using ContaFacil.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;

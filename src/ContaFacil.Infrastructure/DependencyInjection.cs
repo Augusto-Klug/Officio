@@ -44,6 +44,11 @@ public static class DependencyInjection
                 new DocumentAnalysisClient(new Uri(ocrEndpoint), new Azure.AzureKeyCredential(ocrKey)));
             services.AddScoped<IOcrService, AzureOcrService>();
         }
+        else
+        {
+            // Fallback: OCR indisponível, retorna resultado sem sucesso
+            services.AddScoped<IOcrService, NullOcrService>();
+        }
 
         // PDF
         QuestPDF.Settings.License = LicenseType.Community;

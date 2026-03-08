@@ -12,10 +12,3 @@ public record UploadDocumentCommand(
     Guid? ProspectId,
     Guid? SocioId,
     string? Observacoes) : IRequest<Result<UploadDocumentResultDto>>;
-
-public record UploadDocumentResultDto(
-    Guid Id,
-    string NomeArquivo,
-    decimal QualidadeEstimada,
-    bool Legivel,
-    string Message);

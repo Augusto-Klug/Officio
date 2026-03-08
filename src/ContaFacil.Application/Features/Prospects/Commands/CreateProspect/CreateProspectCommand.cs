@@ -26,6 +26,3 @@ public record CreateProspectCommand(
     string? Origem,
     Guid? ResponsavelId,
     List<CreateSocioDto>? Socios) : IRequest<Result<ProspectCreatedDto>>;
-
-public record CreateSocioDto(string Nome, string? Cpf, decimal Participacao);
-public record ProspectCreatedDto(Guid Id, string RazaoSocial);

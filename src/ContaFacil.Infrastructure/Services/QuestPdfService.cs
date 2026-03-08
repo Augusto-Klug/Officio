@@ -1,4 +1,5 @@
 using ContaFacil.Application.Common.Interfaces;
+using ContaFacil.Application.Common.Models.Pdf;
 using ContaFacil.Infrastructure.Pdf.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

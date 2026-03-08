@@ -1,5 +1,6 @@
 using ContaFacil.Application.Common;
 using ContaFacil.Application.Common.Interfaces;
+using ContaFacil.Application.Common.Models.Signature;
 using ContaFacil.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;

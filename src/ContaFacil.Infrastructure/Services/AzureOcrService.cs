@@ -1,6 +1,7 @@
 using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
 using ContaFacil.Application.Common.Interfaces;
+using ContaFacil.Application.Common.Models.Ocr;
 using ContaFacil.Domain.Enums;
 using Microsoft.Extensions.Logging;
 

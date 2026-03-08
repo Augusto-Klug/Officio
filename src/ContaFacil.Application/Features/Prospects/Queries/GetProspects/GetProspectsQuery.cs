@@ -1,4 +1,5 @@
 using ContaFacil.Application.Common;
+using ContaFacil.Application.Common.Models;
 using MediatR;
 
 namespace ContaFacil.Application.Features.Prospects.Queries.GetProspects;
@@ -9,10 +10,3 @@ public record GetProspectsQuery(
     string? Status = null,
     string? Search = null,
     Guid? ResponsavelId = null) : IRequest<Result<PagedResult<ProspectDto>>>;
-
-public record PagedResult<T>(
-    List<T> Data,
-    int TotalCount,
-    int Page,
-    int PageSize,
-    int TotalPages);

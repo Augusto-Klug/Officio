@@ -1,4 +1,4 @@
-using ContaFacil.Application.Common.Interfaces;
+using ContaFacil.Application.Common.Models.Pdf;
 using ContaFacil.Domain.Entities;
 
 namespace ContaFacil.Application.Features.Contracts.Commands.GenerateContractPdf;
