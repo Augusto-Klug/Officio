@@ -1,6 +1,6 @@
 ﻿using MediatR;
 using Officio.Dominio.Mediador.Comum;
-using Officio.Dominio.Servicos.Interfaces;
+using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.EnviarParaAssinatura;
 

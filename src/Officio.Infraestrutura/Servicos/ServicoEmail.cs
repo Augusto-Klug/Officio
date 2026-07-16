@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Servicos.Interfaces;
+﻿using Officio.Dominio.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Officio.Infraestrutura.Servicos;

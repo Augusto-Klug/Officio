@@ -1,6 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Officio.Dominio.Mediador;
 using System.Text;
 
 namespace Officio.WebApi.Extensoes;
@@ -12,6 +11,9 @@ public static class ExtensoesServiceCollection
         IConfiguration configuration)
     {
         services.AdicionarMediadores(configuration);
+        services.AdicionarBancoDeDados(configuration);
+        services.AdicionarInfraestrutura(configuration);
+
         services.AddHttpContextAccessor();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -35,7 +37,3 @@ public static class ExtensoesServiceCollection
         return services;
     }
 }
-
-
-
-

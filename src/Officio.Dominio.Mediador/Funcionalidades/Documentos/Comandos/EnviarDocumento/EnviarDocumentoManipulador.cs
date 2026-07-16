@@ -1,11 +1,11 @@
-using MediatR;
+﻿using MediatR;
 using Officio.Dominio.Mediador.Comum;
-using Officio.Dominio.Servicos.Interfaces;
-using Officio.Dominio.Servicos.Modelos;
+using Officio.Dominio.Interfaces;
+using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Documentos.Comandos.EnviarDocumento;
 
-public class EnviarDocumentoManipulador(
+internal class EnviarDocumentoManipulador(
     IDocumentoServico documentoServico) : IRequestHandler<EnviarDocumentoComando, Resultado<ResultadoEnvioDocumentoDto>>
 {
     public async Task<Resultado<ResultadoEnvioDocumentoDto>> Handle(

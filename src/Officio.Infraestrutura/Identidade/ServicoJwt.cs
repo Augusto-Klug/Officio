@@ -1,18 +1,38 @@
-﻿using Officio.Dominio.Entidades;
-using Officio.Infraestrutura.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Officio.Dominio.Contratos;
+using Officio.Dominio.Entidades;
+using Officio.Dominio.Interfaces;
+using Officio.Infra.BancoDeDados.Contextos;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
 namespace Officio.Infraestrutura.Identidade;
 
-public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db)
+public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IAutenticacaoServico
 {
+    public async Task<ResultadoAutenticacao?> AutenticarAsync(
+        string email,
+        string senha,
+        CancellationToken cancellationToken = default)
+    {
+        var resultado = await AuthenticateAsync(email, senha, cancellationToken);
+        if (resultado is null)
+            return null;
+
+        var (token, expiraEm, usuario) = resultado.Value;
+        return new ResultadoAutenticacao(
+            token,
+            expiraEm,
+            new UsuarioAutenticado(usuario.Id, usuario.Nome, usuario.Email, usuario.Role));
+    }
+
     public async Task<(string Token, DateTime ExpiresAt, Usuario Usuario)?> AuthenticateAsync(
-        string email, string senhaHash, CancellationToken ct = default)
+        string email,
+        string senhaHash,
+        CancellationToken ct = default)
     {
         var user = await db.Users
             .IgnoreQueryFilters()
@@ -44,8 +64,3 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db)
         return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt, user);
     }
 }
-
-
-
-
-

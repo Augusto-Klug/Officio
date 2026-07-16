@@ -1,13 +1,13 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
-using Officio.Dominio.Servicos.Comum;
-using Officio.Dominio.Servicos.Interfaces;
-using Officio.Dominio.Servicos.Modelos;
+using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Interfaces;
+using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
-public class ProspectoServico(
+internal class ProspectoServico(
     DbContext db,
     IEmpresaAtual empresaAtual) : IProspectoServico
 {
@@ -22,7 +22,7 @@ public class ProspectoServico(
 
             if (existe)
                 return ResultadoOperacao<ProspectoCriadoResultado>.CriarFalha(
-                    "Já existe um prospecto ou cliente com este CNPJ.");
+                    "JÃ¡ existe um prospecto ou cliente com este CNPJ.");
         }
 
         var prospecto = Prospecto.Create(
@@ -65,10 +65,10 @@ public class ProspectoServico(
                 p.TenantId == empresaAtual.TenantId, ct);
 
         if (prospecto is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Prospecto não encontrado.");
+            return ResultadoOperacao<Guid>.CriarFalha("Prospecto nÃ£o encontrado.");
 
         if (prospecto.Status == StatusProspecto.Convertido)
-            return ResultadoOperacao<Guid>.CriarFalha("Prospecto já foi convertido.");
+            return ResultadoOperacao<Guid>.CriarFalha("Prospecto jÃ¡ foi convertido.");
 
         var cliente = Cliente.CreateFromProspect(prospecto);
         db.Set<Cliente>().Add(cliente);

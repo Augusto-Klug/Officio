@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Officio.Dominio\Officio.Dominio.csproj" />
-    <ProjectReference Include="..\Officio.Dominio.Servicos\Officio.Dominio.Servicos.csproj" />
+    <ProjectReference Include="..\Officio.Infra.BancoDeDados\Officio.Infra.BancoDeDados.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -10,11 +10,6 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.27.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.3">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <PackageReference Include="QuestPDF" Version="2026.2.3" />
   </ItemGroup>
 

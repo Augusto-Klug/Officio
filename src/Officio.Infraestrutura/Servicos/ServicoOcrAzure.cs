@@ -1,6 +1,6 @@
 ﻿using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
-using Officio.Dominio.Servicos.Interfaces;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Enumeradores;
 using Microsoft.Extensions.Logging;
 
