@@ -1,0 +1,33 @@
+name: .NET CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore src/Officio.slnx
+
+      - name: Build
+        run: dotnet build src/Officio.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test src/Officio.slnx --configuration Release --no-build --verbosity normal
