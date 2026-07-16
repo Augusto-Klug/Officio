@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Servicos.Interfaces;
+﻿using Officio.Dominio.Interfaces;
 using Officio.Infraestrutura.Pdf.Componentes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

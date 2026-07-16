@@ -1,5 +1,5 @@
 ﻿using System.Globalization;
-using Officio.Dominio.Servicos.Interfaces;
+using Officio.Dominio.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;

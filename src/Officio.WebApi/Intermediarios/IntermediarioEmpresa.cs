@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Servicos.Interfaces;
+﻿using Officio.Dominio.Interfaces;
 
 namespace Officio.WebApi.Intermediarios;
 

@@ -9,10 +9,14 @@
   <ItemGroup>
     <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Officio.Dominio.Mediador\Officio.Dominio.Mediador.csproj" />
+    <ProjectReference Include="..\Officio.Infra.BancoDeDados\Officio.Infra.BancoDeDados.csproj" />
+    <ProjectReference Include="..\Officio.Infraestrutura\Officio.Infraestrutura.csproj" />
+    <ProjectReference Include="..\Officio.ViewModels\Officio.ViewModels.csproj" />
   </ItemGroup>
 
 </Project>

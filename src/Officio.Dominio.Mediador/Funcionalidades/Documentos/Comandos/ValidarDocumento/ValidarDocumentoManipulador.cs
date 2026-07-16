@@ -1,10 +1,10 @@
-using MediatR;
+﻿using MediatR;
 using Officio.Dominio.Mediador.Comum;
-using Officio.Dominio.Servicos.Interfaces;
+using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Documentos.Comandos.ValidarDocumento;
 
-public class ValidarDocumentoManipulador(
+internal class ValidarDocumentoManipulador(
     IDocumentoServico documentoServico) : IRequestHandler<ValidarDocumentoComando, Resultado<ValidationResultDto>>
 {
     public async Task<Resultado<ValidationResultDto>> Handle(

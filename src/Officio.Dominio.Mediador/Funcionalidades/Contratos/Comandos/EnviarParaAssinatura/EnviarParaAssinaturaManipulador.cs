@@ -1,11 +1,11 @@
-using MediatR;
+﻿using MediatR;
 using Officio.Dominio.Mediador.Comum;
-using Officio.Dominio.Servicos.Interfaces;
-using Officio.Dominio.Servicos.Modelos;
+using Officio.Dominio.Interfaces;
+using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.EnviarParaAssinatura;
 
-public class EnviarParaAssinaturaManipulador(
+internal class EnviarParaAssinaturaManipulador(
     IContratoServico contratoServico) : IRequestHandler<EnviarParaAssinaturaComando, Resultado<SendForSignatureResultDto>>
 {
     public async Task<Resultado<SendForSignatureResultDto>> Handle(

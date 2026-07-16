@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Servicos.Interfaces;
+﻿using Officio.Dominio.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;

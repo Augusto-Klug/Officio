@@ -1,49 +1,47 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
-using Officio.Dominio.Servicos.Comum;
-using Officio.Dominio.Servicos.Interfaces;
-using Officio.Dominio.Servicos.Modelos;
+using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Interfaces;
+using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
-public class ContratoServico(
+internal class ContratoServico(
     DbContext db,
     IServicoPdf servicoPdf,
     IServicoAssinatura servicoAssinatura,
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual) : IContratoServico
 {
-    public async Task<ResultadoOperacao<PdfContratoResultado>> GerarPdfAsync(
-        Guid contratoId,
-        CancellationToken ct = default)
+    public async Task<ResultadoOperacao<PdfContratoResultado>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
     {
         var contrato = await db.Set<Contrato>()
             .Include(c => c.Cliente)
                 .ThenInclude(cl => cl.Socios)
             .Include(c => c.Orcamento)
                 .ThenInclude(b => b!.Itens)
-            .FirstOrDefaultAsync(c => c.Id == contratoId, ct);
+            .FirstOrDefaultAsync(c => c.Id == contratoId, cancellationToken);
 
         if (contrato is null)
-            return ResultadoOperacao<PdfContratoResultado>.CriarFalha("Contrato não encontrado.");
+            return ResultadoOperacao<PdfContratoResultado>.CriarFalha("Contrato nÃ£o encontrado.");
 
         var empresa = await db.Set<Empresa>()
-            .FirstAsync(t => t.Id == empresaAtual.TenantId, ct);
+            .FirstAsync(t => t.Id == empresaAtual.TenantId, cancellationToken);
 
         var dadosPdf = MapearDadosPdf(contrato, empresa);
 
-        await using var fluxoPdf = await servicoPdf.GerarContratoAsync(dadosPdf, ct);
+        await using var fluxoPdf = await servicoPdf.GerarContratoAsync(dadosPdf, cancellationToken);
 
         var caminho = await servicoArmazenamento.EnviarAsync(
             fluxoPdf,
             $"contratos/{contrato.Numero}.pdf",
             "contracts",
-            ct);
+            cancellationToken);
 
         contrato.SetPdfPath(caminho);
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(cancellationToken);
 
-        var url = await servicoArmazenamento.ObterUrlPreAssinadaAsync(caminho, TimeSpan.FromHours(1), ct);
+        var url = await servicoArmazenamento.ObterUrlPreAssinadaAsync(caminho, TimeSpan.FromHours(1), cancellationToken);
 
         return ResultadoOperacao<PdfContratoResultado>.CriarSucesso(
             new PdfContratoResultado(url, DateTime.UtcNow));
@@ -51,34 +49,34 @@ public class ContratoServico(
 
     public async Task<ResultadoOperacao<EnvioAssinaturaResultado>> EnviarParaAssinaturaAsync(
         EnviarAssinaturaRequisicao requisicao,
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
     {
         var contrato = await db.Set<Contrato>()
             .Include(c => c.Cliente)
-            .FirstOrDefaultAsync(c => c.Id == requisicao.ContratoId, ct);
+            .FirstOrDefaultAsync(c => c.Id == requisicao.ContratoId, cancellationToken);
 
         if (contrato is null)
-            return ResultadoOperacao<EnvioAssinaturaResultado>.CriarFalha("Contrato não encontrado.");
+            return ResultadoOperacao<EnvioAssinaturaResultado>.CriarFalha("Contrato nÃ£o encontrado.");
 
         if (string.IsNullOrEmpty(contrato.PdfPath))
             return ResultadoOperacao<EnvioAssinaturaResultado>.CriarFalha(
-                "PDF ainda não gerado. Execute a geração de PDF primeiro.");
+                "PDF ainda nÃ£o gerado. Execute a geraÃ§Ã£o de PDF primeiro.");
 
-        await using var fluxoPdf = await servicoArmazenamento.BaixarAsync(contrato.PdfPath, ct);
+        await using var fluxoPdf = await servicoArmazenamento.BaixarAsync(contrato.PdfPath, cancellationToken);
 
         var assinantes = requisicao.Signatarios
             .Select(s => new DadosAssinante(s.Nome, s.Email, s.Cpf, s.Tipo))
             .ToList();
 
         var solicitacao = new SolicitacaoAssinatura(fluxoPdf, contrato.Numero, assinantes);
-        var resultado = await servicoAssinatura.EnviarParaAssinaturaAsync(solicitacao, ct);
+        var resultado = await servicoAssinatura.EnviarParaAssinaturaAsync(solicitacao, cancellationToken);
 
         if (resultado.RequerFallback)
         {
             var pdfUrl = await servicoArmazenamento.ObterUrlPreAssinadaAsync(
                 contrato.PdfPath,
                 TimeSpan.FromHours(24),
-                ct);
+                cancellationToken);
 
             return ResultadoOperacao<EnvioAssinaturaResultado>.CriarSucesso(
                 new EnvioAssinaturaResultado("manual_upload", null, null, resultado.Mensagem, pdfUrl));
@@ -99,7 +97,7 @@ public class ContratoServico(
             db.Set<Assinatura>().Add(assinatura);
         }
 
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(cancellationToken);
 
         return ResultadoOperacao<EnvioAssinaturaResultado>.CriarSucesso(
             new EnvioAssinaturaResultado(

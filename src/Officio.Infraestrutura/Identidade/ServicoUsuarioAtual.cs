@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Servicos.Interfaces;
+﻿using Officio.Dominio.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 

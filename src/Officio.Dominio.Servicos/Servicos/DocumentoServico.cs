@@ -1,12 +1,12 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
-using Officio.Dominio.Servicos.Comum;
-using Officio.Dominio.Servicos.Interfaces;
-using Officio.Dominio.Servicos.Modelos;
+using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Interfaces;
+using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
-public class DocumentoServico(
+internal class DocumentoServico(
     DbContext db,
     IServicoOcr servicoOcr,
     IServicoArmazenamento servicoArmazenamento,
@@ -16,12 +16,12 @@ public class DocumentoServico(
         EnviarDocumentoRequisicao requisicao,
         CancellationToken ct = default)
     {
-        // TODO: substituir por análise real de qualidade da imagem.
+        // TODO: substituir por anÃ¡lise real de qualidade da imagem.
         var qualidadeEstimada = 0.85m;
 
         if (qualidadeEstimada < 0.4m)
             return ResultadoOperacao<EnvioDocumentoResultado>.CriarFalha(
-                "Imagem muito escura ou desfocada. Tire uma nova foto com boa iluminação.");
+                "Imagem muito escura ou desfocada. Tire uma nova foto com boa iluminaÃ§Ã£o.");
 
         var caminho = await servicoArmazenamento.EnviarAsync(
             requisicao.Arquivo,
@@ -49,7 +49,7 @@ public class DocumentoServico(
                 documento.NomeArquivo,
                 qualidadeEstimada,
                 documento.Legivel,
-                "Documento salvo. Chame /validate para iniciar a validação."));
+                "Documento salvo. Chame /validate para iniciar a validaÃ§Ã£o."));
     }
 
     public async Task<ResultadoOperacao<ValidacaoDocumentoResultado>> ValidarAsync(
@@ -60,11 +60,11 @@ public class DocumentoServico(
             .FirstOrDefaultAsync(d => d.Id == documentoId, ct);
 
         if (documento is null)
-            return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha("Documento não encontrado.");
+            return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha("Documento nÃ£o encontrado.");
 
         if (documento.QualidadeEstimada < 0.4m)
             return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha(
-                "Qualidade do documento abaixo do limite mínimo. Reenvie uma imagem mais nítida.");
+                "Qualidade do documento abaixo do limite mÃ­nimo. Reenvie uma imagem mais nÃ­tida.");
 
         await using var stream = await servicoArmazenamento.BaixarAsync(documento.CaminhoStorage, ct);
 
@@ -82,7 +82,7 @@ public class DocumentoServico(
                     0,
                     [],
                     true,
-                    "OCR indisponível. Documento marcado para revisão manual."));
+                    "OCR indisponÃ­vel. Documento marcado para revisÃ£o manual."));
         }
 
         var divergencias = CompararCampos(resultadoOcr.CamposExtraidos, new Dictionary<string, string>());
