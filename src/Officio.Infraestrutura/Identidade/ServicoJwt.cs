@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -13,6 +14,8 @@ namespace Officio.Infraestrutura.Identidade;
 
 public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IAutenticacaoServico
 {
+    private readonly PasswordHasher<Usuario> _passwordHasher = new();
+
     public async Task<ResultadoAutenticacao?> AutenticarAsync(
         string email,
         string senha,
@@ -31,14 +34,18 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IA
 
     public async Task<(string Token, DateTime ExpiresAt, Usuario Usuario)?> AuthenticateAsync(
         string email,
-        string senhaHash,
+        string senha,
         CancellationToken ct = default)
     {
         var user = await db.Users
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Email == email && u.SenhaHash == senhaHash, ct);
+            .FirstOrDefaultAsync(u => u.Email == email, ct);
 
         if (user is null)
+            return null;
+
+        var resultadoSenha = _passwordHasher.VerifyHashedPassword(user, user.SenhaHash, senha);
+        if (resultadoSenha == PasswordVerificationResult.Failed)
             return null;
 
         var expiresAt = DateTime.UtcNow.AddHours(8);
@@ -48,7 +55,9 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IA
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(ClaimTypes.Email, user.Email),
             new Claim("tenant_id", user.TenantId.ToString()),
             new Claim(ClaimTypes.Role, user.Role),
             new Claim("nome", user.Nome),

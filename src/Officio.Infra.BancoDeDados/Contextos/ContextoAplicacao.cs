@@ -1,15 +1,16 @@
 ﻿using Officio.Dominio.Interfaces;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Entidades;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Reflection;
 
 namespace Officio.Infra.BancoDeDados.Contextos;
 
 public class ContextoAplicacao(
     DbContextOptions<ContextoAplicacao> options,
-    IEmpresaAtual currentTenant) : DbContext(options)
+    IEmpresaAtual currentTenant,
+    IPublisher publisher) : DbContext(options)
 {
     public DbSet<Empresa> Tenants => Set<Empresa>();
     public DbSet<Usuario> Users => Set<Usuario>();
@@ -35,22 +36,22 @@ public class ContextoAplicacao(
             {
                 var method = typeof(ContextoAplicacao)
                     .GetMethod(nameof(ApplyTenantFilter),
-                        BindingFlags.NonPublic | BindingFlags.Static)!
+                        BindingFlags.NonPublic | BindingFlags.Instance)!
                     .MakeGenericMethod(entityType.ClrType);
 
-                method.Invoke(null, [builder, currentTenant]);
+                method.Invoke(this, [builder]);
             }
         }
 
         base.OnModelCreating(builder);
     }
 
-    private static void ApplyTenantFilter<T>(
-        ModelBuilder builder,
-        IEmpresaAtual tenant) where T : EntidadeAuditavel
+    private Guid TenantIdAtual => currentTenant.TenantId;
+
+    private void ApplyTenantFilter<T>(ModelBuilder builder) where T : EntidadeAuditavel
     {
         builder.Entity<T>()
-            .HasQueryFilter(e => e.TenantId == tenant.TenantId);
+            .HasQueryFilter(e => e.TenantId == TenantIdAtual);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
@@ -66,6 +67,12 @@ public class ContextoAplicacao(
             .ToList();
 
         var result = await base.SaveChangesAsync(ct);
+
+        foreach (var domainEvent in events)
+            await publisher.Publish(domainEvent, ct);
+
+        foreach (var entry in ChangeTracker.Entries<EntidadeBase>())
+            entry.Entity.ClearDomainEvents();
 
         return result;
     }

@@ -1,4 +1,3 @@
-﻿using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
@@ -7,7 +6,7 @@ using Officio.Dominio.Contratos;
 namespace Officio.Dominio.Servicos.Servicos;
 
 internal class DocumentoServico(
-    DbContext db,
+    IDocumentoRepositorio documentoRepositorio,
     IServicoOcr servicoOcr,
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual) : IDocumentoServico
@@ -40,8 +39,8 @@ internal class DocumentoServico(
             requisicao.SocioId,
             requisicao.Observacoes);
 
-        db.Set<Documento>().Add(documento);
-        await db.SaveChangesAsync(ct);
+        await documentoRepositorio.AdicionarAsync(documento, ct);
+        await documentoRepositorio.SalvarAlteracoesAsync(ct);
 
         return ResultadoOperacao<EnvioDocumentoResultado>.CriarSucesso(
             new EnvioDocumentoResultado(
@@ -56,8 +55,7 @@ internal class DocumentoServico(
         Guid documentoId,
         CancellationToken ct = default)
     {
-        var documento = await db.Set<Documento>()
-            .FirstOrDefaultAsync(d => d.Id == documentoId, ct);
+        var documento = await documentoRepositorio.ObterPorIdAsync(documentoId, ct);
 
         if (documento is null)
             return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha("Documento nÃ£o encontrado.");
@@ -73,8 +71,8 @@ internal class DocumentoServico(
         if (!resultadoOcr.Sucesso)
         {
             var fallback = ValidacaoDocumento.RequireManualReview(documento.Id);
-            db.Set<ValidacaoDocumento>().Add(fallback);
-            await db.SaveChangesAsync(ct);
+            await documentoRepositorio.AdicionarValidacaoAsync(fallback, ct);
+            await documentoRepositorio.SalvarAlteracoesAsync(ct);
 
             return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarSucesso(
                 new ValidacaoDocumentoResultado(
@@ -85,7 +83,8 @@ internal class DocumentoServico(
                     "OCR indisponÃ­vel. Documento marcado para revisÃ£o manual."));
         }
 
-        var divergencias = CompararCampos(resultadoOcr.CamposExtraidos, new Dictionary<string, string>());
+        var dadosCadastro = await documentoRepositorio.ObterDadosCadastroAsync(documento, ct);
+        var divergencias = CompararCampos(resultadoOcr.CamposExtraidos, dadosCadastro);
         var valido = divergencias.Count == 0 || divergencias.All(d => d.Similaridade >= 0.85m);
 
         var validacao = ValidacaoDocumento.Create(
@@ -95,8 +94,8 @@ internal class DocumentoServico(
             valido,
             resultadoOcr.ConfiancaOcr);
 
-        db.Set<ValidacaoDocumento>().Add(validacao);
-        await db.SaveChangesAsync(ct);
+        await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
+        await documentoRepositorio.SalvarAlteracoesAsync(ct);
 
         return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarSucesso(
             new ValidacaoDocumentoResultado(valido, resultadoOcr.ConfiancaOcr, divergencias, false, null));
