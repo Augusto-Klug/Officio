@@ -1,4 +1,3 @@
-﻿using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Contratos.Response;
@@ -8,7 +7,7 @@ using Officio.Dominio.Contratos;
 namespace Officio.Dominio.Servicos.Servicos;
 
 internal class ProspectoServico(
-    DbContext db,
+    IProspectoRepositorio prospectoRepositorio,
     IEmpresaAtual empresaAtual) : IProspectoServico
 {
     public async Task<ResultadoOperacao<ProspectoCriadoResultado>> CriarAsync(
@@ -17,8 +16,7 @@ internal class ProspectoServico(
     {
         if (!string.IsNullOrEmpty(requisicao.Cnpj))
         {
-            var existe = await db.Set<Prospecto>()
-                .AnyAsync(p => p.Cnpj == requisicao.Cnpj, ct);
+            var existe = await prospectoRepositorio.ExisteComCnpjAsync(requisicao.Cnpj, ct);
 
             if (existe)
                 return ResultadoOperacao<ProspectoCriadoResultado>.CriarFalha(
@@ -31,7 +29,7 @@ internal class ProspectoServico(
             requisicao.Cnpj,
             requisicao.RegimeTributario);
 
-        db.Set<Prospecto>().Add(prospecto);
+        await prospectoRepositorio.AdicionarAsync(prospecto, ct);
 
         if (requisicao.Socios is { Count: > 0 })
         {
@@ -44,11 +42,11 @@ internal class ProspectoServico(
                     socioRequisicao.Participacao,
                     prospectId: prospecto.Id);
 
-                db.Set<Socio>().Add(socio);
+                await prospectoRepositorio.AdicionarSocioAsync(socio, ct);
             }
         }
 
-        await db.SaveChangesAsync(ct);
+        await prospectoRepositorio.SalvarAlteracoesAsync(ct);
 
         return ResultadoOperacao<ProspectoCriadoResultado>.CriarSucesso(
             new ProspectoCriadoResultado(prospecto.Id, prospecto.RazaoSocial));
@@ -58,11 +56,7 @@ internal class ProspectoServico(
         Guid prospectoId,
         CancellationToken ct = default)
     {
-        var prospecto = await db.Set<Prospecto>()
-            .Include(p => p.Socios)
-            .FirstOrDefaultAsync(p =>
-                p.Id == prospectoId &&
-                p.TenantId == empresaAtual.TenantId, ct);
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(prospectoId, ct);
 
         if (prospecto is null)
             return ResultadoOperacao<Guid>.CriarFalha("Prospecto nÃ£o encontrado.");
@@ -71,14 +65,14 @@ internal class ProspectoServico(
             return ResultadoOperacao<Guid>.CriarFalha("Prospecto jÃ¡ foi convertido.");
 
         var cliente = Cliente.CreateFromProspect(prospecto);
-        db.Set<Cliente>().Add(cliente);
+        await prospectoRepositorio.AdicionarAsync(cliente, ct);
 
         foreach (var socio in prospecto.Socios)
             cliente.AddSocio(Socio.CopyFor(socio, clientId: cliente.Id));
 
         prospecto.MarkAsConverted(cliente.Id);
 
-        await db.SaveChangesAsync(ct);
+        await prospectoRepositorio.SalvarAlteracoesAsync(ct);
 
         return ResultadoOperacao<Guid>.CriarSucesso(cliente.Id);
     }
@@ -87,7 +81,7 @@ internal class ProspectoServico(
         ObterProspectosFiltro filtro,
         CancellationToken ct = default)
     {
-        var query = db.Set<Prospecto>().AsQueryable();
+        var query = prospectoRepositorio.MontarConsulta();
 
         if (!string.IsNullOrEmpty(filtro.Busca))
             query = query.Where(p =>
@@ -97,21 +91,13 @@ internal class ProspectoServico(
         if (filtro.ResponsavelId.HasValue)
             query = query.Where(p => p.ResponsavelId == filtro.ResponsavelId);
 
-        var totalRegistros = await query.CountAsync(ct);
+        var totalRegistros = await prospectoRepositorio.ContarAsync(query, ct);
         var totalPaginas = (int)Math.Ceiling(totalRegistros / (double)filtro.TamanhoPagina);
 
-        var dados = await query
-            .OrderByDescending(p => p.CriadoEm)
-            .Skip((filtro.Pagina - 1) * filtro.TamanhoPagina)
-            .Take(filtro.TamanhoPagina)
-            .Select(p => new ProspectoResumo(
-                p.Id,
-                p.RazaoSocial,
-                p.Cnpj,
-                p.Status.ToString(),
-                null,
-                p.CriadoEm))
-            .ToListAsync(ct);
+        var dados = prospectoRepositorio.ObterPagina(
+            query,
+            filtro.Pagina,
+            filtro.TamanhoPagina);
 
         return ResultadoOperacao<ResultadoPaginado<ProspectoResumo>>.CriarSucesso(
             new ResultadoPaginado<ProspectoResumo>(

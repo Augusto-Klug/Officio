@@ -1,4 +1,3 @@
-﻿using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
@@ -7,7 +6,8 @@ using Officio.Dominio.Contratos;
 namespace Officio.Dominio.Servicos.Servicos;
 
 internal class ContratoServico(
-    DbContext db,
+    IContratoRepositorio contratoRepositorio,
+    IEmpresaRepositorio empresaRepositorio,
     IServicoPdf servicoPdf,
     IServicoAssinatura servicoAssinatura,
     IServicoArmazenamento servicoArmazenamento,
@@ -15,18 +15,14 @@ internal class ContratoServico(
 {
     public async Task<ResultadoOperacao<PdfContratoResultado>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
     {
-        var contrato = await db.Set<Contrato>()
-            .Include(c => c.Cliente)
-                .ThenInclude(cl => cl.Socios)
-            .Include(c => c.Orcamento)
-                .ThenInclude(b => b!.Itens)
-            .FirstOrDefaultAsync(c => c.Id == contratoId, cancellationToken);
+        var contrato = await contratoRepositorio.ObterParaGeracaoPdfAsync(contratoId, cancellationToken);
 
         if (contrato is null)
             return ResultadoOperacao<PdfContratoResultado>.CriarFalha("Contrato nÃ£o encontrado.");
 
-        var empresa = await db.Set<Empresa>()
-            .FirstAsync(t => t.Id == empresaAtual.TenantId, cancellationToken);
+        var empresa = await empresaRepositorio.ObterPorIdAsync(empresaAtual.TenantId, cancellationToken);
+        if (empresa is null)
+            return ResultadoOperacao<PdfContratoResultado>.CriarFalha("Empresa nÃ£o encontrada.");
 
         var dadosPdf = MapearDadosPdf(contrato, empresa);
 
@@ -39,7 +35,7 @@ internal class ContratoServico(
             cancellationToken);
 
         contrato.SetPdfPath(caminho);
-        await db.SaveChangesAsync(cancellationToken);
+        await contratoRepositorio.SalvarAlteracoesAsync(cancellationToken);
 
         var url = await servicoArmazenamento.ObterUrlPreAssinadaAsync(caminho, TimeSpan.FromHours(1), cancellationToken);
 
@@ -51,9 +47,7 @@ internal class ContratoServico(
         EnviarAssinaturaRequisicao requisicao,
         CancellationToken cancellationToken = default)
     {
-        var contrato = await db.Set<Contrato>()
-            .Include(c => c.Cliente)
-            .FirstOrDefaultAsync(c => c.Id == requisicao.ContratoId, cancellationToken);
+        var contrato = await contratoRepositorio.ObterParaAssinaturaAsync(requisicao.ContratoId, cancellationToken);
 
         if (contrato is null)
             return ResultadoOperacao<EnvioAssinaturaResultado>.CriarFalha("Contrato nÃ£o encontrado.");
@@ -94,10 +88,10 @@ internal class ContratoServico(
                 signatario.Cpf,
                 signatario.Tipo);
 
-            db.Set<Assinatura>().Add(assinatura);
+            await contratoRepositorio.AdicionarAssinaturaAsync(assinatura, cancellationToken);
         }
 
-        await db.SaveChangesAsync(cancellationToken);
+        await contratoRepositorio.SalvarAlteracoesAsync(cancellationToken);
 
         return ResultadoOperacao<EnvioAssinaturaResultado>.CriarSucesso(
             new EnvioAssinaturaResultado(

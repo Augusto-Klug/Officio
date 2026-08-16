@@ -1,7 +1,6 @@
 ﻿using Officio.Dominio.Interfaces;
 using Officio.Infraestrutura.Pdf.Componentes;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -9,7 +8,6 @@ using QuestPDF.Infrastructure;
 namespace Officio.Infraestrutura.Servicos;
 
 public class ServicoPdfQuest(
-    IOptions<OpcoesPdf> options,
     ILogger<ServicoPdfQuest> logger) : IServicoPdf
 {
     public Task<Stream> GerarContratoAsync(DadosPdfContrato data, CancellationToken ct = default)
