@@ -44,6 +44,33 @@ public class DocumentoServicoTestes
     }
 
     [Fact]
+    public async Task ValidarAsync_QuandoDocumentoDeProspectoConfere_Aprova()
+    {
+        var tenantId = Guid.NewGuid();
+        var prospecto = Prospecto.Create(tenantId, "Prospecto Certa Ltda", "99888777000166", null);
+        var documento = Documento.Create(tenantId, "cartao-cnpj.pdf", TipoDocumento.CartaoCnpj, "doc.pdf", 0.85m, prospectId: prospecto.Id);
+
+        await using var provedor = CriarProvedor(tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["razao_social"] = "Prospecto Certa Ltda",
+                ["cnpj"] = "99888777000166"
+            }, 0.95m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Prospects.Add(prospecto);
+        contexto.Documents.Add(documento);
+        await contexto.SaveChangesAsync();
+
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+
+        var resultado = await servico.ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.Valido);
+        Assert.Empty(resultado.Valor.Divergencias);
+    }
+
+    [Fact]
     public async Task ValidarAsync_QuandoSimilaridadeAcimaDoLimite_Aprova()
     {
         var tenantId = Guid.NewGuid();
