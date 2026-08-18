@@ -38,6 +38,7 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IA
         CancellationToken ct = default)
     {
         var user = await db.Users
+            // O login e publico e ocorre antes de existir contexto de tenant; o email unico evita ambiguidade entre empresas.
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Email == email, ct);
 
@@ -49,8 +50,11 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IA
             return null;
 
         var expiresAt = DateTime.UtcNow.AddHours(8);
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(configuration["Jwt:Key"] ?? "super-secret-key-Officio-2025!"));
+        var jwtKey = configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            throw new InvalidOperationException("A configuracao 'Jwt:Key' e obrigatoria para autenticacao JWT.");
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
         var claims = new[]
         {

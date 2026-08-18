@@ -16,6 +16,10 @@ public static class ExtensoesServiceCollection
 
         services.AddHttpContextAccessor();
 
+        var jwtKey = configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            throw new InvalidOperationException("A configuracao 'Jwt:Key' e obrigatoria para autenticacao JWT.");
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
@@ -28,7 +32,7 @@ public static class ExtensoesServiceCollection
                     ValidIssuer = configuration["Jwt:Issuer"] ?? "Officio",
                     ValidAudience = configuration["Jwt:Audience"] ?? "Officio",
                     IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(configuration["Jwt:Key"] ?? "super-secret-key-officio-2025!"))
+                        Encoding.UTF8.GetBytes(jwtKey))
                 };
             });
 

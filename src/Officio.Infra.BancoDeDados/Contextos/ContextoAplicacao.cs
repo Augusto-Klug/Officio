@@ -28,6 +28,10 @@ public class ContextoAplicacao(
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
+        builder.Entity<Usuario>()
+            .HasIndex(usuario => usuario.Email)
+            .IsUnique();
+
         builder.ApplyConfigurationsFromAssembly(typeof(ContextoAplicacao).Assembly);
 
         foreach (var entityType in builder.Model.GetEntityTypes())
