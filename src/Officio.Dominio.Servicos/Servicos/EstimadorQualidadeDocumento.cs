@@ -3,6 +3,8 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
 using Officio.Dominio.Interfaces;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
@@ -38,6 +40,13 @@ internal sealed class EstimadorQualidadeDocumento : IEstimadorQualidadeDocumento
             origem.Position = 0;
             if (TentarEstimarPgm(origem, cancellationToken, out var qualidadePgm))
                 return qualidadePgm;
+
+            origem.Position = 0;
+            if (EhPngOuJpeg(origem))
+            {
+                origem.Position = 0;
+                return EstimarImagemComprimida(origem, cancellationToken);
+            }
 
             origem.Position = 0;
             return EstimarFallbackPorBytes(origem, cancellationToken);
@@ -203,6 +212,69 @@ internal sealed class EstimadorQualidadeDocumento : IEstimadorQualidadeDocumento
         }
 
         return metricas.CalcularQualidadeFallback();
+    }
+
+    private static bool EhPngOuJpeg(Stream arquivo)
+    {
+        Span<byte> assinatura = stackalloc byte[8];
+        var bytesLidos = arquivo.Read(assinatura);
+
+        var png = bytesLidos == 8
+                  && assinatura[0] == 137
+                  && assinatura[1] == 80
+                  && assinatura[2] == 78
+                  && assinatura[3] == 71
+                  && assinatura[4] == 13
+                  && assinatura[5] == 10
+                  && assinatura[6] == 26
+                  && assinatura[7] == 10;
+        var jpeg = bytesLidos >= 3
+                   && assinatura[0] == 0xFF
+                   && assinatura[1] == 0xD8
+                   && assinatura[2] == 0xFF;
+
+        return png || jpeg;
+    }
+
+    private static decimal EstimarImagemComprimida(
+        Stream arquivo,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var informacoes = Image.Identify(arquivo);
+            if (informacoes is null
+                || (long)informacoes.Width * informacoes.Height > 50_000_000)
+                return 0m;
+
+            arquivo.Position = 0;
+            using var imagem = Image.Load<Rgba32>(arquivo);
+            var metricas = new MetricasPixels();
+
+            imagem.ProcessPixelRows(acessor =>
+            {
+                for (var y = 0; y < acessor.Height; y++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var linha = acessor.GetRowSpan(y);
+                    foreach (var pixel in linha)
+                    {
+                        var luminancia = (299 * pixel.R + 587 * pixel.G + 114 * pixel.B + 500) / 1000;
+                        metricas.Adicionar(luminancia);
+                    }
+                }
+            });
+
+            return metricas.CalcularQualidadeVisual();
+        }
+        catch (UnknownImageFormatException)
+        {
+            return 0m;
+        }
+        catch (InvalidImageContentException)
+        {
+            return 0m;
+        }
     }
 
     private static bool TentarLerInteiroPositivo(Stream arquivo, out int valor)

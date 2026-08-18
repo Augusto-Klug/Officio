@@ -16,7 +16,8 @@ public class MigracaoIndiceEmailUsuarioTestes
         var sql = Assert.Single(construtor.Operations.OfType<SqlOperation>()).Sql;
         Assert.Contains("THROW", sql);
         Assert.Contains("sp_executesql", sql);
-        Assert.Contains("LEN([Email]) > 450", sql);
+        Assert.Contains("DATALENGTH([Email]) > 900", sql);
+        Assert.DoesNotContain("LEN([Email])", sql);
         Assert.Contains("ALTER COLUMN [Email] nvarchar(450) NOT NULL", sql);
         Assert.Contains("HAVING COUNT(*) > 1", sql);
         Assert.Contains("is_unique = 0", sql);

@@ -34,7 +34,7 @@ public partial class AdicionarIndiceUnicoEmailUsuario : Migration
                 IF EXISTS (SELECT 1 FROM [dbo].[Users] WHERE [Email] IS NULL)
                     THROW 51000, ''Existem usuarios sem email. Preencha os valores antes de aplicar o indice unico.'', 1;
 
-                IF EXISTS (SELECT 1 FROM [dbo].[Users] WHERE LEN([Email]) > 450)
+                IF EXISTS (SELECT 1 FROM [dbo].[Users] WHERE DATALENGTH([Email]) > 900)
                     THROW 51000, ''Existem emails com mais de 450 caracteres. Corrija esses registros antes de aplicar a migration.'', 1;
 
                 IF EXISTS
