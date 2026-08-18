@@ -25,3 +25,9 @@ Nenhum concern identificado para o escopo da Task 4. O novo teste passou imediat
 ## Fix round 1
 
 O teste de prospecto foi endurecido para retornar `razao_social` divergente e exigir uma divergencia com o valor persistido `Prospecto Certa Ltda`. Isso garante que `ProspectId` foi carregado e usado na comparacao OCR.
+
+## Fix round 2
+
+O teste de aprovacao `ValidarAsync_QuandoDocumentoDeProspectoConfere_Aprova` foi readicionado, mantendo tambem o teste divergente da rodada 1.
+
+Testes executados: ambos os filtros solicitados aprovados, com 5 testes em cada execucao.
