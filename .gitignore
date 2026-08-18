@@ -350,6 +350,9 @@ ASALocalRun/
 # Local History for Visual Studio
 .localhistory/
 
+# Agent execution artifacts
+src/.superpowers/
+
 # BeatPulse healthcheck temp database
 healthchecksdb
 

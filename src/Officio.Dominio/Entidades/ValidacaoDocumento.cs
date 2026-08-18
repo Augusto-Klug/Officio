@@ -19,6 +19,7 @@ public class ValidacaoDocumento : EntidadeAuditavel
     private ValidacaoDocumento() { }
 
     public static ValidacaoDocumento Create(
+        Guid tenantId,
         Guid documentId,
         Dictionary<string, string> camposExtraidos,
         List<object> divergencias,
@@ -27,6 +28,7 @@ public class ValidacaoDocumento : EntidadeAuditavel
     {
         var validation = new ValidacaoDocumento
         {
+            TenantId = tenantId,
             DocumentId = documentId,
             CamposExtraidos = camposExtraidos,
             ConfiancaOcr = confiancaOcr,
@@ -38,13 +40,22 @@ public class ValidacaoDocumento : EntidadeAuditavel
         return validation;
     }
 
-    public static ValidacaoDocumento RequireManualReview(Guid documentId)
+    public static ValidacaoDocumento RequireManualReview(
+        Guid tenantId,
+        Guid documentId,
+        Dictionary<string, string>? camposExtraidos = null,
+        decimal confiancaOcr = 0m,
+        string? observacao = null)
     {
         return new ValidacaoDocumento
         {
+            TenantId = tenantId,
             DocumentId = documentId,
             Status = StatusValidacao.RevisaoManual,
-            FallbackManual = true
+            CamposExtraidos = camposExtraidos ?? [],
+            ConfiancaOcr = confiancaOcr,
+            FallbackManual = true,
+            Observacao = observacao
         };
     }
 

@@ -1,7 +1,8 @@
-using Officio.Dominio.Entidades;
-using Officio.Dominio.Contratos.Response;
-using Officio.Dominio.Interfaces;
+using System.Buffers;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Entidades;
+using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
@@ -12,27 +13,37 @@ internal class DocumentoServico(
     IEmpresaAtual empresaAtual,
     IEstimadorQualidadeDocumento estimadorQualidade) : IDocumentoServico
 {
+    private const int TamanhoMaximoUploadBytes = 10 * 1024 * 1024;
+
     public async Task<ResultadoOperacao<EnvioDocumentoResultado>> EnviarAsync(
         EnviarDocumentoRequisicao requisicao,
         CancellationToken ct = default)
     {
         if (requisicao.Arquivo.CanSeek)
+        {
             requisicao.Arquivo.Position = 0;
+            if (requisicao.Arquivo.Length > TamanhoMaximoUploadBytes)
+                return CriarFalhaArquivoMuitoGrande();
+        }
 
-        using var arquivoEmMemoria = new MemoryStream();
-        await requisicao.Arquivo.CopyToAsync(arquivoEmMemoria, ct);
-        var conteudoArquivo = arquivoEmMemoria.ToArray();
+        var capacidadeInicial = requisicao.Arquivo.CanSeek
+            ? (int)requisicao.Arquivo.Length
+            : 0;
+        using var arquivoEmMemoria = new MemoryStream(capacidadeInicial);
+        var excedeuLimite = await CopiarComLimiteAsync(requisicao.Arquivo, arquivoEmMemoria, ct);
+        if (excedeuLimite)
+            return CriarFalhaArquivoMuitoGrande();
 
-        await using var arquivoParaEstimativa = new MemoryStream(conteudoArquivo, writable: false);
-        var qualidadeEstimada = await estimadorQualidade.EstimarAsync(arquivoParaEstimativa, ct);
+        arquivoEmMemoria.Position = 0;
+        var qualidadeEstimada = await estimadorQualidade.EstimarAsync(arquivoEmMemoria, ct);
 
         if (qualidadeEstimada < 0.4m)
             return ResultadoOperacao<EnvioDocumentoResultado>.CriarFalha(
-                "Imagem muito escura ou desfocada. Tire uma nova foto com boa iluminaÃ§Ã£o.");
+                "Imagem muito escura ou desfocada. Tire uma nova foto com boa iluminacao.");
 
-        await using var arquivoParaArmazenamento = new MemoryStream(conteudoArquivo, writable: false);
+        arquivoEmMemoria.Position = 0;
         var caminho = await servicoArmazenamento.EnviarAsync(
-            arquivoParaArmazenamento,
+            arquivoEmMemoria,
             $"documentos/{Guid.NewGuid()}/{requisicao.NomeArquivo}",
             "documents",
             ct);
@@ -57,7 +68,7 @@ internal class DocumentoServico(
                 documento.NomeArquivo,
                 qualidadeEstimada,
                 documento.Legivel,
-                "Documento salvo. Chame /validate para iniciar a validaÃ§Ã£o."));
+                "Documento salvo. Chame /validate para iniciar a validacao."));
     }
 
     public async Task<ResultadoOperacao<ValidacaoDocumentoResultado>> ValidarAsync(
@@ -67,36 +78,53 @@ internal class DocumentoServico(
         var documento = await documentoRepositorio.ObterPorIdAsync(documentoId, ct);
 
         if (documento is null)
-            return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha("Documento nÃ£o encontrado.");
+            return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha("Documento nao encontrado.");
 
         if (documento.QualidadeEstimada < 0.4m)
             return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha(
-                "Qualidade do documento abaixo do limite mÃ­nimo. Reenvie uma imagem mais nÃ­tida.");
+                "Qualidade do documento abaixo do limite minimo. Reenvie uma imagem mais nitida.");
 
         await using var stream = await servicoArmazenamento.BaixarAsync(documento.CaminhoStorage, ct);
-
         var resultadoOcr = await servicoOcr.AnalisarDocumentoAsync(stream, documento.Tipo, ct);
 
         if (!resultadoOcr.Sucesso)
         {
-            var fallback = ValidacaoDocumento.RequireManualReview(documento.Id);
-            await documentoRepositorio.AdicionarValidacaoAsync(fallback, ct);
-            await documentoRepositorio.SalvarAlteracoesAsync(ct);
-
-            return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarSucesso(
-                new ValidacaoDocumentoResultado(
-                    false,
-                    0,
-                    [],
-                    true,
-                    "OCR indisponÃ­vel. Documento marcado para revisÃ£o manual."));
+            return await CriarRevisaoManualAsync(
+                documento,
+                [],
+                0m,
+                [],
+                "OCR indisponivel. Documento marcado para revisao manual.",
+                ct);
         }
 
         var dadosCadastro = await documentoRepositorio.ObterDadosCadastroAsync(documento, ct);
-        var divergencias = CompararCampos(resultadoOcr.CamposExtraidos, dadosCadastro);
-        var valido = divergencias.Count == 0 || divergencias.All(d => d.Similaridade >= 0.85m);
+        if (dadosCadastro.Count == 0)
+        {
+            return await CriarRevisaoManualAsync(
+                documento,
+                resultadoOcr.CamposExtraidos,
+                resultadoOcr.ConfiancaOcr,
+                [],
+                "Dados de cadastro ausentes. Documento marcado para revisao manual.",
+                ct);
+        }
 
+        var divergencias = CompararCampos(resultadoOcr.CamposExtraidos, dadosCadastro);
+        if (divergencias.Any(divergencia => string.IsNullOrEmpty(divergencia.ValorDocumento)))
+        {
+            return await CriarRevisaoManualAsync(
+                documento,
+                resultadoOcr.CamposExtraidos,
+                resultadoOcr.ConfiancaOcr,
+                divergencias,
+                "Um ou mais campos esperados nao foram identificados pelo OCR. Documento marcado para revisao manual.",
+                ct);
+        }
+
+        var valido = divergencias.Count == 0 || divergencias.All(d => d.Similaridade >= 0.85m);
         var validacao = ValidacaoDocumento.Create(
+            documento.TenantId,
             documento.Id,
             resultadoOcr.CamposExtraidos,
             divergencias.Cast<object>().ToList(),
@@ -110,6 +138,27 @@ internal class DocumentoServico(
             new ValidacaoDocumentoResultado(valido, resultadoOcr.ConfiancaOcr, divergencias, false, null));
     }
 
+    private async Task<ResultadoOperacao<ValidacaoDocumentoResultado>> CriarRevisaoManualAsync(
+        Documento documento,
+        Dictionary<string, string> camposExtraidos,
+        decimal confiancaOcr,
+        List<DivergenciaDocumento> divergencias,
+        string mensagem,
+        CancellationToken ct)
+    {
+        var validacao = ValidacaoDocumento.RequireManualReview(
+            documento.TenantId,
+            documento.Id,
+            camposExtraidos,
+            confiancaOcr,
+            mensagem);
+        await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
+        await documentoRepositorio.SalvarAlteracoesAsync(ct);
+
+        return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarSucesso(
+            new ValidacaoDocumentoResultado(false, confiancaOcr, divergencias, true, mensagem));
+    }
+
     private static List<DivergenciaDocumento> CompararCampos(
         Dictionary<string, string> ocr,
         Dictionary<string, string> cadastro)
@@ -119,7 +168,10 @@ internal class DocumentoServico(
         foreach (var (campo, valorCadastro) in cadastro)
         {
             if (!ocr.TryGetValue(campo, out var valorOcr))
+            {
+                divergencias.Add(new DivergenciaDocumento(campo, string.Empty, valorCadastro, 0m));
                 continue;
+            }
 
             var similaridade = CalcularSimilaridade(
                 Normalizar(valorOcr),
@@ -131,6 +183,38 @@ internal class DocumentoServico(
 
         return divergencias;
     }
+
+    private static async Task<bool> CopiarComLimiteAsync(
+        Stream origem,
+        MemoryStream destino,
+        CancellationToken ct)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(81920);
+        var totalLido = 0;
+
+        try
+        {
+            int bytesLidos;
+            while ((bytesLidos = await origem.ReadAsync(buffer.AsMemory(0, buffer.Length), ct)) > 0)
+            {
+                totalLido += bytesLidos;
+                if (totalLido > TamanhoMaximoUploadBytes)
+                    return true;
+
+                await destino.WriteAsync(buffer.AsMemory(0, bytesLidos), ct);
+            }
+
+            return false;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private static ResultadoOperacao<EnvioDocumentoResultado> CriarFalhaArquivoMuitoGrande()
+        => ResultadoOperacao<EnvioDocumentoResultado>.CriarFalha(
+            "Arquivo excede o limite maximo de upload de 10 MB.");
 
     private static decimal CalcularSimilaridade(string a, string b)
     {

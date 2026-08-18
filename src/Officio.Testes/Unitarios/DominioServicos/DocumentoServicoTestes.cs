@@ -15,6 +15,29 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 public class DocumentoServicoTestes
 {
     [Fact]
+    public async Task EnviarAsync_QuandoArquivoExcedeDezMegabytes_RejeitaAntesDoArmazenamento()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var provedor = CriarProvedor(tenantId, ResultadoOcr.CriarFalha("nao usado"));
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+        var armazenamento = provedor.GetRequiredService<ServicoArmazenamentoFake>();
+        await using var arquivo = new MemoryStream(new byte[(10 * 1024 * 1024) + 1]);
+
+        var resultado = await servico.EnviarAsync(new EnviarDocumentoRequisicao(
+            arquivo,
+            "documento-grande.bmp",
+            TipoDocumento.CartaoCnpj,
+            ClienteId: Guid.NewGuid(),
+            ProspectoId: null,
+            SocioId: null,
+            Observacoes: null));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("10 MB", resultado.Erro);
+        Assert.Empty(armazenamento.ConteudoEnviado);
+    }
+
+    [Fact]
     public async Task EnviarAsync_QuandoArquivoSeekableEstaNoFim_ArmazenaConteudoCompleto()
     {
         var tenantId = Guid.NewGuid();
@@ -169,6 +192,10 @@ public class DocumentoServicoTestes
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.True(resultado.Valor!.Valido);
         Assert.Empty(resultado.Valor.Divergencias);
+
+        contexto.ChangeTracker.Clear();
+        var validacao = await contexto.DocumentValidations.SingleAsync();
+        Assert.Equal(tenantId, validacao.TenantId);
     }
 
     [Fact]
@@ -216,6 +243,77 @@ public class DocumentoServicoTestes
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.True(resultado.Valor!.FallbackManual);
         Assert.False(resultado.Valor.Valido);
+
+        contexto.ChangeTracker.Clear();
+        var validacao = await contexto.DocumentValidations.SingleAsync();
+        Assert.Equal(tenantId, validacao.TenantId);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_QuandoCadastroNaoExiste_SegueParaRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var documento = Documento.Create(
+            tenantId,
+            "cartao-cnpj.pdf",
+            TipoDocumento.CartaoCnpj,
+            "doc.pdf",
+            0.85m,
+            clientId: Guid.NewGuid());
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["razao_social"] = "Empresa Certa Ltda",
+                ["cnpj"] = "11222333000144"
+            }, 0.95m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Documents.Add(documento);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.FallbackManual);
+        Assert.False(resultado.Valor.Valido);
+        Assert.Contains("cadastro", resultado.Valor.Mensagem, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_QuandoCampoEsperadoNaoExisteNoOcr_SegueParaRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var cliente = Cliente.CreateFromProspect(
+            Prospecto.Create(tenantId, "Empresa Certa Ltda", "11222333000144", null));
+        var documento = Documento.Create(
+            tenantId,
+            "cartao-cnpj.pdf",
+            TipoDocumento.CartaoCnpj,
+            "doc.pdf",
+            0.85m,
+            clientId: cliente.Id);
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["cnpj"] = "11222333000144"
+            }, 0.95m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Clients.Add(cliente);
+        contexto.Documents.Add(documento);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.FallbackManual);
+        Assert.False(resultado.Valor.Valido);
+        var divergencia = Assert.Single(resultado.Valor.Divergencias);
+        Assert.Equal("razao_social", divergencia.Campo);
+        Assert.Equal(string.Empty, divergencia.ValorDocumento);
+        Assert.Equal(0m, divergencia.Similaridade);
     }
 
     private static ServiceProvider CriarProvedor(

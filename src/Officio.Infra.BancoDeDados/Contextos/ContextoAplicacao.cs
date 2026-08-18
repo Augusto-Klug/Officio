@@ -29,6 +29,10 @@ public class ContextoAplicacao(
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.Entity<Usuario>()
+            .Property(usuario => usuario.Email)
+            .HasMaxLength(450);
+
+        builder.Entity<Usuario>()
             .HasIndex(usuario => usuario.Email)
             .IsUnique();
 

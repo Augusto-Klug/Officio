@@ -676,6 +676,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Nome")
