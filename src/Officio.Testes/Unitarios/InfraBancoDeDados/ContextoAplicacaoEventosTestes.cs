@@ -11,6 +11,28 @@ namespace Officio.Testes.Unitarios.InfraBancoDeDados;
 public class ContextoAplicacaoEventosTestes
 {
     [Fact]
+    public async Task SaveChangesAsync_QuandoEntidadePossuiEvento_PublicaEventoELimpaFila()
+    {
+        var tenantId = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenantId);
+        var publicador = new PublicadorEventosFake();
+        var options = new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        await using var contexto = new ContextoAplicacao(options, empresaAtual, publicador);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste Ltda", "11222333000144", null);
+        prospecto.MarkAsConverted(Guid.NewGuid());
+
+        contexto.Prospects.Add(prospecto);
+        await contexto.SaveChangesAsync();
+
+        Assert.Single(publicador.Notificacoes);
+        Assert.Empty(prospecto.EventosDominio);
+    }
+
+    [Fact]
     public async Task SaveChangesAsync_PublicaEventoDeDominioUmaVez()
     {
         var tenantId = Guid.NewGuid();
