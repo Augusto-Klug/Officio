@@ -16,6 +16,9 @@ internal class DocumentoServico(
         EnviarDocumentoRequisicao requisicao,
         CancellationToken ct = default)
     {
+        if (requisicao.Arquivo.CanSeek)
+            requisicao.Arquivo.Position = 0;
+
         using var arquivoEmMemoria = new MemoryStream();
         await requisicao.Arquivo.CopyToAsync(arquivoEmMemoria, ct);
         var conteudoArquivo = arquivoEmMemoria.ToArray();

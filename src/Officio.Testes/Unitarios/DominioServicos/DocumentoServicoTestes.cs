@@ -15,6 +15,30 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 public class DocumentoServicoTestes
 {
     [Fact]
+    public async Task EnviarAsync_QuandoArquivoSeekableEstaNoFim_ArmazenaConteudoCompleto()
+    {
+        var tenantId = Guid.NewGuid();
+        var conteudo = new byte[] { 50, 60, 70, 80 };
+        await using var provedor = CriarProvedor(tenantId, ResultadoOcr.CriarFalha("nao usado"));
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+        var armazenamento = provedor.GetRequiredService<ServicoArmazenamentoFake>();
+        using var arquivo = new MemoryStream(conteudo);
+        arquivo.Position = arquivo.Length;
+
+        var resultado = await servico.EnviarAsync(new EnviarDocumentoRequisicao(
+            arquivo,
+            "documento.jpg",
+            TipoDocumento.CartaoCnpj,
+            ClienteId: Guid.NewGuid(),
+            ProspectoId: null,
+            SocioId: null,
+            Observacoes: null));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(conteudo, armazenamento.ConteudoEnviado);
+    }
+
+    [Fact]
     public async Task EnviarAsync_QuandoArquivoNaoPermiteReposicionamento_ArmazenaConteudoCompleto()
     {
         var tenantId = Guid.NewGuid();

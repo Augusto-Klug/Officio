@@ -56,3 +56,26 @@ Concluida.
 ### Commit
 
 - `fix: preserve document content after quality estimation`.
+
+## Fix round 2
+
+### Files changed
+
+- `Officio.Dominio.Servicos/Servicos/DocumentoServico.cs`
+- `Officio.Testes/Unitarios/DominioServicos/DocumentoServicoTestes.cs`
+- `.superpowers/sdd/2026-08-18-base-tecnica/task-5-report.md`
+
+### Changes
+
+- Streams seekable sao reposicionados para o inicio antes da copia para memoria.
+- Adicionado cenario com `MemoryStream` em EOF que confirma o armazenamento do conteudo completo.
+
+### Tests/build
+
+- `dotnet test Officio.Testes/Officio.Testes.csproj --filter DocumentoServicoTestes`: 8 aprovados, 0 falhas.
+- `dotnet test Officio.Testes/Officio.Testes.csproj --filter "DocumentoServicoTestes|ValidarDocumento"`: 8 aprovados, 0 falhas.
+- `dotnet build Officio.slnx`: concluido com 0 avisos e 0 erros.
+
+### Commit
+
+- `fix: reset seekable document streams before buffering`.
