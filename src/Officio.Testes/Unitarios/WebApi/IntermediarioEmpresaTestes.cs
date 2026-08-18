@@ -25,6 +25,24 @@ public class IntermediarioEmpresaTestes
     }
 
     [Fact]
+    public async Task InvokeAsync_WebhookD4SignPassaSemTenant()
+    {
+        var chamado = false;
+        var contexto = new DefaultHttpContext();
+        contexto.Request.Path = "/api/v1/contratos/webhook/d4sign";
+        var intermediario = new IntermediarioEmpresa(_ =>
+        {
+            chamado = true;
+            return Task.CompletedTask;
+        });
+
+        await intermediario.InvokeAsync(contexto, new ServicoEmpresaAtual());
+
+        Assert.True(chamado);
+        Assert.Equal(StatusCodes.Status200OK, contexto.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task InvokeAsync_RotaProtegidaSemTenantRetorna401()
     {
         var chamado = false;
