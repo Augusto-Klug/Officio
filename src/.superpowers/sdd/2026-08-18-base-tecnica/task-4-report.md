@@ -21,3 +21,7 @@ Nenhuma alteracao de producao foi necessaria. A implementacao existente ja:
 ## Concerns
 
 Nenhum concern identificado para o escopo da Task 4. O novo teste passou imediatamente porque o caminho de prospecto ja estava implementado.
+
+## Fix round 1
+
+O teste de prospecto foi endurecido para retornar `razao_social` divergente e exigir uma divergencia com o valor persistido `Prospecto Certa Ltda`. Isso garante que `ProspectId` foi carregado e usado na comparacao OCR.

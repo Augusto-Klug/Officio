@@ -44,7 +44,7 @@ public class DocumentoServicoTestes
     }
 
     [Fact]
-    public async Task ValidarAsync_QuandoDocumentoDeProspectoConfere_Aprova()
+    public async Task ValidarAsync_QuandoDocumentoDeProspectoDivergeDoCadastro_RegistraDivergencia()
     {
         var tenantId = Guid.NewGuid();
         var prospecto = Prospecto.Create(tenantId, "Prospecto Certa Ltda", "99888777000166", null);
@@ -53,7 +53,7 @@ public class DocumentoServicoTestes
         await using var provedor = CriarProvedor(tenantId,
             ResultadoOcr.CriarSucesso(new Dictionary<string, string>
             {
-                ["razao_social"] = "Prospecto Certa Ltda",
+                ["razao_social"] = "Prospecto Errado Ltda",
                 ["cnpj"] = "99888777000166"
             }, 0.95m));
         var contexto = provedor.GetRequiredService<ContextoAplicacao>();
@@ -66,8 +66,10 @@ public class DocumentoServicoTestes
         var resultado = await servico.ValidarAsync(documento.Id);
 
         Assert.True(resultado.Sucesso, resultado.Erro);
-        Assert.True(resultado.Valor!.Valido);
-        Assert.Empty(resultado.Valor.Divergencias);
+        Assert.False(resultado.Valor!.Valido);
+        var divergencia = Assert.Single(resultado.Valor.Divergencias);
+        Assert.Equal("razao_social", divergencia.Campo);
+        Assert.Equal("Prospecto Certa Ltda", divergencia.ValorCadastro);
     }
 
     [Fact]
