@@ -16,14 +16,20 @@ internal class DocumentoServico(
         EnviarDocumentoRequisicao requisicao,
         CancellationToken ct = default)
     {
-        var qualidadeEstimada = await estimadorQualidade.EstimarAsync(requisicao.Arquivo, ct);
+        using var arquivoEmMemoria = new MemoryStream();
+        await requisicao.Arquivo.CopyToAsync(arquivoEmMemoria, ct);
+        var conteudoArquivo = arquivoEmMemoria.ToArray();
+
+        await using var arquivoParaEstimativa = new MemoryStream(conteudoArquivo, writable: false);
+        var qualidadeEstimada = await estimadorQualidade.EstimarAsync(arquivoParaEstimativa, ct);
 
         if (qualidadeEstimada < 0.4m)
             return ResultadoOperacao<EnvioDocumentoResultado>.CriarFalha(
                 "Imagem muito escura ou desfocada. Tire uma nova foto com boa iluminaÃ§Ã£o.");
 
+        await using var arquivoParaArmazenamento = new MemoryStream(conteudoArquivo, writable: false);
         var caminho = await servicoArmazenamento.EnviarAsync(
-            requisicao.Arquivo,
+            arquivoParaArmazenamento,
             $"documentos/{Guid.NewGuid()}/{requisicao.NomeArquivo}",
             "documents",
             ct);
