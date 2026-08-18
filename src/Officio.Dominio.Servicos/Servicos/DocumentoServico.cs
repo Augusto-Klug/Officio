@@ -9,14 +9,14 @@ internal class DocumentoServico(
     IDocumentoRepositorio documentoRepositorio,
     IServicoOcr servicoOcr,
     IServicoArmazenamento servicoArmazenamento,
-    IEmpresaAtual empresaAtual) : IDocumentoServico
+    IEmpresaAtual empresaAtual,
+    IEstimadorQualidadeDocumento estimadorQualidade) : IDocumentoServico
 {
     public async Task<ResultadoOperacao<EnvioDocumentoResultado>> EnviarAsync(
         EnviarDocumentoRequisicao requisicao,
         CancellationToken ct = default)
     {
-        // TODO: substituir por anÃ¡lise real de qualidade da imagem.
-        var qualidadeEstimada = 0.85m;
+        var qualidadeEstimada = await estimadorQualidade.EstimarAsync(requisicao.Arquivo, ct);
 
         if (qualidadeEstimada < 0.4m)
             return ResultadoOperacao<EnvioDocumentoResultado>.CriarFalha(

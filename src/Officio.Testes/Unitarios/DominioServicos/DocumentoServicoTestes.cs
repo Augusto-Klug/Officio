@@ -15,6 +15,29 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 public class DocumentoServicoTestes
 {
     [Fact]
+    public async Task EnviarAsync_QuandoQualidadeAbaixoDoLimite_RejeitaDocumento()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarFalha("nao usado"),
+            qualidadeDocumento: 0.2m);
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+
+        var resultado = await servico.EnviarAsync(new EnviarDocumentoRequisicao(
+            new MemoryStream([0, 0, 0, 0]),
+            "documento-escuro.jpg",
+            TipoDocumento.CartaoCnpj,
+            ClienteId: Guid.NewGuid(),
+            ProspectoId: null,
+            SocioId: null,
+            Observacoes: null));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("Imagem muito escura ou desfocada", resultado.Erro);
+    }
+
+    [Fact]
     public async Task ValidarAsync_QuandoDocumentoDivergeDoCadastro_RegistraDivergencia()
     {
         var tenantId = Guid.NewGuid();
@@ -146,7 +169,10 @@ public class DocumentoServicoTestes
         Assert.False(resultado.Valor.Valido);
     }
 
-    private static ServiceProvider CriarProvedor(Guid tenantId, ResultadoOcr resultadoOcr)
+    private static ServiceProvider CriarProvedor(
+        Guid tenantId,
+        ResultadoOcr resultadoOcr,
+        decimal qualidadeDocumento = 0.85m)
     {
         var empresaAtual = new ServicoEmpresaAtual();
         empresaAtual.SetTenant(tenantId);
@@ -161,6 +187,8 @@ public class DocumentoServicoTestes
         servicos.AddScoped<DbContext>(sp => sp.GetRequiredService<ContextoAplicacao>());
         servicos.AddScoped<IDocumentoRepositorio, DocumentoRepositorio>();
         servicos.AdicionarServicosDominio(new ConfigurationBuilder().Build());
+        servicos.AddSingleton<IEstimadorQualidadeDocumento>(
+            new EstimadorQualidadeDocumentoFake(qualidadeDocumento));
 
         return servicos.BuildServiceProvider();
     }
@@ -169,6 +197,12 @@ public class DocumentoServicoTestes
     {
         public Task<ResultadoOcr> AnalisarDocumentoAsync(Stream documentStream, TipoDocumento type, CancellationToken ct = default)
             => Task.FromResult(resultado);
+    }
+
+    private sealed class EstimadorQualidadeDocumentoFake(decimal qualidade) : IEstimadorQualidadeDocumento
+    {
+        public Task<decimal> EstimarAsync(Stream arquivo, CancellationToken cancellationToken = default)
+            => Task.FromResult(qualidade);
     }
 
     private sealed class ServicoArmazenamentoFake : IServicoArmazenamento
