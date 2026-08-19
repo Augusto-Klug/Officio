@@ -69,6 +69,14 @@ public class Orcamento : EntidadeAuditavel
         ValorTotal = _itens.Sum(i => i.ValorTotal);
     }
 
+    public void SubstituirItens(IEnumerable<ItemOrcamento> itens)
+    {
+        ValidarEdicaoPermitida();
+        _itens.Clear();
+        _itens.AddRange(itens);
+        ValorTotal = _itens.Sum(item => item.ValorTotal);
+    }
+
     private void ValidarEdicaoPermitida()
     {
         if (Status == StatusOrcamento.Aceito)
