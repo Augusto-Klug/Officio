@@ -15,16 +15,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                 name: "FK_BudgetItems_Budgets_OrcamentoId",
                 table: "BudgetItems");
 
-            migrationBuilder.AlterColumn<string>(
-                name: "Titulo",
-                table: "Budgets",
-                type: "nvarchar(200)",
-                maxLength: 200,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "nvarchar(max)",
-                oldNullable: true);
-
             migrationBuilder.AddColumn<string>(
                 name: "StatusNovo",
                 table: "Budgets",
@@ -51,16 +41,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                 name: "StatusNovo",
                 table: "Budgets",
                 newName: "Status");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Observacoes",
-                table: "Budgets",
-                type: "nvarchar(4000)",
-                maxLength: 4000,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "nvarchar(max)",
-                oldNullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "MotivoRecusa",
@@ -97,15 +77,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                 oldClrType: typeof(Guid),
                 oldType: "uniqueidentifier",
                 oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Descricao",
-                table: "BudgetItems",
-                type: "nvarchar(500)",
-                maxLength: 500,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "nvarchar(max)");
 
             migrationBuilder.AddColumn<Guid>(
                 name: "ItemCatalogoOrcamentoId",
@@ -210,16 +181,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                 name: "Secao",
                 table: "BudgetItems");
 
-            migrationBuilder.AlterColumn<string>(
-                name: "Titulo",
-                table: "Budgets",
-                type: "nvarchar(max)",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "nvarchar(200)",
-                oldMaxLength: 200,
-                oldNullable: true);
-
             migrationBuilder.AddColumn<int>(
                 name: "StatusLegado",
                 table: "Budgets",
@@ -245,16 +206,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                 newName: "Status");
 
             migrationBuilder.AlterColumn<string>(
-                name: "Observacoes",
-                table: "Budgets",
-                type: "nvarchar(max)",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "nvarchar(4000)",
-                oldMaxLength: 4000,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
                 name: "Tipo",
                 table: "BudgetItems",
                 type: "nvarchar(max)",
@@ -270,15 +221,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                 nullable: true,
                 oldClrType: typeof(Guid),
                 oldType: "uniqueidentifier");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Descricao",
-                table: "BudgetItems",
-                type: "nvarchar(max)",
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "nvarchar(500)",
-                oldMaxLength: 500);
 
             migrationBuilder.AddColumn<Guid>(
                 name: "BudgetId",

@@ -11,7 +11,6 @@ internal class ItemOrcamentoMap : IEntityTypeConfiguration<ItemOrcamento>
         builder.HasKey(item => item.Id);
 
         builder.Property(item => item.Descricao)
-            .HasMaxLength(500)
             .IsRequired();
 
         builder.Property(item => item.Secao)

@@ -11,12 +11,6 @@ internal class OrcamentoMap : IEntityTypeConfiguration<Orcamento>
     {
         builder.HasKey(orcamento => orcamento.Id);
 
-        builder.Property(orcamento => orcamento.Titulo)
-            .HasMaxLength(200);
-
-        builder.Property(orcamento => orcamento.Observacoes)
-            .HasMaxLength(4000);
-
         builder.Property(orcamento => orcamento.Status)
             .HasConversion<string>()
             .HasMaxLength(50);

@@ -380,8 +380,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<string>("Descricao")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("ItemCatalogoOrcamentoId")
                         .HasColumnType("uniqueidentifier");
@@ -505,8 +504,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Observacoes")
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("ProspectId")
                         .HasColumnType("uniqueidentifier");
@@ -523,8 +521,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Titulo")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("ValorMensalidade")
                         .HasPrecision(18, 2)
