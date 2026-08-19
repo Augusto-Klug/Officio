@@ -316,17 +316,17 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.ToTable("Tenants");
                 });
 
-            modelBuilder.Entity("Officio.Dominio.Entidades.ItemOrcamento", b =>
+            modelBuilder.Entity("Officio.Dominio.Entidades.ItemCatalogoOrcamento", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("AtualizadoEm")
                         .HasColumnType("datetime2");
-
-                    b.Property<Guid>("BudgetId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
@@ -336,26 +336,87 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<string>("Descricao")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
-                    b.Property<Guid?>("OrcamentoId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Quantidade")
-                        .HasColumnType("int");
+                    b.Property<string>("Secao")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Tipo")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal?>("ValorReferencia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Ativo", "Secao");
+
+                    b.ToTable("BudgetCatalogItems");
+                });
+
+            modelBuilder.Entity("Officio.Dominio.Entidades.ItemOrcamento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CriadoPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("ItemCatalogoOrcamentoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrcamentoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Secao")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<decimal>("ValorUnitario")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("OrcamentoId");
+
+                    b.HasIndex("TenantId", "OrcamentoId", "Ordem");
 
                     b.ToTable("BudgetItems");
                 });
@@ -431,16 +492,21 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("Desconto")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("DiaVencimento")
                         .HasColumnType("int");
 
+                    b.Property<string>("MotivoRecusa")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("Numero")
                         .HasColumnType("int");
 
                     b.Property<string>("Observacoes")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<Guid>("ProspectId")
                         .HasColumnType("uniqueidentifier");
@@ -448,25 +514,32 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<int>("QtdFuncionarios")
                         .HasColumnType("int");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Titulo")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal>("ValorMensalidade")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorPorFuncionario")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorTaxasExtras")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ValorTotal")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("VigenciaMeses")
@@ -475,6 +548,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProspectId");
+
+                    b.HasIndex("TenantId", "ProspectId");
 
                     b.ToTable("Budgets");
                 });
@@ -784,7 +859,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                 {
                     b.HasOne("Officio.Dominio.Entidades.Orcamento", null)
                         .WithMany("Itens")
-                        .HasForeignKey("OrcamentoId");
+                        .HasForeignKey("OrcamentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Orcamento", b =>

@@ -36,6 +36,16 @@ internal class OrcamentoMap : IEntityTypeConfiguration<Orcamento>
         builder.Property(orcamento => orcamento.ValorTotal)
             .HasPrecision(18, 2);
 
+        builder.Property<Guid?>("ContractId");
+
+        builder.Property<DateTime?>("DataExpiracaoOrcamento");
+
+        builder.Property<DateTime?>("DataInicio");
+
+        builder.Property<int>("Numero");
+
+        builder.Property<int?>("VigenciaMeses");
+
         builder.HasMany(orcamento => orcamento.Itens)
             .WithOne()
             .HasForeignKey(item => item.OrcamentoId)
