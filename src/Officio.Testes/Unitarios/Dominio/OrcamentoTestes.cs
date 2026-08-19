@@ -61,6 +61,16 @@ public class OrcamentoTestes
     }
 
     [Fact]
+    public void Itens_Expostos_NaoPodemSerConvertidosParaListaMutavel()
+    {
+        var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
+
+        var itensMutaveis = orcamento.Itens as List<ItemOrcamento>;
+
+        Assert.Null(itensMutaveis);
+    }
+
+    [Fact]
     public void Recusar_SemMotivo_LancaErro()
     {
         var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);

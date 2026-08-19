@@ -19,7 +19,7 @@ public class Orcamento : EntidadeAuditavel
     public decimal ValorTotal { get; private set; }
     public StatusOrcamento Status { get; private set; } = StatusOrcamento.Rascunho;
     public Prospecto Prospecto { get; private set; } = default!;
-    public IReadOnlyCollection<ItemOrcamento> Itens => _itens;
+    public IReadOnlyCollection<ItemOrcamento> Itens => _itens.AsReadOnly();
 
     private Orcamento() { }
 
