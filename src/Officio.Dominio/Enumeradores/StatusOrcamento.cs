@@ -3,11 +3,12 @@
 public enum StatusOrcamento
 {
     Rascunho,
+    EmRevisao,
+    ProntoParaEnvio,
     Enviado,
-    Aprovado,
+    Aceito,
     Recusado,
-    Expirado,
-    Convertido
+    Expirado
 }
 
 

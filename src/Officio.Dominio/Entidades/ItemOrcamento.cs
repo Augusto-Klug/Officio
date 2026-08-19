@@ -1,32 +1,46 @@
-﻿using Officio.Dominio.Comum;
+using Officio.Dominio.Comum;
+using Officio.Dominio.Enumeradores;
 
 namespace Officio.Dominio.Entidades;
 
 public class ItemOrcamento : EntidadeAuditavel
 {
-    public Guid BudgetId { get; private set; }
+    public Guid OrcamentoId { get; private set; }
+    public Guid? ItemCatalogoOrcamentoId { get; private set; }
     public string Descricao { get; private set; } = default!;
-    public string? Tipo { get; private set; }
-    public int Quantidade { get; private set; } = 1;
+    public SecaoItemOrcamento Secao { get; private set; }
+    public TipoItemOrcamento Tipo { get; private set; }
+    public int Quantidade { get; private set; }
     public decimal ValorUnitario { get; private set; }
+    public int Ordem { get; private set; }
+    public decimal ValorTotal => Tipo == TipoItemOrcamento.ItemMonetario
+        ? Quantidade * ValorUnitario
+        : 0m;
 
     private ItemOrcamento() { }
 
-    public static ItemOrcamento Create(Guid tenantId, Guid budgetId, string descricao, string? tipo, int quantidade, decimal valorUnitario)
+    public static ItemOrcamento CriarSnapshot(
+        Guid tenantId,
+        Guid orcamentoId,
+        Guid? itemCatalogoOrcamentoId,
+        string descricao,
+        SecaoItemOrcamento secao,
+        TipoItemOrcamento tipo,
+        int quantidade,
+        decimal valorUnitario,
+        int ordem)
     {
         return new ItemOrcamento
         {
             TenantId = tenantId,
-            BudgetId = budgetId,
+            OrcamentoId = orcamentoId,
+            ItemCatalogoOrcamentoId = itemCatalogoOrcamentoId,
             Descricao = descricao,
+            Secao = secao,
             Tipo = tipo,
             Quantidade = quantidade,
-            ValorUnitario = valorUnitario
+            ValorUnitario = valorUnitario,
+            Ordem = ordem
         };
     }
 }
-
-
-
-
-

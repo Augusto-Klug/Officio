@@ -1,4 +1,3 @@
-﻿using Officio.Dominio.Entidades;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Enumeradores;
 
@@ -6,75 +5,65 @@ namespace Officio.Dominio.Entidades;
 
 public class Orcamento : EntidadeAuditavel
 {
-    public int Numero { get; private set; }
-    public string? Titulo { get; private set; }
     public Guid ProspectId { get; private set; }
+    public string? Titulo { get; private set; }
     public decimal ValorMensalidade { get; private set; }
     public decimal ValorPorFuncionario { get; private set; }
     public int QtdFuncionarios { get; private set; }
     public decimal ValorTaxasExtras { get; private set; }
     public decimal Desconto { get; private set; }
-    public decimal ValorTotal { get; private set; }
-    public int DiaVencimento { get; private set; } = 5;
-    public int? VigenciaMeses { get; private set; }
-    public DateTime? DataInicio { get; private set; }
-    public DateTime? DataExpiracaoOrcamento { get; private set; }
+    public int DiaVencimento { get; private set; }
     public string? Observacoes { get; private set; }
+    public decimal ValorTotal { get; private set; }
     public StatusOrcamento Status { get; private set; } = StatusOrcamento.Rascunho;
-    public Guid? ContractId { get; private set; }
-
-    // Navigation
     public Prospecto Prospecto { get; private set; } = default!;
     public ICollection<ItemOrcamento> Itens { get; private set; } = [];
 
     private Orcamento() { }
 
-    public static Orcamento Create(
+    public static Orcamento Criar(
         Guid tenantId,
         Guid prospectId,
         string? titulo,
-        decimal valorMensalidade,
-        decimal valorPorFuncionario,
-        int qtdFuncionarios,
-        decimal valorTaxasExtras,
-        decimal desconto,
-        int diaVencimento)
+        int diaVencimento,
+        string? observacoes)
     {
-        var budget = new Orcamento
+        return new Orcamento
         {
             TenantId = tenantId,
             ProspectId = prospectId,
             Titulo = titulo,
-            ValorMensalidade = valorMensalidade,
-            ValorPorFuncionario = valorPorFuncionario,
-            QtdFuncionarios = qtdFuncionarios,
-            ValorTaxasExtras = valorTaxasExtras,
-            Desconto = desconto,
-            DiaVencimento = diaVencimento
+            DiaVencimento = diaVencimento,
+            Observacoes = observacoes,
+            Status = StatusOrcamento.Rascunho
         };
-
-        budget.CalcularTotal();
-        return budget;
     }
 
-    public void CalcularTotal()
+    public void Atualizar(string? titulo, int diaVencimento, string? observacoes)
     {
-        ValorTotal = ValorMensalidade
-            + (ValorPorFuncionario * QtdFuncionarios)
-            + ValorTaxasExtras
-            - Desconto;
+        if (Status == StatusOrcamento.Aceito)
+            throw new InvalidOperationException("Orcamento aceito nao pode ser editado.");
+
+        Titulo = titulo;
+        DiaVencimento = diaVencimento;
+        Observacoes = observacoes;
     }
 
-    public void UpdateStatus(StatusOrcamento newStatus) => Status = newStatus;
+    public void Aceitar() => Status = StatusOrcamento.Aceito;
 
-    public void MarkAsConverted(Guid contractId)
+    public void Recusar(string motivo)
     {
-        Status = StatusOrcamento.Convertido;
-        ContractId = contractId;
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new ArgumentException("Motivo da recusa e obrigatorio.", nameof(motivo));
+
+        Status = StatusOrcamento.Recusado;
+    }
+
+    public void AlterarStatus(StatusOrcamento status) => Status = status;
+
+    public void AdicionarItem(ItemOrcamento item)
+    {
+        Itens.Add(item);
+        ValorTotal = Itens.Sum(i => i.ValorTotal);
     }
 }
-
-
-
-
-
