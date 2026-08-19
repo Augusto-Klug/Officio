@@ -37,6 +37,30 @@ public class OrcamentoTestes
     }
 
     [Fact]
+    public void AdicionarItem_QuandoAceito_LancaErro()
+    {
+        var tenantId = Guid.NewGuid();
+        var orcamento = Orcamento.Criar(tenantId, Guid.NewGuid(), "Proposta", 5, null);
+        orcamento.Aceitar();
+        var item = ItemOrcamento.CriarSnapshot(
+            tenantId, orcamento.Id, null, "Honorarios mensais",
+            SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario, 1, 450m, 1);
+
+        var erro = Assert.Throws<InvalidOperationException>((Action)(() => orcamento.AdicionarItem(item)));
+
+        Assert.Contains("nao pode ser editado", erro.Message);
+    }
+
+    [Fact]
+    public void Itens_ExpoeColecaoSomenteLeitura()
+    {
+        var propriedade = typeof(Orcamento).GetProperty(nameof(Orcamento.Itens));
+
+        Assert.NotNull(propriedade);
+        Assert.Equal(typeof(IReadOnlyCollection<ItemOrcamento>), propriedade.PropertyType);
+    }
+
+    [Fact]
     public void Recusar_SemMotivo_LancaErro()
     {
         var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);

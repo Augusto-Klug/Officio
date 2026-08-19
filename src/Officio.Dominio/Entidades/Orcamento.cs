@@ -5,6 +5,8 @@ namespace Officio.Dominio.Entidades;
 
 public class Orcamento : EntidadeAuditavel
 {
+    private List<ItemOrcamento> _itens = [];
+
     public Guid ProspectId { get; private set; }
     public string? Titulo { get; private set; }
     public decimal ValorMensalidade { get; private set; }
@@ -17,7 +19,7 @@ public class Orcamento : EntidadeAuditavel
     public decimal ValorTotal { get; private set; }
     public StatusOrcamento Status { get; private set; } = StatusOrcamento.Rascunho;
     public Prospecto Prospecto { get; private set; } = default!;
-    public ICollection<ItemOrcamento> Itens { get; private set; } = [];
+    public IReadOnlyCollection<ItemOrcamento> Itens => _itens;
 
     private Orcamento() { }
 
@@ -41,8 +43,7 @@ public class Orcamento : EntidadeAuditavel
 
     public void Atualizar(string? titulo, int diaVencimento, string? observacoes)
     {
-        if (Status == StatusOrcamento.Aceito)
-            throw new InvalidOperationException("Orcamento aceito nao pode ser editado.");
+        ValidarEdicaoPermitida();
 
         Titulo = titulo;
         DiaVencimento = diaVencimento;
@@ -63,7 +64,14 @@ public class Orcamento : EntidadeAuditavel
 
     public void AdicionarItem(ItemOrcamento item)
     {
-        Itens.Add(item);
-        ValorTotal = Itens.Sum(i => i.ValorTotal);
+        ValidarEdicaoPermitida();
+        _itens.Add(item);
+        ValorTotal = _itens.Sum(i => i.ValorTotal);
+    }
+
+    private void ValidarEdicaoPermitida()
+    {
+        if (Status == StatusOrcamento.Aceito)
+            throw new InvalidOperationException("Orcamento aceito nao pode ser editado.");
     }
 }
