@@ -1,6 +1,8 @@
 using Officio.Dominio.Enumeradores;
+using Microsoft.AspNetCore.Mvc;
 using Officio.ViewModels.Enumeradores;
 using Officio.ViewModels.Orcamentos;
+using Officio.WebApi.Controllers;
 using Officio.WebApi.Conversores;
 
 namespace Officio.Testes.Unitarios.WebApi;
@@ -64,5 +66,49 @@ public class OrcamentoViewModelConversorTestes
         Assert.Equal(SecaoItemOrcamento.CriacaoEmpresa, comando.Secao);
         Assert.Equal(TipoItemOrcamento.RegraComercial, comando.Tipo);
         Assert.Equal(1200.50m, comando.ValorReferencia);
+    }
+
+    [Fact]
+    public async Task AlterarStatus_QuandoStatusInvalido_RetornaBadRequest()
+    {
+        var controlador = new OrcamentosControlador(null!);
+        var viewModel = new AlterarStatusOrcamentoViewModel();
+
+        var resultado = await controlador.AlterarStatus(Guid.NewGuid(), viewModel, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(resultado);
+        Assert.Equal("Status do orcamento invalido.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task CriarItemCatalogo_QuandoSecaoInvalida_RetornaBadRequest()
+    {
+        var controlador = new OrcamentosControlador(null!);
+        var viewModel = new CriarItemCatalogoOrcamentoViewModel
+        {
+            Descricao = "Servico",
+            Tipo = TipoItemOrcamentoViewModel.ItemMonetario
+        };
+
+        var resultado = await controlador.CriarItemCatalogo(viewModel, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(resultado);
+        Assert.Equal("Secao do item de orcamento invalida.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task CriarItemCatalogo_QuandoTipoInvalido_RetornaBadRequest()
+    {
+        var controlador = new OrcamentosControlador(null!);
+        var viewModel = new CriarItemCatalogoOrcamentoViewModel
+        {
+            Descricao = "Servico",
+            Secao = SecaoItemOrcamentoViewModel.Honorarios
+        };
+
+        var resultado = await controlador.CriarItemCatalogo(viewModel, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(resultado);
+        Assert.Equal("Tipo do item de orcamento invalido.", badRequest.Value);
     }
 }

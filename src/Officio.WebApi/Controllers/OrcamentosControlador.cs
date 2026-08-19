@@ -29,7 +29,10 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         [FromBody] CriarOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(), cancellationToken);
+        if (!TentarConverter(() => viewModel.ParaComando(), out var comando, out var erro))
+            return erro!;
+
+        var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso
             ? CreatedAtAction(nameof(PorProspecto), new { prospectoId = viewModel.ProspectoId }, resultado.Valor)
@@ -42,7 +45,10 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         [FromBody] AtualizarOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
+        if (!TentarConverter(() => viewModel.ParaComando(id), out var comando, out var erro))
+            return erro!;
+
+        var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
@@ -53,7 +59,10 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         [FromBody] AlterarStatusOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
+        if (!TentarConverter(() => viewModel.ParaComando(id), out var comando, out var erro))
+            return erro!;
+
+        var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso ? Ok() : ResultadoErro(resultado.Erro);
     }
@@ -72,7 +81,10 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         [FromBody] RecusarOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
+        if (!TentarConverter(() => viewModel.ParaComando(id), out var comando, out var erro))
+            return erro!;
+
+        var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso ? Ok() : ResultadoErro(resultado.Erro);
     }
@@ -90,7 +102,10 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         [FromBody] CriarItemCatalogoOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(), cancellationToken);
+        if (!TentarConverter(() => viewModel.ParaComando(), out var comando, out var erro))
+            return erro!;
+
+        var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso
             ? CreatedAtAction(nameof(ListarCatalogo), null, resultado.Valor)
@@ -103,7 +118,10 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         [FromBody] AtualizarItemCatalogoOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
+        if (!TentarConverter(() => viewModel.ParaComando(id), out var comando, out var erro))
+            return erro!;
+
+        var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
@@ -114,7 +132,10 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         [FromBody] AlterarAtivoItemCatalogoOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
+        if (!TentarConverter(() => viewModel.ParaComando(id), out var comando, out var erro))
+            return erro!;
+
+        var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
@@ -124,4 +145,29 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
            erro?.Contains("nao encontrado", StringComparison.OrdinalIgnoreCase) == true
             ? NotFound(erro)
             : BadRequest(erro);
+
+    private static bool TentarConverter<TComando>(
+        Func<TComando> conversor,
+        out TComando? comando,
+        out IActionResult? erro)
+    {
+        try
+        {
+            comando = conversor();
+            erro = null;
+            return true;
+        }
+        catch (ArgumentOutOfRangeException excecao)
+        {
+            comando = default;
+            erro = new BadRequestObjectResult(excecao.ParamName switch
+            {
+                "secao" => "Secao do item de orcamento invalida.",
+                "tipo" => "Tipo do item de orcamento invalido.",
+                "status" => "Status do orcamento invalido.",
+                _ => "Valor de enumerador invalido."
+            });
+            return false;
+        }
+    }
 }
