@@ -25,6 +25,7 @@ public class ContextoAplicacao(
     public DbSet<Socio> Socios => Set<Socio>();
     public DbSet<Assinatura> Signatures => Set<Assinatura>();
     public DbSet<ItemOrcamento> BudgetItems => Set<ItemOrcamento>();
+    public DbSet<ItemCatalogoOrcamento> BudgetCatalogItems => Set<ItemCatalogoOrcamento>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
