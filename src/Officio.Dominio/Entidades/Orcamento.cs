@@ -56,6 +56,8 @@ public class Orcamento : EntidadeAuditavel
         if (Status == StatusOrcamento.Aceito)
             throw new InvalidOperationException("Orcamento ja esta aceito.");
 
+        ValidarStatusNaoTerminal();
+
         Status = StatusOrcamento.Aceito;
     }
 
@@ -64,11 +66,21 @@ public class Orcamento : EntidadeAuditavel
         if (string.IsNullOrWhiteSpace(motivo))
             throw new ArgumentException("Motivo da recusa e obrigatorio.", nameof(motivo));
 
+        ValidarStatusNaoTerminal();
+
         Status = StatusOrcamento.Recusado;
         MotivoRecusa = motivo;
     }
 
-    public void AlterarStatus(StatusOrcamento status) => Status = status;
+    public void AlterarStatus(StatusOrcamento status)
+    {
+        ValidarStatusNaoTerminal();
+
+        if (status is StatusOrcamento.Aceito or StatusOrcamento.Recusado)
+            throw new InvalidOperationException("Use Aceitar ou Recusar para definir o status terminal do orcamento.");
+
+        Status = status;
+    }
 
     public void AdicionarItem(ItemOrcamento item)
     {
@@ -87,7 +99,13 @@ public class Orcamento : EntidadeAuditavel
 
     private void ValidarEdicaoPermitida()
     {
-        if (Status == StatusOrcamento.Aceito)
-            throw new InvalidOperationException("Orcamento aceito nao pode ser editado.");
+        if (Status is not (StatusOrcamento.Rascunho or StatusOrcamento.EmRevisao))
+            throw new InvalidOperationException("Orcamento nao pode ser editado no status atual.");
+    }
+
+    private void ValidarStatusNaoTerminal()
+    {
+        if (Status is StatusOrcamento.Aceito or StatusOrcamento.Recusado or StatusOrcamento.Expirado)
+            throw new InvalidOperationException("Orcamento em status terminal nao pode ser alterado.");
     }
 }

@@ -76,6 +76,49 @@ public class CatalogoOrcamentoHandlersTestes
         Assert.Empty(resultadoListagem.Valor!);
     }
 
+    [Fact]
+    public async Task AtualizarItemCatalogo_ComDadosValidos_PersisteAlteracoes()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var repositorio = new OrcamentoRepositorio(contexto);
+        var item = await new CriarItemCatalogoOrcamentoHandler(repositorio, CriarEmpresaAtual(tenantId))
+            .Handle(CriarComando("Escrituracao contabil"), CancellationToken.None);
+        var handler = new AtualizarItemCatalogoOrcamentoHandler(repositorio);
+
+        var resultado = await handler.Handle(new AtualizarItemCatalogoOrcamentoComando(
+            item.Valor!,
+            "Folha de pagamento",
+            SecaoItemOrcamento.ServicosSeparados,
+            TipoItemOrcamento.RegraComercial,
+            950m), CancellationToken.None);
+
+        Assert.True(resultado.Sucesso);
+        var itemPersistido = await contexto.BudgetCatalogItems.SingleAsync();
+        Assert.Equal("Folha de pagamento", itemPersistido.Descricao);
+        Assert.Equal(SecaoItemOrcamento.ServicosSeparados, itemPersistido.Secao);
+        Assert.Equal(TipoItemOrcamento.RegraComercial, itemPersistido.Tipo);
+        Assert.Equal(950m, itemPersistido.ValorReferencia);
+    }
+
+    [Fact]
+    public async Task AtualizarItemCatalogo_QuandoItemInexistente_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var handler = new AtualizarItemCatalogoOrcamentoHandler(new OrcamentoRepositorio(contexto));
+
+        var resultado = await handler.Handle(new AtualizarItemCatalogoOrcamentoComando(
+            Guid.NewGuid(),
+            "Folha de pagamento",
+            SecaoItemOrcamento.ServicosSeparados,
+            TipoItemOrcamento.RegraComercial,
+            950m), CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("nao encontrado", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static CriarItemCatalogoOrcamentoComando CriarComando(string descricao)
         => new(
             descricao,

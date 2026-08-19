@@ -79,4 +79,66 @@ public class OrcamentoTestes
 
         Assert.Contains("motivo", erro.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Theory]
+    [InlineData(StatusOrcamento.Recusado)]
+    [InlineData(StatusOrcamento.Expirado)]
+    public void Atualizar_QuandoStatusTerminal_LancaErro(StatusOrcamento status)
+    {
+        var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
+        if (status == StatusOrcamento.Recusado)
+            orcamento.Recusar("Sem interesse");
+        else
+            orcamento.AlterarStatus(status);
+
+        var erro = Assert.Throws<InvalidOperationException>(() =>
+            orcamento.Atualizar("Nova proposta", 10, "obs"));
+
+        Assert.Contains("nao pode ser editado", erro.Message);
+    }
+
+    [Fact]
+    public void AlterarStatus_ParaRecusado_LancaErro()
+    {
+        var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
+
+        var erro = Assert.Throws<InvalidOperationException>(() =>
+            orcamento.AlterarStatus(StatusOrcamento.Recusado));
+
+        Assert.Contains("Aceitar", erro.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AlterarStatus_QuandoAceito_LancaErro()
+    {
+        var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
+        orcamento.Aceitar();
+
+        var erro = Assert.Throws<InvalidOperationException>(() =>
+            orcamento.AlterarStatus(StatusOrcamento.Rascunho));
+
+        Assert.Contains("terminal", erro.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Recusar_QuandoAceito_LancaErro()
+    {
+        var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
+        orcamento.Aceitar();
+
+        var erro = Assert.Throws<InvalidOperationException>(() => orcamento.Recusar("Sem interesse"));
+
+        Assert.Contains("terminal", erro.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Aceitar_QuandoRecusado_LancaErro()
+    {
+        var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
+        orcamento.Recusar("Sem interesse");
+
+        var erro = Assert.Throws<InvalidOperationException>(() => orcamento.Aceitar());
+
+        Assert.Contains("terminal", erro.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

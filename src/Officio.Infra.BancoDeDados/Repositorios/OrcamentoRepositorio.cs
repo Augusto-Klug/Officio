@@ -34,6 +34,12 @@ internal class OrcamentoRepositorio(ContextoAplicacao contexto)
     public Task AdicionarAsync(Orcamento orcamento, CancellationToken cancellationToken = default)
         => AdicionarAsync<Orcamento>(orcamento, cancellationToken);
 
+    public Task AdicionarItensAsync(IEnumerable<ItemOrcamento> itens, CancellationToken cancellationToken = default)
+    {
+        Contexto.BudgetItems.AddRange(itens);
+        return Task.CompletedTask;
+    }
+
     public Task AdicionarItemCatalogoAsync(ItemCatalogoOrcamento item, CancellationToken cancellationToken = default)
         => AdicionarAsync<ItemCatalogoOrcamento>(item, cancellationToken);
 }

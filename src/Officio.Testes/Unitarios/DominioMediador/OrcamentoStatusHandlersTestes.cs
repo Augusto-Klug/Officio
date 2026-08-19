@@ -79,7 +79,9 @@ public class OrcamentoStatusHandlersTestes
         contexto.ChangeTracker.Clear();
 
         var orcamentoPersistido = await contexto.Budgets.SingleAsync();
-        var consultaHandler = new ObterOrcamentosPorProspectoHandler(new OrcamentoRepositorio(contexto));
+        var consultaHandler = new ObterOrcamentosPorProspectoHandler(
+            new OrcamentoRepositorio(contexto),
+            new ProspectoRepositorio(contexto));
         var consulta = await consultaHandler.Handle(
             new ObterOrcamentosPorProspectoConsulta(orcamento.ProspectId),
             CancellationToken.None);
@@ -105,6 +107,44 @@ public class OrcamentoStatusHandlersTestes
 
         Assert.True(resultado.Sucesso);
         Assert.Equal(StatusProspecto.PropostaEnviada, (await contexto.Prospects.SingleAsync()).Status);
+    }
+
+    [Fact]
+    public async Task AlterarStatus_ParaRecusado_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
+        var handler = new AlterarStatusOrcamentoHandler(
+            new OrcamentoRepositorio(contexto),
+            new ProspectoRepositorio(contexto));
+
+        var resultado = await handler.Handle(
+            new AlterarStatusOrcamentoComando(orcamento.Id, StatusOrcamento.Recusado),
+            CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("Aceitar", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AlterarStatus_QuandoOrcamentoAceito_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
+        orcamento.Aceitar();
+        await contexto.SaveChangesAsync();
+        var handler = new AlterarStatusOrcamentoHandler(
+            new OrcamentoRepositorio(contexto),
+            new ProspectoRepositorio(contexto));
+
+        var resultado = await handler.Handle(
+            new AlterarStatusOrcamentoComando(orcamento.Id, StatusOrcamento.Rascunho),
+            CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("terminal", resultado.Erro, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<Orcamento> CriarOrcamentoAsync(ContextoAplicacao contexto, Guid tenantId)

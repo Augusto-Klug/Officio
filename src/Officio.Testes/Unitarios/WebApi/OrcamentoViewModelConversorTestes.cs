@@ -1,5 +1,6 @@
 using Officio.Dominio.Enumeradores;
 using Microsoft.AspNetCore.Mvc;
+using System.Reflection;
 using Officio.ViewModels.Enumeradores;
 using Officio.ViewModels.Orcamentos;
 using Officio.WebApi.Controllers;
@@ -110,5 +111,25 @@ public class OrcamentoViewModelConversorTestes
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(resultado);
         Assert.Equal("Tipo do item de orcamento invalido.", badRequest.Value);
+    }
+
+    [Fact]
+    public void Catalogo_ExpoeRotaGetContratada()
+    {
+        var metodo = typeof(OrcamentosControlador).GetMethod("Catalogo");
+
+        Assert.NotNull(metodo);
+        Assert.NotNull(metodo.GetCustomAttribute<HttpGetAttribute>());
+    }
+
+    [Theory]
+    [InlineData("AtivarItemCatalogo")]
+    [InlineData("DesativarItemCatalogo")]
+    public void AlterarAtivoItemCatalogo_ExpoeRotaPatchContratada(string nomeMetodo)
+    {
+        var metodo = typeof(OrcamentosControlador).GetMethod(nomeMetodo);
+
+        Assert.NotNull(metodo);
+        Assert.Equal("{id:guid}", metodo.GetCustomAttribute<HttpPatchAttribute>()?.Template);
     }
 }

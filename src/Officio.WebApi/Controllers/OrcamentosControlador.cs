@@ -90,7 +90,7 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> ListarCatalogo(CancellationToken cancellationToken)
+    public async Task<IActionResult> Catalogo(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarCatalogoOrcamentoConsulta(), cancellationToken);
 
@@ -108,7 +108,7 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso
-            ? CreatedAtAction(nameof(ListarCatalogo), null, resultado.Valor)
+            ? CreatedAtAction(nameof(Catalogo), null, resultado.Valor)
             : ResultadoErro(resultado.Erro);
     }
 
@@ -127,15 +127,21 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
-    public async Task<IActionResult> AlterarAtivoItemCatalogo(
+    public Task<IActionResult> AtivarItemCatalogo(Guid id, CancellationToken cancellationToken)
+        => AlterarAtivoItemCatalogo(id, true, cancellationToken);
+
+    [HttpPatch("{id:guid}")]
+    public Task<IActionResult> DesativarItemCatalogo(Guid id, CancellationToken cancellationToken)
+        => AlterarAtivoItemCatalogo(id, false, cancellationToken);
+
+    private async Task<IActionResult> AlterarAtivoItemCatalogo(
         Guid id,
-        [FromBody] AlterarAtivoItemCatalogoOrcamentoViewModel viewModel,
+        bool ativo,
         CancellationToken cancellationToken)
     {
-        if (!TentarConverter(() => viewModel.ParaComando(id), out var comando, out var erro))
-            return erro!;
-
-        var resultado = await mediator.Send(comando!, cancellationToken);
+        var resultado = await mediator.Send(
+            new AlterarAtivoItemCatalogoOrcamentoComando(id, ativo),
+            cancellationToken);
 
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }

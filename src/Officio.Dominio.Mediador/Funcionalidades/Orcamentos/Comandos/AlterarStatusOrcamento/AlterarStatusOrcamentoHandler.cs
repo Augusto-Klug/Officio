@@ -16,6 +16,15 @@ public class AlterarStatusOrcamentoHandler(
         if (orcamento is null)
             return Resultado<Unit>.CriarFalha("Orcamento nao encontrado.");
 
+        try
+        {
+            orcamento.AlterarStatus(request.Status);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Resultado<Unit>.CriarFalha(exception.Message);
+        }
+
         if (request.Status == StatusOrcamento.Enviado)
         {
             var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
@@ -25,7 +34,6 @@ public class AlterarStatusOrcamentoHandler(
             prospecto.UpdateStatus(StatusProspecto.PropostaEnviada);
         }
 
-        orcamento.AlterarStatus(request.Status);
         await repositorio.SalvarAlteracoesAsync(ct);
 
         return Resultado<Unit>.CriarSucesso(Unit.Value);

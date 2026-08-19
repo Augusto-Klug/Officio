@@ -29,6 +29,7 @@ public class AtualizarOrcamentoHandler(
 
         orcamento.Atualizar(request.Titulo, request.DiaVencimento, request.Observacoes);
         orcamento.SubstituirItens(itens.Valor!);
+        await repositorio.AdicionarItensAsync(itens.Valor!, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
 
         return Resultado<Guid>.CriarSucesso(orcamento.Id);
@@ -45,6 +46,21 @@ public class AtualizarOrcamentoHandler(
         {
             if (item.Quantidade < 0 || item.ValorUnitario < 0)
                 return Resultado<List<ItemOrcamento>>.CriarFalha("Quantidade e valor unitario nao podem ser negativos.");
+
+            if (!string.IsNullOrWhiteSpace(item.Descricao) && item.Secao is not null && item.Tipo is not null)
+            {
+                snapshots.Add(ItemOrcamento.CriarSnapshot(
+                    empresaAtual.TenantId,
+                    orcamentoId,
+                    item.ItemCatalogoOrcamentoId,
+                    item.Descricao,
+                    item.Secao.Value,
+                    item.Tipo.Value,
+                    item.Quantidade,
+                    item.ValorUnitario,
+                    item.Ordem));
+                continue;
+            }
 
             if (item.ItemCatalogoOrcamentoId is Guid itemCatalogoId)
             {
