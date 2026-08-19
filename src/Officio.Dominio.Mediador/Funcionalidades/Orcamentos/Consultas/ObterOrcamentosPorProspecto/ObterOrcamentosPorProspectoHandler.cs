@@ -20,7 +20,7 @@ public class ObterOrcamentosPorProspectoHandler(IOrcamentoRepositorio repositori
             orcamento.ValorTotal,
             orcamento.DiaVencimento,
             orcamento.Observacoes,
-            null,
+            orcamento.MotivoRecusa,
             orcamento.Itens.Select(item => new ItemOrcamentoDto(
                 item.Id,
                 item.ItemCatalogoOrcamentoId,

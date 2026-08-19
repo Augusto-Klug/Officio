@@ -18,6 +18,7 @@ public class Orcamento : EntidadeAuditavel
     public string? Observacoes { get; private set; }
     public decimal ValorTotal { get; private set; }
     public StatusOrcamento Status { get; private set; } = StatusOrcamento.Rascunho;
+    public string? MotivoRecusa { get; private set; }
     public Prospecto Prospecto { get; private set; } = default!;
     public IReadOnlyCollection<ItemOrcamento> Itens => _itens.AsReadOnly();
 
@@ -50,7 +51,13 @@ public class Orcamento : EntidadeAuditavel
         Observacoes = observacoes;
     }
 
-    public void Aceitar() => Status = StatusOrcamento.Aceito;
+    public void Aceitar()
+    {
+        if (Status == StatusOrcamento.Aceito)
+            throw new InvalidOperationException("Orcamento ja esta aceito.");
+
+        Status = StatusOrcamento.Aceito;
+    }
 
     public void Recusar(string motivo)
     {
@@ -58,6 +65,7 @@ public class Orcamento : EntidadeAuditavel
             throw new ArgumentException("Motivo da recusa e obrigatorio.", nameof(motivo));
 
         Status = StatusOrcamento.Recusado;
+        MotivoRecusa = motivo;
     }
 
     public void AlterarStatus(StatusOrcamento status) => Status = status;
