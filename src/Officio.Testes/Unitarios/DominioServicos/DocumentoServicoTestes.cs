@@ -15,6 +15,101 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 public class DocumentoServicoTestes
 {
     [Fact]
+    public async Task EnviarAsync_QuandoArquivoExcedeDezMegabytes_RejeitaAntesDoArmazenamento()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var provedor = CriarProvedor(tenantId, ResultadoOcr.CriarFalha("nao usado"));
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+        var armazenamento = provedor.GetRequiredService<ServicoArmazenamentoFake>();
+        await using var arquivo = new MemoryStream(new byte[(10 * 1024 * 1024) + 1]);
+
+        var resultado = await servico.EnviarAsync(new EnviarDocumentoRequisicao(
+            arquivo,
+            "documento-grande.bmp",
+            TipoDocumento.CartaoCnpj,
+            ClienteId: Guid.NewGuid(),
+            ProspectoId: null,
+            SocioId: null,
+            Observacoes: null));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("10 MB", resultado.Erro);
+        Assert.Empty(armazenamento.ConteudoEnviado);
+    }
+
+    [Fact]
+    public async Task EnviarAsync_QuandoArquivoSeekableEstaNoFim_ArmazenaConteudoCompleto()
+    {
+        var tenantId = Guid.NewGuid();
+        var conteudo = new byte[] { 50, 60, 70, 80 };
+        await using var provedor = CriarProvedor(tenantId, ResultadoOcr.CriarFalha("nao usado"));
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+        var armazenamento = provedor.GetRequiredService<ServicoArmazenamentoFake>();
+        using var arquivo = new MemoryStream(conteudo);
+        arquivo.Position = arquivo.Length;
+
+        var resultado = await servico.EnviarAsync(new EnviarDocumentoRequisicao(
+            arquivo,
+            "documento.jpg",
+            TipoDocumento.CartaoCnpj,
+            ClienteId: Guid.NewGuid(),
+            ProspectoId: null,
+            SocioId: null,
+            Observacoes: null));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(conteudo, armazenamento.ConteudoEnviado);
+    }
+
+    [Fact]
+    public async Task EnviarAsync_QuandoArquivoNaoPermiteReposicionamento_ArmazenaConteudoCompleto()
+    {
+        var tenantId = Guid.NewGuid();
+        var conteudo = new byte[] { 10, 20, 30, 40 };
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarFalha("nao usado"),
+            consumirArquivoNaEstimativa: true);
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+        var armazenamento = provedor.GetRequiredService<ServicoArmazenamentoFake>();
+
+        var resultado = await servico.EnviarAsync(new EnviarDocumentoRequisicao(
+            new StreamNaoSeekable(conteudo),
+            "documento.jpg",
+            TipoDocumento.CartaoCnpj,
+            ClienteId: Guid.NewGuid(),
+            ProspectoId: null,
+            SocioId: null,
+            Observacoes: null));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(conteudo, armazenamento.ConteudoEnviado);
+    }
+
+    [Fact]
+    public async Task EnviarAsync_QuandoQualidadeAbaixoDoLimite_RejeitaDocumento()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarFalha("nao usado"),
+            qualidadeDocumento: 0.2m);
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+
+        var resultado = await servico.EnviarAsync(new EnviarDocumentoRequisicao(
+            new MemoryStream([0, 0, 0, 0]),
+            "documento-escuro.jpg",
+            TipoDocumento.CartaoCnpj,
+            ClienteId: Guid.NewGuid(),
+            ProspectoId: null,
+            SocioId: null,
+            Observacoes: null));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("Imagem muito escura ou desfocada", resultado.Erro);
+    }
+
+    [Fact]
     public async Task ValidarAsync_QuandoDocumentoDivergeDoCadastro_RegistraDivergencia()
     {
         var tenantId = Guid.NewGuid();
@@ -41,6 +136,66 @@ public class DocumentoServicoTestes
         var divergencia = Assert.Single(resultado.Valor.Divergencias);
         Assert.Equal("razao_social", divergencia.Campo);
         Assert.Equal("Empresa Certa Ltda", divergencia.ValorCadastro);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_QuandoDocumentoDeProspectoDivergeDoCadastro_RegistraDivergencia()
+    {
+        var tenantId = Guid.NewGuid();
+        var prospecto = Prospecto.Create(tenantId, "Prospecto Certa Ltda", "99888777000166", null);
+        var documento = Documento.Create(tenantId, "cartao-cnpj.pdf", TipoDocumento.CartaoCnpj, "doc.pdf", 0.85m, prospectId: prospecto.Id);
+
+        await using var provedor = CriarProvedor(tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["razao_social"] = "Prospecto Errado Ltda",
+                ["cnpj"] = "99888777000166"
+            }, 0.95m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Prospects.Add(prospecto);
+        contexto.Documents.Add(documento);
+        await contexto.SaveChangesAsync();
+
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+
+        var resultado = await servico.ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.False(resultado.Valor!.Valido);
+        var divergencia = Assert.Single(resultado.Valor.Divergencias);
+        Assert.Equal("razao_social", divergencia.Campo);
+        Assert.Equal("Prospecto Certa Ltda", divergencia.ValorCadastro);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_QuandoDocumentoDeProspectoConfere_Aprova()
+    {
+        var tenantId = Guid.NewGuid();
+        var prospecto = Prospecto.Create(tenantId, "Prospecto Certa Ltda", "99888777000166", null);
+        var documento = Documento.Create(tenantId, "cartao-cnpj.pdf", TipoDocumento.CartaoCnpj, "doc.pdf", 0.85m, prospectId: prospecto.Id);
+
+        await using var provedor = CriarProvedor(tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["razao_social"] = "Prospecto Certa Ltda",
+                ["cnpj"] = "99888777000166"
+            }, 0.95m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Prospects.Add(prospecto);
+        contexto.Documents.Add(documento);
+        await contexto.SaveChangesAsync();
+
+        var servico = provedor.GetRequiredService<IDocumentoServico>();
+
+        var resultado = await servico.ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.Valido);
+        Assert.Empty(resultado.Valor.Divergencias);
+
+        contexto.ChangeTracker.Clear();
+        var validacao = await contexto.DocumentValidations.SingleAsync();
+        Assert.Equal(tenantId, validacao.TenantId);
     }
 
     [Fact]
@@ -88,9 +243,84 @@ public class DocumentoServicoTestes
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.True(resultado.Valor!.FallbackManual);
         Assert.False(resultado.Valor.Valido);
+
+        contexto.ChangeTracker.Clear();
+        var validacao = await contexto.DocumentValidations.SingleAsync();
+        Assert.Equal(tenantId, validacao.TenantId);
     }
 
-    private static ServiceProvider CriarProvedor(Guid tenantId, ResultadoOcr resultadoOcr)
+    [Fact]
+    public async Task ValidarAsync_QuandoCadastroNaoExiste_SegueParaRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var documento = Documento.Create(
+            tenantId,
+            "cartao-cnpj.pdf",
+            TipoDocumento.CartaoCnpj,
+            "doc.pdf",
+            0.85m,
+            clientId: Guid.NewGuid());
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["razao_social"] = "Empresa Certa Ltda",
+                ["cnpj"] = "11222333000144"
+            }, 0.95m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Documents.Add(documento);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.FallbackManual);
+        Assert.False(resultado.Valor.Valido);
+        Assert.Contains("cadastro", resultado.Valor.Mensagem, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_QuandoCampoEsperadoNaoExisteNoOcr_SegueParaRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var cliente = Cliente.CreateFromProspect(
+            Prospecto.Create(tenantId, "Empresa Certa Ltda", "11222333000144", null));
+        var documento = Documento.Create(
+            tenantId,
+            "cartao-cnpj.pdf",
+            TipoDocumento.CartaoCnpj,
+            "doc.pdf",
+            0.85m,
+            clientId: cliente.Id);
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["cnpj"] = "11222333000144"
+            }, 0.95m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Clients.Add(cliente);
+        contexto.Documents.Add(documento);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.FallbackManual);
+        Assert.False(resultado.Valor.Valido);
+        var divergencia = Assert.Single(resultado.Valor.Divergencias);
+        Assert.Equal("razao_social", divergencia.Campo);
+        Assert.Equal(string.Empty, divergencia.ValorDocumento);
+        Assert.Equal(0m, divergencia.Similaridade);
+    }
+
+    private static ServiceProvider CriarProvedor(
+        Guid tenantId,
+        ResultadoOcr resultadoOcr,
+        decimal qualidadeDocumento = 0.85m,
+        bool consumirArquivoNaEstimativa = false)
     {
         var empresaAtual = new ServicoEmpresaAtual();
         empresaAtual.SetTenant(tenantId);
@@ -98,13 +328,16 @@ public class DocumentoServicoTestes
         var servicos = new ServiceCollection();
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
         servicos.AddSingleton<IServicoOcr>(new ServicoOcrFake(resultadoOcr));
-        servicos.AddSingleton<IServicoArmazenamento, ServicoArmazenamentoFake>();
+        servicos.AddSingleton<ServicoArmazenamentoFake>();
+        servicos.AddSingleton<IServicoArmazenamento>(sp => sp.GetRequiredService<ServicoArmazenamentoFake>());
         servicos.AddSingleton<PublicadorEventosFake>();
         servicos.AddSingleton<MediatR.IPublisher>(sp => sp.GetRequiredService<PublicadorEventosFake>());
         servicos.AddDbContext<ContextoAplicacao>(opcoes => opcoes.UseInMemoryDatabase(Guid.NewGuid().ToString()));
         servicos.AddScoped<DbContext>(sp => sp.GetRequiredService<ContextoAplicacao>());
         servicos.AddScoped<IDocumentoRepositorio, DocumentoRepositorio>();
         servicos.AdicionarServicosDominio(new ConfigurationBuilder().Build());
+        servicos.AddSingleton<IEstimadorQualidadeDocumento>(
+            new EstimadorQualidadeDocumentoFake(qualidadeDocumento, consumirArquivoNaEstimativa));
 
         return servicos.BuildServiceProvider();
     }
@@ -115,15 +348,57 @@ public class DocumentoServicoTestes
             => Task.FromResult(resultado);
     }
 
+    private sealed class EstimadorQualidadeDocumentoFake(
+        decimal qualidade,
+        bool consumirArquivo) : IEstimadorQualidadeDocumento
+    {
+        public async Task<decimal> EstimarAsync(Stream arquivo, CancellationToken cancellationToken = default)
+        {
+            if (consumirArquivo)
+                await arquivo.CopyToAsync(Stream.Null, cancellationToken);
+
+            return qualidade;
+        }
+    }
+
     private sealed class ServicoArmazenamentoFake : IServicoArmazenamento
     {
-        public Task<string> EnviarAsync(Stream stream, string fileName, string container, CancellationToken ct = default)
-            => Task.FromResult(fileName);
+        public byte[] ConteudoEnviado { get; private set; } = [];
+
+        public async Task<string> EnviarAsync(Stream stream, string fileName, string container, CancellationToken ct = default)
+        {
+            using var memoria = new MemoryStream();
+            await stream.CopyToAsync(memoria, ct);
+            ConteudoEnviado = memoria.ToArray();
+
+            return fileName;
+        }
 
         public Task<Stream> BaixarAsync(string path, CancellationToken ct = default)
             => Task.FromResult<Stream>(new MemoryStream([1, 2, 3]));
 
         public Task<string> ObterUrlPreAssinadaAsync(string path, TimeSpan expiry, CancellationToken ct = default)
             => Task.FromResult(path);
+    }
+
+    private sealed class StreamNaoSeekable(byte[] conteudo) : Stream
+    {
+        private readonly MemoryStream memoria = new(conteudo);
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() => memoria.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => memoria.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }
