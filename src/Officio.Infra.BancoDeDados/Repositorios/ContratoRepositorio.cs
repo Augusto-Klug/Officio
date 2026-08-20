@@ -18,6 +18,7 @@ internal class ContratoRepositorio(
     public Task<List<Contrato>> ListarAsync(CancellationToken cancellationToken = default)
         => Contexto.Contracts
             .Include(contrato => contrato.Prospecto)
+            .Include(contrato => contrato.Cliente)
             .OrderByDescending(contrato => contrato.CriadoEm)
             .ToListAsync(cancellationToken);
 

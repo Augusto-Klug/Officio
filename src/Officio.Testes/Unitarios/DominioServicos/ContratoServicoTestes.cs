@@ -65,6 +65,37 @@ public class ContratoServicoTestes
         Assert.Contains("aceitos", resultado.Erro, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ListarAsync_ComContratoVinculadoAoCliente_RetornaRazaoSocialDoCliente()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Prospecto Original", "11222333000144", null);
+        var cliente = Cliente.CreateFromProspect(
+            Prospecto.Create(tenantId, "Cliente Contratante", "99888777000166", null));
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
+        var contrato = Contrato.CreateFromBudget(
+            orcamento,
+            cliente.Id,
+            new DateTime(2026, 9, 1),
+            null,
+            true,
+            null);
+        contexto.Prospects.Add(prospecto);
+        contexto.Clients.Add(cliente);
+        contexto.Budgets.Add(orcamento);
+        contexto.Contracts.Add(contrato);
+        await contexto.SaveChangesAsync();
+        contexto.ChangeTracker.Clear();
+        var servico = CriarServico(contexto, tenantId);
+
+        var resultado = await servico.ListarAsync();
+
+        Assert.True(resultado.Sucesso);
+        var contratoResultado = Assert.Single(resultado.Valor!);
+        Assert.Equal("Cliente Contratante", contratoResultado.RazaoSocial);
+    }
+
     private static IContratoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
         => new ContratoServico(
             new ContratoRepositorio(contexto),
