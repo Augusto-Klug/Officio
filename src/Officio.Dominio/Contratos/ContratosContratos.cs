@@ -16,3 +16,26 @@ public record EnvioAssinaturaResultado(
     List<LinkAssinante>? Signatarios,
     string? Mensagem,
     string? PdfUrl);
+
+public record ConverterOrcamentoContratoRequisicao(
+    Guid OrcamentoId,
+    DateTime DataInicio,
+    DateTime? DataFim,
+    bool RenovacaoAutomatica,
+    string? ClausulasExtras);
+
+public record ContratoResultado(
+    Guid Id,
+    string Numero,
+    Guid ProspectoId,
+    Guid? ClienteId,
+    Guid? OrcamentoId,
+    string RazaoSocial,
+    string Status,
+    decimal ValorTotal,
+    int DiaVencimento,
+    DateTime DataInicio,
+    DateTime? DataFim,
+    bool RenovacaoAutomatica,
+    string? ClausulasExtras,
+    bool PdfGerado);
