@@ -2,6 +2,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.GerarPdfContrato;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
 using Officio.ViewModels.Contratos;
 using Officio.WebApi.Conversores;
 
@@ -12,11 +14,25 @@ namespace Officio.WebApi.Controllers;
 [Authorize]
 public class ContratosControlador(IMediator mediator) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> Listar(CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ListarContratosConsulta(), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ObterContratoPorIdConsulta(id), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
     [HttpPost("{id:guid}")]
     public async Task<IActionResult> GerarPdf(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new GerarPdfContratoComando(id), cancellationToken);
-        return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
 
     [HttpPost("{id:guid}")]
@@ -26,6 +42,12 @@ public class ContratosControlador(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
-        return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
+
+    private IActionResult ResultadoErro(string? erro)
+        => erro?.Contains("n\u00e3o encontrado", StringComparison.OrdinalIgnoreCase) == true ||
+           erro?.Contains("nao encontrado", StringComparison.OrdinalIgnoreCase) == true
+            ? NotFound(erro)
+            : BadRequest(erro);
 }

@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcamento;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
+using Officio.ViewModels.Contratos;
 using Officio.ViewModels.Orcamentos;
 using Officio.WebApi.Conversores;
 
@@ -73,6 +75,19 @@ public class OrcamentosControlador(IMediator mediator) : ControllerBase
         var resultado = await mediator.Send(new AceitarOrcamentoComando(id), cancellationToken);
 
         return resultado.Sucesso ? Ok() : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpPost("{id:guid}")]
+    public async Task<IActionResult> ConverterParaContrato(
+        Guid id,
+        [FromBody] ConverterOrcamentoParaContratoViewModel viewModel,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
+
+        return resultado.Sucesso
+            ? CreatedAtAction("ObterPorId", "Contratos", new { id = resultado.Valor }, resultado.Valor)
+            : ResultadoErro(resultado.Erro);
     }
 
     [HttpPost("{id:guid}")]
