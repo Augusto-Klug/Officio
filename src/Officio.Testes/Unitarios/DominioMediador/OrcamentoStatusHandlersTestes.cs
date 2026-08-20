@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AlterarStatusOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.RecusarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
+using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 using Officio.Infraestrutura.Identidade;
@@ -19,7 +21,7 @@ public class OrcamentoStatusHandlersTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
-        var handler = new AceitarOrcamentoHandler(new OrcamentoRepositorio(contexto));
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new AceitarOrcamentoComando(orcamento.Id),
@@ -37,7 +39,7 @@ public class OrcamentoStatusHandlersTestes
         var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
         orcamento.Aceitar();
         await contexto.SaveChangesAsync();
-        var handler = new AceitarOrcamentoHandler(new OrcamentoRepositorio(contexto));
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new AceitarOrcamentoComando(orcamento.Id),
@@ -53,7 +55,7 @@ public class OrcamentoStatusHandlersTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
-        var handler = new RecusarOrcamentoHandler(new OrcamentoRepositorio(contexto));
+        var handler = new RecusarOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new RecusarOrcamentoComando(orcamento.Id, ""),
@@ -69,7 +71,7 @@ public class OrcamentoStatusHandlersTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
-        var handler = new RecusarOrcamentoHandler(new OrcamentoRepositorio(contexto));
+        var handler = new RecusarOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new RecusarOrcamentoComando(orcamento.Id, "Preco acima do esperado"),
@@ -79,9 +81,7 @@ public class OrcamentoStatusHandlersTestes
         contexto.ChangeTracker.Clear();
 
         var orcamentoPersistido = await contexto.Budgets.SingleAsync();
-        var consultaHandler = new ObterOrcamentosPorProspectoHandler(
-            new OrcamentoRepositorio(contexto),
-            new ProspectoRepositorio(contexto));
+        var consultaHandler = new ObterOrcamentosPorProspectoHandler(CriarServico(contexto, tenantId));
         var consulta = await consultaHandler.Handle(
             new ObterOrcamentosPorProspectoConsulta(orcamento.ProspectId),
             CancellationToken.None);
@@ -97,9 +97,7 @@ public class OrcamentoStatusHandlersTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
-        var handler = new AlterarStatusOrcamentoHandler(
-            new OrcamentoRepositorio(contexto),
-            new ProspectoRepositorio(contexto));
+        var handler = new AlterarStatusOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new AlterarStatusOrcamentoComando(orcamento.Id, StatusOrcamento.Enviado),
@@ -115,9 +113,7 @@ public class OrcamentoStatusHandlersTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
-        var handler = new AlterarStatusOrcamentoHandler(
-            new OrcamentoRepositorio(contexto),
-            new ProspectoRepositorio(contexto));
+        var handler = new AlterarStatusOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new AlterarStatusOrcamentoComando(orcamento.Id, StatusOrcamento.Recusado),
@@ -135,9 +131,7 @@ public class OrcamentoStatusHandlersTestes
         var orcamento = await CriarOrcamentoAsync(contexto, tenantId);
         orcamento.Aceitar();
         await contexto.SaveChangesAsync();
-        var handler = new AlterarStatusOrcamentoHandler(
-            new OrcamentoRepositorio(contexto),
-            new ProspectoRepositorio(contexto));
+        var handler = new AlterarStatusOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new AlterarStatusOrcamentoComando(orcamento.Id, StatusOrcamento.Rascunho),
@@ -165,6 +159,12 @@ public class OrcamentoStatusHandlersTestes
 
         return new ContextoAplicacao(options, CriarEmpresaAtual(tenantId), new PublicadorEventosFake());
     }
+
+    private static IOrcamentoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
+        => new OrcamentoServico(
+            new OrcamentoRepositorio(contexto),
+            new ProspectoRepositorio(contexto),
+            CriarEmpresaAtual(tenantId));
 
     private static ServicoEmpresaAtual CriarEmpresaAtual(Guid tenantId)
     {

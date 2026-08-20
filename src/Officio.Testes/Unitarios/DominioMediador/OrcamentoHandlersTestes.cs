@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AtualizarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.CriarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
+using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 using Officio.Infraestrutura.Identidade;
@@ -87,7 +89,7 @@ public class OrcamentoHandlersTestes
         contexto.Prospects.Add(prospecto);
         contexto.Budgets.Add(orcamento);
         await contexto.SaveChangesAsync();
-        var handler = new AtualizarOrcamentoHandler(new OrcamentoRepositorio(contexto), CriarEmpresaAtual(tenantId));
+        var handler = new AtualizarOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(new AtualizarOrcamentoComando(
             orcamento.Id,
@@ -129,7 +131,7 @@ public class OrcamentoHandlersTestes
         contexto.Budgets.Add(orcamento);
         await contexto.SaveChangesAsync();
         contexto.ChangeTracker.Clear();
-        var handler = new AtualizarOrcamentoHandler(new OrcamentoRepositorio(contexto), CriarEmpresaAtual(tenantId));
+        var handler = new AtualizarOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(new AtualizarOrcamentoComando(
             orcamento.Id,
@@ -167,9 +169,7 @@ public class OrcamentoHandlersTestes
         contexto.Prospects.AddRange(prospecto, outroProspecto);
         contexto.Budgets.AddRange(orcamento, outroOrcamento);
         await contexto.SaveChangesAsync();
-        var handler = new ObterOrcamentosPorProspectoHandler(
-            new OrcamentoRepositorio(contexto),
-            new ProspectoRepositorio(contexto));
+        var handler = new ObterOrcamentosPorProspectoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new ObterOrcamentosPorProspectoConsulta(prospecto.Id),
@@ -185,9 +185,7 @@ public class OrcamentoHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var handler = new ObterOrcamentosPorProspectoHandler(
-            new OrcamentoRepositorio(contexto),
-            new ProspectoRepositorio(contexto));
+        var handler = new ObterOrcamentosPorProspectoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new ObterOrcamentosPorProspectoConsulta(Guid.NewGuid()),
@@ -218,9 +216,7 @@ public class OrcamentoHandlersTestes
         }
 
         await using var contexto = CriarContexto(tenantId, nomeBanco);
-        var handler = new ObterOrcamentosPorProspectoHandler(
-            new OrcamentoRepositorio(contexto),
-            new ProspectoRepositorio(contexto));
+        var handler = new ObterOrcamentosPorProspectoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(
             new ObterOrcamentosPorProspectoConsulta(prospectoEstrangeiroId),
@@ -231,7 +227,10 @@ public class OrcamentoHandlersTestes
     }
 
     private static CriarOrcamentoHandler CriarHandler(ContextoAplicacao contexto, Guid tenantId)
-        => new(
+        => new(CriarServico(contexto, tenantId));
+
+    private static IOrcamentoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
+        => new OrcamentoServico(
             new OrcamentoRepositorio(contexto),
             new ProspectoRepositorio(contexto),
             CriarEmpresaAtual(tenantId));

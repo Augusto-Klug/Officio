@@ -1,28 +1,15 @@
 using MediatR;
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Comum;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.RecusarOrcamento;
 
-public class RecusarOrcamentoHandler(IOrcamentoRepositorio repositorio)
+public class RecusarOrcamentoHandler(IOrcamentoServico orcamentoServico)
     : IRequestHandler<RecusarOrcamentoComando, Resultado<Unit>>
 {
     public async Task<Resultado<Unit>> Handle(RecusarOrcamentoComando request, CancellationToken ct)
-    {
-        var orcamento = await repositorio.ObterPorIdComItensAsync(request.OrcamentoId, ct);
-        if (orcamento is null)
-            return Resultado<Unit>.CriarFalha("Orcamento nao encontrado.");
-
-        try
-        {
-            orcamento.Recusar(request.Motivo);
-        }
-        catch (ArgumentException exception)
-        {
-            return Resultado<Unit>.CriarFalha(exception.Message);
-        }
-
-        await repositorio.SalvarAlteracoesAsync(ct);
-        return Resultado<Unit>.CriarSucesso(Unit.Value);
-    }
+        => (await orcamentoServico.RecusarAsync(
+            new RecusarOrcamentoRequisicao(request.OrcamentoId, request.Motivo),
+            ct)).ParaUnit();
 }

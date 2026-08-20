@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
+using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 using Officio.Infraestrutura.Identidade;
@@ -14,9 +16,7 @@ public class CatalogoOrcamentoHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var repositorio = new OrcamentoRepositorio(contexto);
-        var empresaAtual = CriarEmpresaAtual(tenantId);
-        var handler = new CriarItemCatalogoOrcamentoHandler(repositorio, empresaAtual);
+        var handler = new CriarItemCatalogoOrcamentoHandler(CriarServico(contexto, tenantId));
         var comando = new CriarItemCatalogoOrcamentoComando(
             "Escrituracao contabil",
             SecaoItemOrcamento.Honorarios,
@@ -37,16 +37,15 @@ public class CatalogoOrcamentoHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var repositorio = new OrcamentoRepositorio(contexto);
-        var empresaAtual = CriarEmpresaAtual(tenantId);
-        var criarHandler = new CriarItemCatalogoOrcamentoHandler(repositorio, empresaAtual);
+        var servico = CriarServico(contexto, tenantId);
+        var criarHandler = new CriarItemCatalogoOrcamentoHandler(servico);
         var itemAtivo = await criarHandler.Handle(CriarComando("Escrituracao contabil"), CancellationToken.None);
         var itemInativo = await criarHandler.Handle(CriarComando("Folha de pagamento"), CancellationToken.None);
-        var alterarHandler = new AlterarAtivoItemCatalogoOrcamentoHandler(repositorio);
+        var alterarHandler = new AlterarAtivoItemCatalogoOrcamentoHandler(servico);
         await alterarHandler.Handle(
             new AlterarAtivoItemCatalogoOrcamentoComando(itemInativo.Valor!, false),
             CancellationToken.None);
-        var handler = new ListarCatalogoOrcamentoHandler(repositorio);
+        var handler = new ListarCatalogoOrcamentoHandler(servico);
 
         var resultado = await handler.Handle(new ListarCatalogoOrcamentoConsulta(), CancellationToken.None);
 
@@ -60,16 +59,15 @@ public class CatalogoOrcamentoHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var repositorio = new OrcamentoRepositorio(contexto);
-        var empresaAtual = CriarEmpresaAtual(tenantId);
-        var criarHandler = new CriarItemCatalogoOrcamentoHandler(repositorio, empresaAtual);
+        var servico = CriarServico(contexto, tenantId);
+        var criarHandler = new CriarItemCatalogoOrcamentoHandler(servico);
         var itemCriado = await criarHandler.Handle(CriarComando("Escrituracao contabil"), CancellationToken.None);
-        var alterarHandler = new AlterarAtivoItemCatalogoOrcamentoHandler(repositorio);
+        var alterarHandler = new AlterarAtivoItemCatalogoOrcamentoHandler(servico);
 
         var resultadoAlteracao = await alterarHandler.Handle(
             new AlterarAtivoItemCatalogoOrcamentoComando(itemCriado.Valor!, false),
             CancellationToken.None);
-        var resultadoListagem = await new ListarCatalogoOrcamentoHandler(repositorio)
+        var resultadoListagem = await new ListarCatalogoOrcamentoHandler(servico)
             .Handle(new ListarCatalogoOrcamentoConsulta(), CancellationToken.None);
 
         Assert.True(resultadoAlteracao.Sucesso);
@@ -81,10 +79,10 @@ public class CatalogoOrcamentoHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var repositorio = new OrcamentoRepositorio(contexto);
-        var item = await new CriarItemCatalogoOrcamentoHandler(repositorio, CriarEmpresaAtual(tenantId))
+        var servico = CriarServico(contexto, tenantId);
+        var item = await new CriarItemCatalogoOrcamentoHandler(servico)
             .Handle(CriarComando("Escrituracao contabil"), CancellationToken.None);
-        var handler = new AtualizarItemCatalogoOrcamentoHandler(repositorio);
+        var handler = new AtualizarItemCatalogoOrcamentoHandler(servico);
 
         var resultado = await handler.Handle(new AtualizarItemCatalogoOrcamentoComando(
             item.Valor!,
@@ -106,7 +104,7 @@ public class CatalogoOrcamentoHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var handler = new AtualizarItemCatalogoOrcamentoHandler(new OrcamentoRepositorio(contexto));
+        var handler = new AtualizarItemCatalogoOrcamentoHandler(CriarServico(contexto, tenantId));
 
         var resultado = await handler.Handle(new AtualizarItemCatalogoOrcamentoComando(
             Guid.NewGuid(),
@@ -134,6 +132,12 @@ public class CatalogoOrcamentoHandlersTestes
 
         return new ContextoAplicacao(options, CriarEmpresaAtual(tenantId), new PublicadorEventosFake());
     }
+
+    private static IOrcamentoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
+        => new OrcamentoServico(
+            new OrcamentoRepositorio(contexto),
+            new ProspectoRepositorio(contexto),
+            CriarEmpresaAtual(tenantId));
 
     private static ServicoEmpresaAtual CriarEmpresaAtual(Guid tenantId)
     {

@@ -1,41 +1,17 @@
 using MediatR;
-using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Comum;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AlterarStatusOrcamento;
 
-public class AlterarStatusOrcamentoHandler(
-    IOrcamentoRepositorio repositorio,
-    IProspectoRepositorio prospectoRepositorio)
+public class AlterarStatusOrcamentoHandler(IOrcamentoServico orcamentoServico)
     : IRequestHandler<AlterarStatusOrcamentoComando, Resultado<Unit>>
 {
     public async Task<Resultado<Unit>> Handle(AlterarStatusOrcamentoComando request, CancellationToken ct)
     {
-        var orcamento = await repositorio.ObterPorIdComItensAsync(request.OrcamentoId, ct);
-        if (orcamento is null)
-            return Resultado<Unit>.CriarFalha("Orcamento nao encontrado.");
+        var requisicao = new AlterarStatusOrcamentoRequisicao(request.OrcamentoId, request.Status);
 
-        try
-        {
-            orcamento.AlterarStatus(request.Status);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Resultado<Unit>.CriarFalha(exception.Message);
-        }
-
-        if (request.Status == StatusOrcamento.Enviado)
-        {
-            var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
-            if (prospecto is null)
-                return Resultado<Unit>.CriarFalha("Prospecto nao encontrado.");
-
-            prospecto.UpdateStatus(StatusProspecto.PropostaEnviada);
-        }
-
-        await repositorio.SalvarAlteracoesAsync(ct);
-
-        return Resultado<Unit>.CriarSucesso(Unit.Value);
+        return (await orcamentoServico.AlterarStatusAsync(requisicao, ct)).ParaUnit();
     }
 }
