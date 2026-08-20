@@ -32,8 +32,10 @@ internal class ContratoRepositorio(
 
     public async Task<Contrato?> ObterParaGeracaoPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
         => await Contexto.Contracts
+            .Include(c => c.Prospecto)
+                .ThenInclude(p => p.Socios)
             .Include(c => c.Cliente)
-                .ThenInclude(cl => cl.Socios)
+                .ThenInclude(cl => cl!.Socios)
             .Include(c => c.Orcamento)
                 .ThenInclude(o => o!.Itens)
             .FirstOrDefaultAsync(c => c.Id == contratoId, cancellationToken);

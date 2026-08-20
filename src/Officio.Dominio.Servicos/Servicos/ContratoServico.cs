@@ -155,7 +155,13 @@ public class ContratoServico(
     private static DadosPdfContrato MapearDadosPdf(Contrato contrato, Empresa empresa)
     {
         var cliente = contrato.Cliente;
+        var prospecto = contrato.Prospecto;
         var orcamento = contrato.Orcamento;
+        var razaoSocial = cliente?.RazaoSocial ?? prospecto.RazaoSocial;
+        var nomeFantasia = cliente?.NomeFantasia ?? prospecto.NomeFantasia ?? razaoSocial;
+        var cnpj = cliente?.Cnpj ?? prospecto.Cnpj ?? "";
+        var regimeTributario = cliente?.RegimeTributario ?? prospecto.RegimeTributario;
+        var sociosOrigem = cliente?.Socios ?? prospecto.Socios;
 
         var contratada = new DadosContratada(
             RazaoSocial: empresa.Nome,
@@ -167,21 +173,21 @@ public class ContratoServico(
             Telefone: "");
 
         var endereco = string.Join(", ",
-            new[] { cliente.Logradouro, cliente.Numero }
+            new[] { cliente?.Logradouro ?? prospecto.Logradouro, cliente?.Numero ?? prospecto.Numero }
                 .Where(s => !string.IsNullOrWhiteSpace(s)));
 
         var contratante = new DadosContratante(
-            RazaoSocial: cliente.RazaoSocial,
-            NomeFantasia: cliente.NomeFantasia ?? cliente.RazaoSocial,
-            Cnpj: cliente.Cnpj ?? "",
-            RegimeTributario: cliente.RegimeTributario?.ToString() ?? "",
+            RazaoSocial: razaoSocial,
+            NomeFantasia: nomeFantasia,
+            Cnpj: cnpj,
+            RegimeTributario: regimeTributario?.ToString() ?? "",
             Endereco: endereco,
-            Cidade: cliente.Cidade ?? "",
-            Uf: cliente.Uf ?? "",
-            Email: cliente.Email ?? "",
-            Telefone: cliente.Telefone ?? "");
+            Cidade: cliente?.Cidade ?? prospecto.Cidade ?? "",
+            Uf: cliente?.Uf ?? prospecto.Uf ?? "",
+            Email: cliente?.Email ?? prospecto.Email ?? "",
+            Telefone: cliente?.Telefone ?? prospecto.Telefone ?? "");
 
-        var socios = cliente.Socios
+        var socios = sociosOrigem
             .Select(s => new DadosSocio(s.Nome, s.Cpf ?? "", s.Participacao, Administrador: false))
             .ToList();
 

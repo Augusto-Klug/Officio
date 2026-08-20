@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Comum;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
@@ -96,13 +98,59 @@ public class ContratoServicoTestes
         Assert.Equal("Cliente Contratante", contratoResultado.RazaoSocial);
     }
 
+    [Fact]
+    public async Task GerarPdfAsync_ComContratoVinculadoAoProspecto_UsaDadosDoProspecto()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var empresa = Empresa.Create("Contabilidade Teste", "00999888000177");
+        DefinirId(empresa, tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Prospect", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
+        orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
+            tenantId,
+            orcamento.Id,
+            null,
+            "Honorarios",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            1,
+            500m,
+            1));
+        orcamento.Aceitar();
+        var contrato = Contrato.CriarDeOrcamento(
+            orcamento,
+            prospecto,
+            new DateTime(2026, 9, 1),
+            null,
+            true,
+            null);
+        contexto.Tenants.Add(empresa);
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.Add(orcamento);
+        contexto.Contracts.Add(contrato);
+        await contexto.SaveChangesAsync();
+        contexto.ChangeTracker.Clear();
+        var pdf = new ServicoPdfCapturaFake();
+        var servico = CriarServico(contexto, tenantId, pdf);
+
+        var resultado = await servico.GerarPdfAsync(contrato.Id);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Empresa Prospect", pdf.UltimosDados!.Contratante.RazaoSocial);
+        Assert.Equal("11222333000144", pdf.UltimosDados.Contratante.Cnpj);
+    }
+
     private static IContratoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
+        => CriarServico(contexto, tenantId, new ServicoPdfFake());
+
+    private static IContratoServico CriarServico(ContextoAplicacao contexto, Guid tenantId, IServicoPdf servicoPdf)
         => new ContratoServico(
             new ContratoRepositorio(contexto),
             new EmpresaRepositorio(contexto),
             new OrcamentoRepositorio(contexto),
             new ProspectoRepositorio(contexto),
-            new ServicoPdfFake(),
+            servicoPdf,
             new ServicoAssinaturaFake(),
             new ServicoArmazenamentoFake(),
             CriarEmpresaAtual(tenantId));
@@ -122,10 +170,28 @@ public class ContratoServicoTestes
         return empresaAtual;
     }
 
+    private static void DefinirId(EntidadeBase entidade, Guid id)
+    {
+        typeof(EntidadeBase)
+            .GetProperty(nameof(EntidadeBase.Id), BindingFlags.Instance | BindingFlags.Public)!
+            .SetValue(entidade, id);
+    }
+
     private sealed class ServicoPdfFake : IServicoPdf
     {
         public Task<Stream> GerarContratoAsync(DadosPdfContrato data, CancellationToken ct = default)
             => Task.FromResult<Stream>(new MemoryStream());
+    }
+
+    private sealed class ServicoPdfCapturaFake : IServicoPdf
+    {
+        public DadosPdfContrato? UltimosDados { get; private set; }
+
+        public Task<Stream> GerarContratoAsync(DadosPdfContrato data, CancellationToken ct = default)
+        {
+            UltimosDados = data;
+            return Task.FromResult<Stream>(new MemoryStream());
+        }
     }
 
     private sealed class ServicoAssinaturaFake : IServicoAssinatura
