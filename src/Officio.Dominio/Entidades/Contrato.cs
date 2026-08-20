@@ -7,7 +7,8 @@ namespace Officio.Dominio.Entidades;
 public class Contrato : EntidadeAuditavel
 {
     public string Numero { get; private set; } = default!;
-    public Guid ClientId { get; private set; }
+    public Guid? ClientId { get; private set; }
+    public Guid ProspectId { get; private set; }
     public Guid? BudgetId { get; private set; }
     public StatusContrato Status { get; private set; } = StatusContrato.Rascunho;
     public decimal ValorTotal { get; private set; }
@@ -21,7 +22,8 @@ public class Contrato : EntidadeAuditavel
     public DateTime? AssinadoEm { get; private set; }
 
     // Navigation
-    public Cliente Cliente { get; private set; } = default!;
+    public Prospecto Prospecto { get; private set; } = default!;
+    public Cliente? Cliente { get; private set; }
     public Orcamento? Orcamento { get; private set; }
     public ICollection<Assinatura> Assinaturas { get; private set; } = [];
 
@@ -32,6 +34,7 @@ public class Contrato : EntidadeAuditavel
         return new Contrato
         {
             TenantId = budget.TenantId,
+            ProspectId = budget.ProspectId,
             ClientId = clientId,
             BudgetId = budget.Id,
             ValorTotal = budget.ValorTotal,
@@ -40,6 +43,34 @@ public class Contrato : EntidadeAuditavel
             DataFim = dataFim,
             RenovacaoAutomatica = renovacaoAutomatica,
             ClausulasExtras = clausulasExtras,
+            Numero = $"CTR-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString()[..4].ToUpper()}"
+        };
+    }
+
+    public static Contrato CriarDeOrcamento(
+        Orcamento orcamento,
+        Prospecto prospecto,
+        DateTime dataInicio,
+        DateTime? dataFim,
+        bool renovacaoAutomatica,
+        string? clausulasExtras)
+    {
+        if (orcamento.ProspectId != prospecto.Id)
+            throw new InvalidOperationException("Prospecto nao pertence ao orcamento informado.");
+
+        return new Contrato
+        {
+            TenantId = orcamento.TenantId,
+            ProspectId = prospecto.Id,
+            ClientId = null,
+            BudgetId = orcamento.Id,
+            ValorTotal = orcamento.ValorTotal,
+            DiaVencimento = orcamento.DiaVencimento,
+            DataInicio = dataInicio,
+            DataFim = dataFim,
+            RenovacaoAutomatica = renovacaoAutomatica,
+            ClausulasExtras = clausulasExtras,
+            Status = StatusContrato.Rascunho,
             Numero = $"CTR-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString()[..4].ToUpper()}"
         };
     }
@@ -56,7 +87,7 @@ public class Contrato : EntidadeAuditavel
     {
         Status = StatusContrato.Ativo;
         AssinadoEm = DateTime.UtcNow;
-        AddDomainEvent(new EventoContratoAssinado(Id, ClientId, TenantId));
+        AddDomainEvent(new EventoContratoAssinado(Id, ClientId!.Value, TenantId));
     }
 }
 
