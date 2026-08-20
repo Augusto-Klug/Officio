@@ -181,7 +181,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<string>("ClausulasExtras")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("ClientId")
+                    b.Property<Guid?>("ClientId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CriadoEm")
@@ -207,11 +207,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<Guid?>("OrcamentoId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("PdfPath")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProspectId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("RenovacaoAutomatica")
                         .HasColumnType("bit");
@@ -228,9 +228,17 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BudgetId")
+                        .IsUnique()
+                        .HasFilter("[BudgetId] IS NOT NULL");
+
                     b.HasIndex("ClientId");
 
-                    b.HasIndex("OrcamentoId");
+                    b.HasIndex("ProspectId");
+
+                    b.HasIndex("TenantId", "BudgetId")
+                        .IsUnique()
+                        .HasFilter("[BudgetId] IS NOT NULL");
 
                     b.HasIndex("TenantId", "Numero")
                         .IsUnique();
@@ -829,19 +837,27 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Contrato", b =>
                 {
+                    b.HasOne("Officio.Dominio.Entidades.Orcamento", "Orcamento")
+                        .WithOne()
+                        .HasForeignKey("Officio.Dominio.Entidades.Contrato", "BudgetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Officio.Dominio.Entidades.Cliente", "Cliente")
                         .WithMany("Contratos")
                         .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Officio.Dominio.Entidades.Orcamento", "Orcamento")
+                    b.HasOne("Officio.Dominio.Entidades.Prospecto", "Prospecto")
                         .WithMany()
-                        .HasForeignKey("OrcamentoId");
+                        .HasForeignKey("ProspectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Cliente");
 
                     b.Navigation("Orcamento");
+
+                    b.Navigation("Prospecto");
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Documento", b =>
