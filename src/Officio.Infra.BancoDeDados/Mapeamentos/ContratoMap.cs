@@ -17,6 +17,25 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
         builder.Property(c => c.ValorTotal)
             .HasPrecision(18, 2);
 
+        builder.Property(c => c.ClientId)
+            .IsRequired(false);
+
+        builder.HasOne(c => c.Prospecto)
+            .WithMany()
+            .HasForeignKey(c => c.ProspectId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(c => c.Cliente)
+            .WithMany(c => c.Contratos)
+            .HasForeignKey(c => c.ClientId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
+        builder.HasOne(c => c.Orcamento)
+            .WithOne()
+            .HasForeignKey<Contrato>(c => c.BudgetId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(c => c.Assinaturas)
             .WithOne()
             .HasForeignKey(s => s.ContractId)
@@ -24,6 +43,10 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
 
         builder.HasIndex(c => new { c.TenantId, c.Numero })
             .IsUnique();
+
+        builder.HasIndex(c => new { c.TenantId, c.BudgetId })
+            .IsUnique()
+            .HasFilter("[BudgetId] IS NOT NULL");
     }
 }
 
