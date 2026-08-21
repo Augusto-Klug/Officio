@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Officio.WebApi.Conversores;
 using System.Text;
 
 namespace Officio.WebApi.Extensoes;
@@ -15,6 +16,9 @@ public static class ExtensoesServiceCollection
         services.AdicionarInfraestrutura(configuration);
 
         services.AddHttpContextAccessor();
+        services.AddScoped<IProspectoViewModelConversor, ProspectoViewModelConversor>();
+        services.AddScoped<IDocumentoViewModelConversor, DocumentoViewModelConversor>();
+        services.AddScoped<IContratoViewModelConversor, ContratoViewModelConversor>();
 
         var jwtKey = configuration["Jwt:Key"];
         if (string.IsNullOrWhiteSpace(jwtKey))

@@ -10,7 +10,9 @@ namespace Officio.WebApi.Controllers;
 [ApiController]
 [Route("api/v1/documentos/[action]")]
 [Authorize]
-public class DocumentosControlador(IMediator mediator) : ControllerBase
+public class DocumentosControlador(
+    IMediator mediator,
+    IDocumentoViewModelConversor documentoViewModelConversor) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Enviar(
@@ -23,7 +25,7 @@ public class DocumentosControlador(IMediator mediator) : ControllerBase
 
         await using var stream = arquivo.OpenReadStream();
         var resultado = await mediator.Send(
-            viewModel.ParaComando(stream, arquivo.FileName),
+            documentoViewModelConversor.ParaComando(viewModel, stream, arquivo.FileName),
             cancellationToken);
 
         return resultado.Sucesso

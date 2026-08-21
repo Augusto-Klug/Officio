@@ -12,13 +12,7 @@ internal class EnviarParaAssinaturaManipulador(
         EnviarParaAssinaturaComando request,
         CancellationToken ct)
     {
-        var resultado = await contratoServico.EnviarParaAssinaturaAsync(
-            new EnviarAssinaturaRequisicao(
-                request.ContractId,
-                request.Signatarios
-                    .Select(s => new SignatarioAssinatura(s.Nome, s.Email, s.Cpf, s.Tipo))
-                    .ToList()),
-            ct);
+        var resultado = await contratoServico.EnviarParaAssinaturaAsync(request.Requisicao, ct);
 
         return resultado.Sucesso
             ? Resultado<SendForSignatureResultDto>.CriarSucesso(

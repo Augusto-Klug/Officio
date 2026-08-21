@@ -12,7 +12,9 @@ namespace Officio.WebApi.Controllers;
 [ApiController]
 [Route("api/v1/contratos/[action]")]
 [Authorize]
-public class ContratosControlador(IMediator mediator) : ControllerBase
+public class ContratosControlador(
+    IMediator mediator,
+    IContratoViewModelConversor contratoViewModelConversor) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Listar(CancellationToken cancellationToken)
@@ -41,7 +43,7 @@ public class ContratosControlador(IMediator mediator) : ControllerBase
         [FromBody] EnviarAssinaturaViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
+        var resultado = await mediator.Send(contratoViewModelConversor.ParaComando(viewModel, id), cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
 

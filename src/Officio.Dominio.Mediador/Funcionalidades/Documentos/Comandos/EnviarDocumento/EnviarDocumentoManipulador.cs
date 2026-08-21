@@ -12,16 +12,7 @@ internal class EnviarDocumentoManipulador(
         EnviarDocumentoComando request,
         CancellationToken ct)
     {
-        var resultado = await documentoServico.EnviarAsync(
-            new EnviarDocumentoRequisicao(
-                request.Arquivo,
-                request.NomeArquivo,
-                request.Tipo,
-                request.ClientId,
-                request.ProspectId,
-                request.SocioId,
-                request.Observacoes),
-            ct);
+        var resultado = await documentoServico.EnviarAsync(request.Requisicao, ct);
 
         return resultado.Sucesso
             ? Resultado<ResultadoEnvioDocumentoDto>.CriarSucesso(

@@ -1,3 +1,4 @@
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Mediador.Funcionalidades.Documentos.Comandos.EnviarDocumento;
 using Officio.ViewModels.Documentos;
@@ -5,20 +6,21 @@ using Officio.ViewModels.Enumeradores;
 
 namespace Officio.WebApi.Conversores;
 
-internal static class DocumentoViewModelConversor
+internal class DocumentoViewModelConversor : IDocumentoViewModelConversor
 {
-    public static EnviarDocumentoComando ParaComando(
-        this EnviarDocumentoViewModel viewModel,
+    public EnviarDocumentoComando ParaComando(
+        EnviarDocumentoViewModel viewModel,
         Stream arquivo,
         string nomeArquivo)
         => new(
-            arquivo,
-            nomeArquivo,
-            Converter(viewModel.Tipo),
-            viewModel.ClienteId,
-            viewModel.ProspectoId,
-            viewModel.SocioId,
-            viewModel.Observacoes);
+            new EnviarDocumentoRequisicao(
+                arquivo,
+                nomeArquivo,
+                Converter(viewModel.Tipo),
+                viewModel.ClienteId,
+                viewModel.ProspectoId,
+                viewModel.SocioId,
+                viewModel.Observacoes));
 
     private static TipoDocumento Converter(TipoDocumentoViewModel tipo)
         => tipo switch
