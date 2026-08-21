@@ -11,7 +11,9 @@ namespace Officio.WebApi.Controllers;
 [ApiController]
 [Route("api/v1/prospectos/[action]")]
 [Authorize]
-public class ProspectosControlador(IMediator mediator) : ControllerBase
+public class ProspectosControlador(
+    IMediator mediator,
+    IProspectoViewModelConversor prospectoViewModelConversor) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Listar(
@@ -23,7 +25,7 @@ public class ProspectosControlador(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var resultado = await mediator.Send(
-            new ObterProspectosConsulta(pagina, tamanhoPagina, status, busca, responsavelId),
+            prospectoViewModelConversor.ParaConsulta(pagina, tamanhoPagina, status, busca, responsavelId),
             cancellationToken);
 
         return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
@@ -34,7 +36,7 @@ public class ProspectosControlador(IMediator mediator) : ControllerBase
         [FromBody] CriarProspectoViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(viewModel.ParaComando(), cancellationToken);
+        var resultado = await mediator.Send(prospectoViewModelConversor.ParaComando(viewModel), cancellationToken);
 
         return resultado.Sucesso
             ? CreatedAtAction(nameof(Listar), new { id = resultado.Valor!.Id }, resultado.Valor)

@@ -23,6 +23,7 @@ public static class InstalarDependenciasBancoDeDados
         servicos.AddScoped<IDocumentoRepositorio, DocumentoRepositorio>();
         servicos.AddScoped<IContratoRepositorio, ContratoRepositorio>();
         servicos.AddScoped<IEmpresaRepositorio, EmpresaRepositorio>();
+        servicos.AddScoped<IOrcamentoRepositorio, OrcamentoRepositorio>();
 
         return servicos;
     }

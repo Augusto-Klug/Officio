@@ -12,13 +12,7 @@ internal class ObterProspectosHandler(
         ObterProspectosConsulta request,
         CancellationToken ct)
     {
-        var resultado = await prospectoServico.ObterAsync(
-            new ObterProspectosFiltro(
-                request.Page,
-                request.PageSize,
-                request.Search,
-                request.ResponsavelId),
-            ct);
+        var resultado = await prospectoServico.ObterAsync(request.Filtro, ct);
 
         if (!resultado.Sucesso)
             return Resultado<PagedResult<ProspectoDto>>.CriarFalha(resultado.Erro!);

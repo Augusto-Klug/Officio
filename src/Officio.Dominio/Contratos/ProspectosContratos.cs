@@ -15,6 +15,7 @@ public record ProspectoCriadoResultado(Guid Id, string RazaoSocial);
 public record ObterProspectosFiltro(
     int Pagina,
     int TamanhoPagina,
+    string? Status,
     string? Busca,
     Guid? ResponsavelId);
 

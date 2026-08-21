@@ -88,6 +88,12 @@ internal class ProspectoServico(
                 p.RazaoSocial.Contains(filtro.Busca) ||
                 (p.Cnpj != null && p.Cnpj.Contains(filtro.Busca)));
 
+        if (!string.IsNullOrEmpty(filtro.Status) &&
+            Enum.TryParse<StatusProspecto>(filtro.Status, ignoreCase: true, out var status))
+        {
+            query = query.Where(p => p.Status == status);
+        }
+
         if (filtro.ResponsavelId.HasValue)
             query = query.Where(p => p.ResponsavelId == filtro.ResponsavelId);
 

@@ -6,17 +6,13 @@ public class CriarProspectoValidador : AbstractValidator<CriarProspectoComando>
 {
     public CriarProspectoValidador()
     {
-        RuleFor(x => x.RazaoSocial)
+        RuleFor(x => x.Requisicao.RazaoSocial)
             .NotEmpty().WithMessage("RazÃ£o social Ã© obrigatÃ³ria.")
             .MaximumLength(300);
 
-        RuleFor(x => x.Cnpj)
-            .Length(18).When(x => !string.IsNullOrEmpty(x.Cnpj))
+        RuleFor(x => x.Requisicao.Cnpj)
+            .Length(18).When(x => !string.IsNullOrEmpty(x.Requisicao.Cnpj))
             .WithMessage("CNPJ invÃ¡lido.");
-
-        RuleFor(x => x.Email)
-            .EmailAddress().When(x => !string.IsNullOrEmpty(x.Email))
-            .WithMessage("E-mail invÃ¡lido.");
     }
 }
 

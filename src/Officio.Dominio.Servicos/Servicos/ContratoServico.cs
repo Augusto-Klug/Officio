@@ -1,18 +1,68 @@
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
-internal class ContratoServico(
+public class ContratoServico(
     IContratoRepositorio contratoRepositorio,
     IEmpresaRepositorio empresaRepositorio,
+    IOrcamentoRepositorio orcamentoRepositorio,
+    IProspectoRepositorio prospectoRepositorio,
     IServicoPdf servicoPdf,
     IServicoAssinatura servicoAssinatura,
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual) : IContratoServico
 {
+    public async Task<ResultadoOperacao<Guid>> ConverterOrcamentoAsync(
+        ConverterOrcamentoContratoRequisicao requisicao,
+        CancellationToken ct = default)
+    {
+        var orcamento = await orcamentoRepositorio.ObterPorIdComItensAsync(requisicao.OrcamentoId, ct);
+        if (orcamento is null)
+            return ResultadoOperacao<Guid>.CriarFalha("Orcamento nao encontrado.");
+
+        if (orcamento.Status != StatusOrcamento.Aceito)
+            return ResultadoOperacao<Guid>.CriarFalha("Somente orcamentos aceitos podem ser convertidos em contrato.");
+
+        if (await contratoRepositorio.ObterPorOrcamentoAsync(orcamento.Id, ct) is not null)
+            return ResultadoOperacao<Guid>.CriarFalha("Ja existe contrato para este orcamento.");
+
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
+        if (prospecto is null)
+            return ResultadoOperacao<Guid>.CriarFalha("Prospecto nao encontrado.");
+
+        var contrato = Contrato.CriarDeOrcamento(
+            orcamento,
+            prospecto,
+            requisicao.DataInicio,
+            requisicao.DataFim,
+            requisicao.RenovacaoAutomatica,
+            requisicao.ClausulasExtras);
+
+        await contratoRepositorio.AdicionarAsync(contrato, ct);
+        await contratoRepositorio.SalvarAlteracoesAsync(ct);
+
+        return ResultadoOperacao<Guid>.CriarSucesso(contrato.Id);
+    }
+
+    public async Task<ResultadoOperacao<List<ContratoResultado>>> ListarAsync(CancellationToken ct = default)
+    {
+        var contratos = await contratoRepositorio.ListarAsync(ct);
+        return ResultadoOperacao<List<ContratoResultado>>.CriarSucesso(contratos.Select(MapearContrato).ToList());
+    }
+
+    public async Task<ResultadoOperacao<ContratoResultado>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default)
+    {
+        var contrato = await contratoRepositorio.ObterDetalheAsync(contratoId, ct);
+        if (contrato is null)
+            return ResultadoOperacao<ContratoResultado>.CriarFalha("Contrato nao encontrado.");
+
+        return ResultadoOperacao<ContratoResultado>.CriarSucesso(MapearContrato(contrato));
+    }
+
     public async Task<ResultadoOperacao<PdfContratoResultado>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
     {
         var contrato = await contratoRepositorio.ObterParaGeracaoPdfAsync(contratoId, cancellationToken);
@@ -105,7 +155,13 @@ internal class ContratoServico(
     private static DadosPdfContrato MapearDadosPdf(Contrato contrato, Empresa empresa)
     {
         var cliente = contrato.Cliente;
+        var prospecto = contrato.Prospecto;
         var orcamento = contrato.Orcamento;
+        var razaoSocial = cliente?.RazaoSocial ?? prospecto.RazaoSocial;
+        var nomeFantasia = cliente?.NomeFantasia ?? prospecto.NomeFantasia ?? razaoSocial;
+        var cnpj = cliente?.Cnpj ?? prospecto.Cnpj ?? "";
+        var regimeTributario = cliente?.RegimeTributario ?? prospecto.RegimeTributario;
+        var sociosOrigem = cliente?.Socios ?? prospecto.Socios;
 
         var contratada = new DadosContratada(
             RazaoSocial: empresa.Nome,
@@ -117,21 +173,21 @@ internal class ContratoServico(
             Telefone: "");
 
         var endereco = string.Join(", ",
-            new[] { cliente.Logradouro, cliente.Numero }
+            new[] { cliente?.Logradouro ?? prospecto.Logradouro, cliente?.Numero ?? prospecto.Numero }
                 .Where(s => !string.IsNullOrWhiteSpace(s)));
 
         var contratante = new DadosContratante(
-            RazaoSocial: cliente.RazaoSocial,
-            NomeFantasia: cliente.NomeFantasia ?? cliente.RazaoSocial,
-            Cnpj: cliente.Cnpj ?? "",
-            RegimeTributario: cliente.RegimeTributario?.ToString() ?? "",
+            RazaoSocial: razaoSocial,
+            NomeFantasia: nomeFantasia,
+            Cnpj: cnpj,
+            RegimeTributario: regimeTributario?.ToString() ?? "",
             Endereco: endereco,
-            Cidade: cliente.Cidade ?? "",
-            Uf: cliente.Uf ?? "",
-            Email: cliente.Email ?? "",
-            Telefone: cliente.Telefone ?? "");
+            Cidade: cliente?.Cidade ?? prospecto.Cidade ?? "",
+            Uf: cliente?.Uf ?? prospecto.Uf ?? "",
+            Email: cliente?.Email ?? prospecto.Email ?? "",
+            Telefone: cliente?.Telefone ?? prospecto.Telefone ?? "");
 
-        var socios = cliente.Socios
+        var socios = sociosOrigem
             .Select(s => new DadosSocio(s.Nome, s.Cpf ?? "", s.Participacao, Administrador: false))
             .ToList();
 
@@ -162,5 +218,26 @@ internal class ContratoServico(
             RenovacaoAuto = contrato.RenovacaoAutomatica,
             ClausulasExtras = contrato.ClausulasExtras,
         };
+    }
+
+    private static ContratoResultado MapearContrato(Contrato contrato)
+    {
+        var razaoSocial = contrato.Cliente?.RazaoSocial ?? contrato.Prospecto.RazaoSocial;
+
+        return new ContratoResultado(
+            contrato.Id,
+            contrato.Numero,
+            contrato.ProspectId,
+            contrato.ClientId,
+            contrato.BudgetId,
+            razaoSocial,
+            contrato.Status.ToString(),
+            contrato.ValorTotal,
+            contrato.DiaVencimento,
+            contrato.DataInicio,
+            contrato.DataFim,
+            contrato.RenovacaoAutomatica,
+            contrato.ClausulasExtras,
+            !string.IsNullOrWhiteSpace(contrato.PdfPath));
     }
 }

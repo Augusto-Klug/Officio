@@ -9,6 +9,7 @@ public class ServicosDominioArquiteturaTestes
     [InlineData("Officio.Dominio.Servicos.Servicos.ProspectoServico")]
     [InlineData("Officio.Dominio.Servicos.Servicos.DocumentoServico")]
     [InlineData("Officio.Dominio.Servicos.Servicos.ContratoServico")]
+    [InlineData("Officio.Dominio.Servicos.Servicos.OrcamentoServico")]
     public void ServicosDominio_NaoDevemReceberDbContextNoConstrutor(string nomeTipoServico)
     {
         var tipoServico = typeof(InstalarDependencias).Assembly.GetType(nomeTipoServico);

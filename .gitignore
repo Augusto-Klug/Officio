@@ -352,6 +352,7 @@ ASALocalRun/
 
 # Agent execution artifacts
 src/.superpowers/
+src/docs/superpowers/**/*.md
 
 # BeatPulse healthcheck temp database
 healthchecksdb
