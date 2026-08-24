@@ -26,6 +26,45 @@ public class ContextoAplicacao(
     public DbSet<Assinatura> Signatures => Set<Assinatura>();
     public DbSet<ItemOrcamento> BudgetItems => Set<ItemOrcamento>();
     public DbSet<ItemCatalogoOrcamento> BudgetCatalogItems => Set<ItemCatalogoOrcamento>();
+    public DbSet<Municipio> Municipios => Set<Municipio>();
+    public DbSet<Endereco> Enderecos => Set<Endereco>();
+    public DbSet<Pessoa> Pessoas => Set<Pessoa>();
+    public DbSet<ProspectoPessoa> ProspectoPessoas => Set<ProspectoPessoa>();
+    public DbSet<FormularioAbertura> FormulariosAbertura => Set<FormularioAbertura>();
+    public DbSet<FormularioAberturaAtividade> FormularioAberturaAtividades => Set<FormularioAberturaAtividade>();
+    public DbSet<EmpresaPessoa> EmpresaPessoas => Set<EmpresaPessoa>();
+    public DbSet<StatusProspect> StatusProspects => Set<StatusProspect>();
+    public DbSet<TipoRelacao> TiposRelacao => Set<TipoRelacao>();
+    public DbSet<StatusFormulario> StatusFormularios => Set<StatusFormulario>();
+    public DbSet<StatusOrcamentoDominio> StatusOrcamentosDominio => Set<StatusOrcamentoDominio>();
+    public DbSet<SecaoOrcamento> SecoesOrcamento => Set<SecaoOrcamento>();
+    public DbSet<OrcamentoVersao> OrcamentoVersoes => Set<OrcamentoVersao>();
+    public DbSet<OrcamentoItem> OrcamentoItens => Set<OrcamentoItem>();
+    public DbSet<StatusContratoDominio> StatusContratosDominio => Set<StatusContratoDominio>();
+    public DbSet<ModeloContrato> ModelosContrato => Set<ModeloContrato>();
+    public DbSet<ContratoVersao> ContratoVersoes => Set<ContratoVersao>();
+    public DbSet<StatusAssinatura> StatusAssinaturas => Set<StatusAssinatura>();
+    public DbSet<AssinaturaSolicitacao> AssinaturaSolicitacoes => Set<AssinaturaSolicitacao>();
+    public DbSet<AssinaturaSignatario> AssinaturaSignatarios => Set<AssinaturaSignatario>();
+    public DbSet<AssinaturaEvento> AssinaturaEventos => Set<AssinaturaEvento>();
+    public DbSet<PerfilUsuario> PerfisUsuario => Set<PerfilUsuario>();
+    public DbSet<Permissao> Permissoes => Set<Permissao>();
+    public DbSet<PerfilPermissao> PerfilPermissoes => Set<PerfilPermissao>();
+    public DbSet<UsuarioEmpresa> UsuarioEmpresas => Set<UsuarioEmpresa>();
+    public DbSet<StatusCliente> StatusClientes => Set<StatusCliente>();
+    public DbSet<TipoDocumentoDominio> TiposDocumento => Set<TipoDocumentoDominio>();
+    public DbSet<StatusAdmissao> StatusAdmissoes => Set<StatusAdmissao>();
+    public DbSet<Admissao> Admissoes => Set<Admissao>();
+    public DbSet<ConfigDocumentoAdmissao> ConfigDocumentosAdmissao => Set<ConfigDocumentoAdmissao>();
+    public DbSet<AdmissaoDocumento> AdmissaoDocumentos => Set<AdmissaoDocumento>();
+    public DbSet<AdmissaoDependente> AdmissaoDependentes => Set<AdmissaoDependente>();
+    public DbSet<EmpresaFuncionario> EmpresaFuncionarios => Set<EmpresaFuncionario>();
+    public DbSet<OcrExecucao> OcrExecucoes => Set<OcrExecucao>();
+    public DbSet<OcrCampoExtraido> OcrCamposExtraidos => Set<OcrCampoExtraido>();
+    public DbSet<StatusValidacaoDocumento> StatusValidacoesDocumento => Set<StatusValidacaoDocumento>();
+    public DbSet<ValidacaoDivergencia> ValidacaoDivergencias => Set<ValidacaoDivergencia>();
+    public DbSet<StatusFaturamento> StatusFaturamentos => Set<StatusFaturamento>();
+    public DbSet<FaturamentoMensal> FaturamentosMensais => Set<FaturamentoMensal>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -38,6 +77,7 @@ public class ContextoAplicacao(
             .IsUnique();
 
         builder.ApplyConfigurationsFromAssembly(typeof(ContextoAplicacao).Assembly);
+        Mapeamentos.MapeamentoModelagemOfficio.Configurar(builder);
 
         foreach (var entityType in builder.Model.GetEntityTypes())
         {

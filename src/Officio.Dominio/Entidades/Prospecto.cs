@@ -6,6 +6,10 @@ namespace Officio.Dominio.Entidades;
 
 public class Prospecto : EntidadeAuditavel
 {
+    public Guid? EmpresaId { get; private set; }
+    public Guid? UsuarioResponsavelId { get; private set; }
+    public string TipoProspect { get; private set; } = "EMPRESA_EXISTENTE";
+    public Guid? StatusProspectId { get; private set; }
     public string RazaoSocial { get; private set; } = default!;
     public string? NomeFantasia { get; private set; }
     public string? Cnpj { get; private set; }
@@ -29,9 +33,19 @@ public class Prospecto : EntidadeAuditavel
     public string? Uf { get; private set; }
     public string? Origem { get; private set; }
     public string? Observacao { get; private set; }
+    public string? MotivoPerda { get; private set; }
+    public DateTime? DataReuniao { get; private set; }
+    public DateTime? DataUltimoContato { get; private set; }
+    public DateTime? DataEncerramento { get; private set; }
+    public DateTime? DataConversao { get; private set; }
     public Guid? ResponsavelId { get; private set; }
 
     // EF Core navigation
+    public Empresa? Empresa { get; private set; }
+    public Usuario? UsuarioResponsavel { get; private set; }
+    public StatusProspect? StatusProspect { get; private set; }
+    public FormularioAbertura? FormularioAbertura { get; private set; }
+    public ICollection<ProspectoPessoa> Pessoas { get; private set; } = [];
     public ICollection<Orcamento> Budgets { get; private set; } = [];
     public ICollection<Socio> Socios { get; private set; } = [];
 
@@ -49,7 +63,8 @@ public class Prospecto : EntidadeAuditavel
             RazaoSocial = razaoSocial,
             Cnpj = cnpj,
             RegimeTributario = regime,
-            Status = StatusProspecto.EmNegociacao
+            Status = StatusProspecto.EmNegociacao,
+            TipoProspect = string.IsNullOrWhiteSpace(cnpj) ? "NOVA_EMPRESA" : "EMPRESA_EXISTENTE"
         };
     }
 
@@ -61,12 +76,19 @@ public class Prospecto : EntidadeAuditavel
         Status = StatusProspecto.Convertido;
         ClientId = clientId;
         ConvertidoEm = DateTime.UtcNow;
+        DataConversao = ConvertidoEm;
 
         AddDomainEvent(new EventoProspectoConvertido(Id, clientId, TenantId));
     }
 
     public void UpdateStatus(StatusProspecto newStatus)
         => Status = newStatus;
+
+    public void VincularEmpresa(Guid empresaId)
+        => EmpresaId = empresaId;
+
+    public void DefinirStatusDominio(Guid statusProspectId)
+        => StatusProspectId = statusProspectId;
 }
 
 

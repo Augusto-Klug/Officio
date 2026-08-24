@@ -7,6 +7,10 @@ namespace Officio.Dominio.Entidades;
 public class Contrato : EntidadeAuditavel
 {
     public string Numero { get; private set; } = default!;
+    public Guid? EmpresaId { get; private set; }
+    public Guid? OrcamentoVersaoAceitaId { get; private set; }
+    public Guid? ModeloContratoId { get; private set; }
+    public Guid? StatusContratoId { get; private set; }
     public Guid? ClientId { get; private set; }
     public Guid ProspectId { get; private set; }
     public Guid? BudgetId { get; private set; }
@@ -23,9 +27,16 @@ public class Contrato : EntidadeAuditavel
 
     // Navigation
     public Prospecto Prospecto { get; private set; } = default!;
+    public Empresa? Empresa { get; private set; }
     public Cliente? Cliente { get; private set; }
     public Orcamento? Orcamento { get; private set; }
+    public OrcamentoVersao? OrcamentoVersaoAceita { get; private set; }
+    public ModeloContrato? ModeloContrato { get; private set; }
+    public StatusContratoDominio? StatusContratoDominio { get; private set; }
     public ICollection<Assinatura> Assinaturas { get; private set; } = [];
+    public ICollection<ContratoVersao> Versoes { get; private set; } = [];
+    public ICollection<AssinaturaSolicitacao> SolicitacoesAssinatura { get; private set; } = [];
+    public ICollection<FaturamentoMensal> FaturamentosMensais { get; private set; } = [];
 
     private Contrato() { }
 
@@ -62,6 +73,7 @@ public class Contrato : EntidadeAuditavel
         {
             TenantId = orcamento.TenantId,
             ProspectId = prospecto.Id,
+            EmpresaId = prospecto.EmpresaId,
             ClientId = null,
             BudgetId = orcamento.Id,
             ValorTotal = orcamento.ValorTotal,
@@ -87,7 +99,9 @@ public class Contrato : EntidadeAuditavel
     {
         Status = StatusContrato.Ativo;
         AssinadoEm = DateTime.UtcNow;
-        AddDomainEvent(new EventoContratoAssinado(Id, ClientId!.Value, TenantId));
+
+        if (ClientId.HasValue)
+            AddDomainEvent(new EventoContratoAssinado(Id, ClientId.Value, TenantId));
     }
 }
 
