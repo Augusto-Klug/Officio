@@ -6,6 +6,7 @@ namespace Officio.Dominio.Entidades;
 public class Orcamento : EntidadeAuditavel
 {
     private List<ItemOrcamento> _itens = [];
+    private readonly List<OrcamentoVersao> _versoes = [];
 
     public Guid ProspectId { get; private set; }
     public string? Titulo { get; private set; }
@@ -21,6 +22,7 @@ public class Orcamento : EntidadeAuditavel
     public string? MotivoRecusa { get; private set; }
     public Prospecto Prospecto { get; private set; } = default!;
     public IReadOnlyCollection<ItemOrcamento> Itens => _itens.AsReadOnly();
+    public IReadOnlyCollection<OrcamentoVersao> Versoes => _versoes.AsReadOnly();
 
     private Orcamento() { }
 
@@ -96,6 +98,9 @@ public class Orcamento : EntidadeAuditavel
         _itens.AddRange(itens);
         ValorTotal = _itens.Sum(item => item.ValorTotal);
     }
+
+    public void AdicionarVersao(OrcamentoVersao versao)
+        => _versoes.Add(versao);
 
     private void ValidarEdicaoPermitida()
     {

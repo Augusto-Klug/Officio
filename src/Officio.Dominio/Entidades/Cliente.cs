@@ -5,6 +5,8 @@ namespace Officio.Dominio.Entidades;
 
 public class Cliente : EntidadeAuditavel
 {
+    public Guid? EmpresaId { get; private set; }
+    public Guid? StatusClienteId { get; private set; }
     public string RazaoSocial { get; private set; } = default!;
     public string? NomeFantasia { get; private set; }
     public string? Cnpj { get; private set; }
@@ -23,8 +25,13 @@ public class Cliente : EntidadeAuditavel
     public string? Uf { get; private set; }
     public string? Observacoes { get; private set; }
     public Guid? ProspectOrigemId { get; private set; }
+    public DateTime? InicioRelacionamentoEm { get; private set; }
+    public DateTime? EncerradoEm { get; private set; }
 
     // Navigation
+    public Empresa Empresa { get; private set; } = default!;
+    public StatusCliente? StatusCliente { get; private set; }
+    public Prospecto? ProspectOrigem { get; private set; }
     public ICollection<Socio> Socios { get; private set; } = [];
     public ICollection<Contrato> Contratos { get; private set; } = [];
     public ICollection<Documento> Documentos { get; private set; } = [];
@@ -36,6 +43,7 @@ public class Cliente : EntidadeAuditavel
         return new Cliente
         {
             TenantId = prospect.TenantId,
+            EmpresaId = prospect.EmpresaId,
             RazaoSocial = prospect.RazaoSocial,
             NomeFantasia = prospect.NomeFantasia,
             Cnpj = prospect.Cnpj,
@@ -50,9 +58,21 @@ public class Cliente : EntidadeAuditavel
             Bairro = prospect.Bairro,
             Cidade = prospect.Cidade,
             Uf = prospect.Uf,
-            ProspectOrigemId = prospect.Id
+            ProspectOrigemId = prospect.Id,
+            InicioRelacionamentoEm = DateTime.UtcNow
         };
     }
+
+    public static Cliente CriarParaEmpresa(Guid tenantId, Guid empresaId, Guid? prospectOrigemId = null, Guid? statusClienteId = null)
+        => new()
+        {
+            TenantId = tenantId,
+            EmpresaId = empresaId,
+            ProspectOrigemId = prospectOrigemId,
+            StatusClienteId = statusClienteId,
+            RazaoSocial = string.Empty,
+            InicioRelacionamentoEm = DateTime.UtcNow
+        };
 
     public void AddSocio(Socio socio) => Socios.Add(socio);
 
