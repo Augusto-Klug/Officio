@@ -1,9 +1,11 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Officio.Dominio.Mediador.Comum.Comportamentos;
+using Officio.Dominio.Servicos.Modulos;
 
-namespace Microsoft.Extensions.DependencyInjection;
+namespace Officio.Dominio.Mediador.Modulos;
 
 public static class InstalarDependenciasMediador
 {

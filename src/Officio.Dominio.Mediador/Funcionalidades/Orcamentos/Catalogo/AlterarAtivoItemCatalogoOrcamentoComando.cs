@@ -1,5 +1,5 @@
 using MediatR;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
 

@@ -1,12 +1,13 @@
 using Azure.AI.FormRecognizer.DocumentAnalysis;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Officio.Dominio.Interfaces;
 using Officio.Infraestrutura.Identidade;
 using Officio.Infraestrutura.Servicos;
 using QuestPDF.Infrastructure;
 
-namespace Microsoft.Extensions.DependencyInjection;
+namespace Officio.Infraestrutura.Modulos;
 
 public static class InstalarDependenciasInfraestrutura
 {

@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace Officio.Dominio.Mediador.Comum.Comportamentos;

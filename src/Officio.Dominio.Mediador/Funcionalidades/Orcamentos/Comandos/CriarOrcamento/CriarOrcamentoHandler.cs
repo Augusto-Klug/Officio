@@ -1,7 +1,7 @@
 using MediatR;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Interfaces;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.CriarOrcamento;
 
@@ -24,6 +24,6 @@ public class CriarOrcamentoHandler(IOrcamentoServico orcamentoServico)
                 item.ValorUnitario,
                 item.Ordem)).ToList());
 
-        return (await orcamentoServico.CriarAsync(requisicao, ct)).ParaResultado();
+        return await orcamentoServico.CriarAsync(requisicao, ct);
     }
 }

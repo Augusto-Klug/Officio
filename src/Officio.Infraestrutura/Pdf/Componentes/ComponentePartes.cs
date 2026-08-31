@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -22,9 +22,9 @@ public class ComponentePartes(
                     "CONTRATADA",
                     Colors.Blue.Darken3,
                     [
-                        ("RazÃ£o Social", contratada.RazaoSocial),
+                        ("Razão Social", contratada.RazaoSocial),
                         ("CNPJ",         contratada.Cnpj),
-                        ("EndereÃ§o",     $"{contratada.Endereco}, {contratada.Cidade}/{contratada.Uf}"),
+                        ("Endereço",     $"{contratada.Endereco}, {contratada.Cidade}/{contratada.Uf}"),
                         ("E-mail",       contratada.Email),
                         ("Telefone",     contratada.Telefone),
                     ]));
@@ -35,11 +35,11 @@ public class ComponentePartes(
                     "CONTRATANTE",
                     Colors.Green.Darken3,
                     [
-                        ("RazÃ£o Social",       contratante.RazaoSocial),
+                        ("Razão Social",       contratante.RazaoSocial),
                         ("Nome Fantasia",      contratante.NomeFantasia),
                         ("CNPJ",              contratante.Cnpj),
-                        ("Regime TributÃ¡rio", contratante.RegimeTributario),
-                        ("EndereÃ§o",          $"{contratante.Endereco}, {contratante.Cidade}/{contratante.Uf}"),
+                        ("Regime Tributário", contratante.RegimeTributario),
+                        ("Endereço",          $"{contratante.Endereco}, {contratante.Cidade}/{contratante.Uf}"),
                         ("E-mail",            contratante.Email),
                     ]));
             });
@@ -47,7 +47,7 @@ public class ComponentePartes(
             if (socios.Count > 0)
             {
                 col.Item().PaddingTop(10)
-                   .Text("SÃ³cios e ResponsÃ¡veis").Bold().FontSize(9);
+                   .Text("Sócios e Responsáveis").Bold().FontSize(9);
 
                 col.Item().PaddingTop(4).Table(table =>
                 {
@@ -61,7 +61,7 @@ public class ComponentePartes(
 
                     table.Header(header =>
                     {
-                        foreach (var h in new[] { "Nome", "CPF", "ParticipaÃ§Ã£o", "Administrador" })
+                        foreach (var h in new[] { "Nome", "CPF", "Participação", "Administrador" })
                             header.Cell()
                                   .Background(Colors.Grey.Lighten3)
                                   .Padding(4)
@@ -76,7 +76,7 @@ public class ComponentePartes(
                         table.Cell().Background(bg).Padding(4).AlignCenter()
                              .Text($"{s.Participacao:F0}%").FontSize(9);
                         table.Cell().Background(bg).Padding(4).AlignCenter()
-                             .Text(s.Administrador ? "Sim" : "â€”").FontSize(9);
+                             .Text(s.Administrador ? "Sim" : "—").FontSize(9);
                     }
                 });
             }

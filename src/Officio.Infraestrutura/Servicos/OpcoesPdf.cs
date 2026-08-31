@@ -1,4 +1,4 @@
-﻿namespace Officio.Infraestrutura.Servicos;
+namespace Officio.Infraestrutura.Servicos;
 
 public class OpcoesPdf
 {

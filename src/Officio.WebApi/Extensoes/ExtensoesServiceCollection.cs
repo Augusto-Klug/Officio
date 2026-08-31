@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Officio.Dominio.Mediador.Modulos;
+using Officio.Infra.BancoDeDados.Modulos;
+using Officio.Infraestrutura.Modulos;
 using Officio.WebApi.Conversores;
 using System.Text;
 

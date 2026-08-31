@@ -1,4 +1,4 @@
-﻿using FluentValidation.Results;
+using FluentValidation.Results;
 
 namespace Officio.Dominio.Mediador.Comum.Excecoes;
 
@@ -6,7 +6,7 @@ public class ExcecaoValidacao : Exception
 {
     public IDictionary<string, string[]> Errors { get; }
 
-    public ExcecaoValidacao() : base("Uma ou mais falhas de validaÃ§Ã£o ocorreram.")
+    public ExcecaoValidacao() : base("Uma ou mais falhas de validação ocorreram.")
     {
         Errors = new Dictionary<string, string[]>();
     }

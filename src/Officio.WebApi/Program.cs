@@ -1,4 +1,4 @@
-﻿using Officio.WebApi.Extensoes;
+using Officio.WebApi.Extensoes;
 
 var builder = WebApplication.CreateBuilder(args);
 

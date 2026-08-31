@@ -9,6 +9,7 @@ using Officio.Dominio.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 using Officio.Infraestrutura.Identidade;
+using Officio.Testes.Dubles;
 
 namespace Officio.Testes.Unitarios.DominioServicos;
 

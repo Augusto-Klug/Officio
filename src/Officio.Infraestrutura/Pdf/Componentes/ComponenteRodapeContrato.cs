@@ -1,4 +1,4 @@
-﻿using QuestPDF.Fluent;
+using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
@@ -19,7 +19,7 @@ public class ComponenteRodapeContrato(string numero) : IComponent
                        t.Span(numero)
                         .Bold().FontSize(8)
                         .FontColor(Colors.Grey.Darken2);
-                       t.Span(" Â· Documento confidencial.")
+                       t.Span(" · Documento confidencial.")
                         .FontSize(8)
                         .FontColor(Colors.Grey.Lighten1);
                    });
@@ -28,7 +28,7 @@ public class ComponenteRodapeContrato(string numero) : IComponent
                    .AlignRight()
                    .Text(t =>
                    {
-                       t.Span("PÃ¡gina ").FontSize(8).FontColor(Colors.Grey.Darken1);
+                       t.Span("Página ").FontSize(8).FontColor(Colors.Grey.Darken1);
                        t.CurrentPageNumber().Bold().FontSize(8);
                        t.Span(" de ").FontSize(8).FontColor(Colors.Grey.Darken1);
                        t.TotalPages().Bold().FontSize(8);

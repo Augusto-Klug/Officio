@@ -1,4 +1,5 @@
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
@@ -11,13 +12,13 @@ public class OrcamentoServico(
     IProspectoRepositorio prospectoRepositorio,
     IEmpresaAtual empresaAtual) : IOrcamentoServico
 {
-    public async Task<ResultadoOperacao<Guid>> CriarAsync(CriarOrcamentoRequisicao requisicao, CancellationToken ct = default)
+    public async Task<Resultado<Guid>> CriarAsync(CriarOrcamentoRequisicao requisicao, CancellationToken ct = default)
     {
         if (!DiaVencimentoValido(requisicao.DiaVencimento))
-            return ResultadoOperacao<Guid>.CriarFalha("Dia de vencimento deve estar entre 1 e 31.");
+            return Resultado<Guid>.CriarFalha("Dia de vencimento deve estar entre 1 e 31.");
 
         if (await prospectoRepositorio.ObterComSociosAsync(requisicao.ProspectoId, ct) is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Prospecto nao encontrado.");
+            return Resultado<Guid>.CriarFalha("Prospecto nao encontrado.");
 
         var orcamento = Orcamento.Criar(
             empresaAtual.TenantId,
@@ -28,55 +29,55 @@ public class OrcamentoServico(
         var itens = await CriarItensParaNovoOrcamentoAsync(requisicao.Itens, orcamento.Id, ct);
 
         if (!itens.Sucesso)
-            return ResultadoOperacao<Guid>.CriarFalha(itens.Erro!);
+            return Resultado<Guid>.CriarFalha(itens.Erro!);
 
         orcamento.SubstituirItens(itens.Valor!);
         await repositorio.AdicionarAsync(orcamento, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<Guid>.CriarSucesso(orcamento.Id);
+        return Resultado<Guid>.CriarSucesso(orcamento.Id);
     }
 
-    public async Task<ResultadoOperacao<Guid>> AtualizarAsync(
+    public async Task<Resultado<Guid>> AtualizarAsync(
         AtualizarOrcamentoRequisicao requisicao,
         CancellationToken ct = default)
     {
         if (!DiaVencimentoValido(requisicao.DiaVencimento))
-            return ResultadoOperacao<Guid>.CriarFalha("Dia de vencimento deve estar entre 1 e 31.");
+            return Resultado<Guid>.CriarFalha("Dia de vencimento deve estar entre 1 e 31.");
 
         var orcamento = await repositorio.ObterPorIdComItensAsync(requisicao.OrcamentoId, ct);
         if (orcamento is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Orcamento nao encontrado.");
+            return Resultado<Guid>.CriarFalha("Orcamento nao encontrado.");
 
         if (orcamento.Status is not (StatusOrcamento.Rascunho or StatusOrcamento.EmRevisao))
-            return ResultadoOperacao<Guid>.CriarFalha("Orcamento nao pode ser editado no status atual.");
+            return Resultado<Guid>.CriarFalha("Orcamento nao pode ser editado no status atual.");
 
         var itens = await CriarItensParaAtualizacaoAsync(requisicao.Itens, orcamento.Id, ct);
         if (!itens.Sucesso)
-            return ResultadoOperacao<Guid>.CriarFalha(itens.Erro!);
+            return Resultado<Guid>.CriarFalha(itens.Erro!);
 
         orcamento.Atualizar(requisicao.Titulo, requisicao.DiaVencimento, requisicao.Observacoes);
         orcamento.SubstituirItens(itens.Valor!);
         await repositorio.AdicionarItensAsync(itens.Valor!, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<Guid>.CriarSucesso(orcamento.Id);
+        return Resultado<Guid>.CriarSucesso(orcamento.Id);
     }
 
-    public async Task<ResultadoOperacao<List<OrcamentoResultado>>> ObterPorProspectoAsync(
+    public async Task<Resultado<List<OrcamentoDto>>> ObterPorProspectoAsync(
         Guid prospectoId,
         CancellationToken ct = default)
     {
         if (await prospectoRepositorio.ObterComSociosAsync(prospectoId, ct) is null)
-            return ResultadoOperacao<List<OrcamentoResultado>>.CriarFalha("Prospecto nao encontrado.");
+            return Resultado<List<OrcamentoDto>>.CriarFalha("Prospecto nao encontrado.");
 
         var orcamentos = await repositorio.ObterPorProspectoAsync(prospectoId, ct);
         var resultados = orcamentos.Select(MapearOrcamento).ToList();
 
-        return ResultadoOperacao<List<OrcamentoResultado>>.CriarSucesso(resultados);
+        return Resultado<List<OrcamentoDto>>.CriarSucesso(resultados);
     }
 
-    public async Task<ResultadoOperacao<Guid>> CriarItemCatalogoAsync(
+    public async Task<Resultado<Guid>> CriarItemCatalogoAsync(
         CriarItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default)
     {
@@ -90,30 +91,30 @@ public class OrcamentoServico(
         await repositorio.AdicionarItemCatalogoAsync(item, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<Guid>.CriarSucesso(item.Id);
+        return Resultado<Guid>.CriarSucesso(item.Id);
     }
 
-    public async Task<ResultadoOperacao<Guid>> AtualizarItemCatalogoAsync(
+    public async Task<Resultado<Guid>> AtualizarItemCatalogoAsync(
         AtualizarItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default)
     {
         var item = await repositorio.ObterItemCatalogoAsync(requisicao.ItemId, ct);
         if (item is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Item de catalogo nao encontrado.");
+            return Resultado<Guid>.CriarFalha("Item de catalogo nao encontrado.");
 
         item.Atualizar(requisicao.Descricao, requisicao.Secao, requisicao.Tipo, requisicao.ValorReferencia);
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<Guid>.CriarSucesso(item.Id);
+        return Resultado<Guid>.CriarSucesso(item.Id);
     }
 
-    public async Task<ResultadoOperacao<Guid>> AlterarAtivoItemCatalogoAsync(
+    public async Task<Resultado<Guid>> AlterarAtivoItemCatalogoAsync(
         AlterarAtivoItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default)
     {
         var item = await repositorio.ObterItemCatalogoAsync(requisicao.ItemId, ct);
         if (item is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Item de catalogo nao encontrado.");
+            return Resultado<Guid>.CriarFalha("Item de catalogo nao encontrado.");
 
         if (requisicao.Ativo)
             item.Ativar();
@@ -122,15 +123,15 @@ public class OrcamentoServico(
 
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<Guid>.CriarSucesso(item.Id);
+        return Resultado<Guid>.CriarSucesso(item.Id);
     }
 
-    public async Task<ResultadoOperacao<List<CatalogoOrcamentoResultado>>> ListarCatalogoAsync(
+    public async Task<Resultado<List<CatalogoOrcamentoDto>>> ListarCatalogoAsync(
         CancellationToken ct = default)
     {
         var itens = await repositorio.ObterCatalogoAtivoAsync(ct);
         var catalogo = itens
-            .Select(item => new CatalogoOrcamentoResultado(
+            .Select(item => new CatalogoOrcamentoDto(
                 item.Id,
                 item.Descricao,
                 item.Secao.ToString(),
@@ -139,16 +140,16 @@ public class OrcamentoServico(
                 item.Ativo))
             .ToList();
 
-        return ResultadoOperacao<List<CatalogoOrcamentoResultado>>.CriarSucesso(catalogo);
+        return Resultado<List<CatalogoOrcamentoDto>>.CriarSucesso(catalogo);
     }
 
-    public async Task<ResultadoOperacao<bool>> AlterarStatusAsync(
+    public async Task<Resultado<bool>> AlterarStatusAsync(
         AlterarStatusOrcamentoRequisicao requisicao,
         CancellationToken ct = default)
     {
         var orcamento = await repositorio.ObterPorIdComItensAsync(requisicao.OrcamentoId, ct);
         if (orcamento is null)
-            return ResultadoOperacao<bool>.CriarFalha("Orcamento nao encontrado.");
+            return Resultado<bool>.CriarFalha("Orcamento nao encontrado.");
 
         try
         {
@@ -156,28 +157,28 @@ public class OrcamentoServico(
         }
         catch (InvalidOperationException exception)
         {
-            return ResultadoOperacao<bool>.CriarFalha(exception.Message);
+            return Resultado<bool>.CriarFalha(exception.Message);
         }
 
         if (requisicao.Status == StatusOrcamento.Enviado)
         {
             var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
             if (prospecto is null)
-                return ResultadoOperacao<bool>.CriarFalha("Prospecto nao encontrado.");
+                return Resultado<bool>.CriarFalha("Prospecto nao encontrado.");
 
             prospecto.UpdateStatus(StatusProspecto.PropostaEnviada);
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<bool>.CriarSucesso(true);
+        return Resultado<bool>.CriarSucesso(true);
     }
 
-    public async Task<ResultadoOperacao<bool>> AceitarAsync(Guid orcamentoId, CancellationToken ct = default)
+    public async Task<Resultado<bool>> AceitarAsync(Guid orcamentoId, CancellationToken ct = default)
     {
         var orcamento = await repositorio.ObterPorIdComItensAsync(orcamentoId, ct);
         if (orcamento is null)
-            return ResultadoOperacao<bool>.CriarFalha("Orcamento nao encontrado.");
+            return Resultado<bool>.CriarFalha("Orcamento nao encontrado.");
 
         try
         {
@@ -185,21 +186,21 @@ public class OrcamentoServico(
         }
         catch (InvalidOperationException exception)
         {
-            return ResultadoOperacao<bool>.CriarFalha(exception.Message);
+            return Resultado<bool>.CriarFalha(exception.Message);
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<bool>.CriarSucesso(true);
+        return Resultado<bool>.CriarSucesso(true);
     }
 
-    public async Task<ResultadoOperacao<bool>> RecusarAsync(
+    public async Task<Resultado<bool>> RecusarAsync(
         RecusarOrcamentoRequisicao requisicao,
         CancellationToken ct = default)
     {
         var orcamento = await repositorio.ObterPorIdComItensAsync(requisicao.OrcamentoId, ct);
         if (orcamento is null)
-            return ResultadoOperacao<bool>.CriarFalha("Orcamento nao encontrado.");
+            return Resultado<bool>.CriarFalha("Orcamento nao encontrado.");
 
         try
         {
@@ -207,12 +208,12 @@ public class OrcamentoServico(
         }
         catch (ArgumentException exception)
         {
-            return ResultadoOperacao<bool>.CriarFalha(exception.Message);
+            return Resultado<bool>.CriarFalha(exception.Message);
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<bool>.CriarSucesso(true);
+        return Resultado<bool>.CriarSucesso(true);
     }
 
     private async Task<ResultadoOperacao<List<ItemOrcamento>>> CriarItensParaNovoOrcamentoAsync(
@@ -331,7 +332,7 @@ public class OrcamentoServico(
     private static bool DiaVencimentoValido(int diaVencimento)
         => diaVencimento is >= 1 and <= 31;
 
-    private static OrcamentoResultado MapearOrcamento(Orcamento orcamento)
+    private static OrcamentoDto MapearOrcamento(Orcamento orcamento)
         => new(
             orcamento.Id,
             orcamento.ProspectId,
@@ -342,7 +343,7 @@ public class OrcamentoServico(
             orcamento.Observacoes,
             orcamento.MotivoRecusa,
             orcamento.Itens
-                .Select(item => new ItemOrcamentoResultado(
+                .Select(item => new ItemOrcamentoDto(
                     item.Id,
                     item.ItemCatalogoOrcamentoId,
                     item.Descricao,

@@ -1,7 +1,7 @@
 using MediatR;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Interfaces;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
 
@@ -12,6 +12,6 @@ public class AlterarAtivoItemCatalogoOrcamentoHandler(IOrcamentoServico orcament
     {
         var requisicao = new AlterarAtivoItemCatalogoOrcamentoRequisicao(request.ItemId, request.Ativo);
 
-        return (await orcamentoServico.AlterarAtivoItemCatalogoAsync(requisicao, ct)).ParaResultado();
+        return await orcamentoServico.AlterarAtivoItemCatalogoAsync(requisicao, ct);
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Officio.Dominio.Mediador.Comum.Excecoes;
+namespace Officio.Dominio.Mediador.Comum.Excecoes;
 
 public class ExcecaoNegocio : Exception
 {

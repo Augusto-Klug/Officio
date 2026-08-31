@@ -1,7 +1,7 @@
 using MediatR;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Interfaces;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
 
@@ -17,6 +17,6 @@ public class AtualizarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoSe
             request.Tipo,
             request.ValorReferencia);
 
-        return (await orcamentoServico.AtualizarItemCatalogoAsync(requisicao, ct)).ParaResultado();
+        return await orcamentoServico.AtualizarItemCatalogoAsync(requisicao, ct);
     }
 }

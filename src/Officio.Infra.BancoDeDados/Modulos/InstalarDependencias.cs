@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Officio.Dominio.Interfaces;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 
-namespace Microsoft.Extensions.DependencyInjection;
+namespace Officio.Infra.BancoDeDados.Modulos;
 
 public static class InstalarDependenciasBancoDeDados
 {
@@ -24,6 +25,7 @@ public static class InstalarDependenciasBancoDeDados
         servicos.AddScoped<IContratoRepositorio, ContratoRepositorio>();
         servicos.AddScoped<IEmpresaRepositorio, EmpresaRepositorio>();
         servicos.AddScoped<IOrcamentoRepositorio, OrcamentoRepositorio>();
+        servicos.AddScoped<IClienteRepositorio, ClienteRepositorio>();
 
         return servicos;
     }

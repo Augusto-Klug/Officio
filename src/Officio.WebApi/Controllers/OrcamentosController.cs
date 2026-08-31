@@ -14,7 +14,7 @@ namespace Officio.WebApi.Controllers;
 [ApiController]
 [Route("api/v1/orcamentos/[action]")]
 [Authorize]
-public class OrcamentosControlador(IMediator mediator) : ControllerBase
+public class OrcamentosController(IMediator mediator) : ControllerBase
 {
     [HttpGet("{prospectoId:guid}")]
     public async Task<IActionResult> PorProspecto(Guid prospectoId, CancellationToken cancellationToken)

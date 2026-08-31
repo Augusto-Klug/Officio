@@ -11,7 +11,7 @@ namespace Officio.WebApi.Controllers;
 [ApiController]
 [Route("api/v1/prospectos/[action]")]
 [Authorize]
-public class ProspectosControlador(
+public class ProspectosController(
     IMediator mediator,
     IProspectoViewModelConversor prospectoViewModelConversor) : ControllerBase
 {

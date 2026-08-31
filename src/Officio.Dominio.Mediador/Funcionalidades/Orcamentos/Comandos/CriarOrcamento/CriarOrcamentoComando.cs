@@ -1,6 +1,6 @@
 using MediatR;
 using Officio.Dominio.Enumeradores;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.CriarOrcamento;
 

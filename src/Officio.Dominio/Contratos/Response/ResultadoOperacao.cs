@@ -1,4 +1,4 @@
-﻿namespace Officio.Dominio.Contratos.Response;
+namespace Officio.Dominio.Contratos.Response;
 
 public class ResultadoOperacao<T>
 {

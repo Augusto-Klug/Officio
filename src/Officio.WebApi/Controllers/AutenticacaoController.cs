@@ -6,7 +6,7 @@ namespace Officio.WebApi.Controllers;
 
 [ApiController]
 [Route("api/v1/autenticacao/[action]")]
-public class AutenticacaoControlador(IAutenticacaoServico autenticacaoServico) : ControllerBase
+public class AutenticacaoController(IAutenticacaoServico autenticacaoServico) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Login(

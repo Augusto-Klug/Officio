@@ -1,5 +1,5 @@
-﻿using MediatR;
-using Officio.Dominio.Mediador.Comum;
+using MediatR;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.ConverterParaCliente;
 

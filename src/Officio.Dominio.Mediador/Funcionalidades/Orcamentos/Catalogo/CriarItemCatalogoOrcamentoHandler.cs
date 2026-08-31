@@ -1,7 +1,7 @@
 using MediatR;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Interfaces;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
 
@@ -16,6 +16,6 @@ public class CriarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServic
             request.Tipo,
             request.ValorReferencia);
 
-        return (await orcamentoServico.CriarItemCatalogoAsync(requisicao, ct)).ParaResultado();
+        return await orcamentoServico.CriarItemCatalogoAsync(requisicao, ct);
     }
 }

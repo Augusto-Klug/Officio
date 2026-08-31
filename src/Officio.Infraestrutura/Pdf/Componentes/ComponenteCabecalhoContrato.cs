@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -39,7 +39,7 @@ public class ComponenteCabecalhoContrato(
 
                        if (!string.IsNullOrWhiteSpace(contratada.Endereco))
                            col.Item()
-                              .Text($"{contratada.Endereco} â€” {contratada.Cidade}/{contratada.Uf}")
+                              .Text($"{contratada.Endereco} — {contratada.Cidade}/{contratada.Uf}")
                               .FontSize(9).FontColor(Colors.Grey.Darken2);
                    });
 

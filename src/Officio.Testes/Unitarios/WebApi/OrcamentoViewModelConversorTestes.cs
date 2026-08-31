@@ -72,7 +72,7 @@ public class OrcamentoViewModelConversorTestes
     [Fact]
     public async Task AlterarStatus_QuandoStatusInvalido_RetornaBadRequest()
     {
-        var controlador = new OrcamentosControlador(null!);
+        var controlador = new OrcamentosController(null!);
         var viewModel = new AlterarStatusOrcamentoViewModel();
 
         var resultado = await controlador.AlterarStatus(Guid.NewGuid(), viewModel, CancellationToken.None);
@@ -84,7 +84,7 @@ public class OrcamentoViewModelConversorTestes
     [Fact]
     public async Task CriarItemCatalogo_QuandoSecaoInvalida_RetornaBadRequest()
     {
-        var controlador = new OrcamentosControlador(null!);
+        var controlador = new OrcamentosController(null!);
         var viewModel = new CriarItemCatalogoOrcamentoViewModel
         {
             Descricao = "Servico",
@@ -100,7 +100,7 @@ public class OrcamentoViewModelConversorTestes
     [Fact]
     public async Task CriarItemCatalogo_QuandoTipoInvalido_RetornaBadRequest()
     {
-        var controlador = new OrcamentosControlador(null!);
+        var controlador = new OrcamentosController(null!);
         var viewModel = new CriarItemCatalogoOrcamentoViewModel
         {
             Descricao = "Servico",
@@ -116,7 +116,7 @@ public class OrcamentoViewModelConversorTestes
     [Fact]
     public void Catalogo_ExpoeRotaGetContratada()
     {
-        var metodo = typeof(OrcamentosControlador).GetMethod("Catalogo");
+        var metodo = typeof(OrcamentosController).GetMethod("Catalogo");
 
         Assert.NotNull(metodo);
         Assert.NotNull(metodo.GetCustomAttribute<HttpGetAttribute>());
@@ -127,7 +127,7 @@ public class OrcamentoViewModelConversorTestes
     [InlineData("DesativarItemCatalogo")]
     public void AlterarAtivoItemCatalogo_ExpoeRotaPatchContratada(string nomeMetodo)
     {
-        var metodo = typeof(OrcamentosControlador).GetMethod(nomeMetodo);
+        var metodo = typeof(OrcamentosController).GetMethod(nomeMetodo);
 
         Assert.NotNull(metodo);
         Assert.Equal("{id:guid}", metodo.GetCustomAttribute<HttpPatchAttribute>()?.Template);

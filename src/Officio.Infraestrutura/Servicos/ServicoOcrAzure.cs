@@ -1,4 +1,4 @@
-﻿using Azure;
+using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Enumeradores;
@@ -50,7 +50,7 @@ public class ServicoOcrAzure(
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao processar OCR para {TipoDocumento}", type);
-            return ResultadoOcr.CriarFalha("ServiÃ§o de OCR indisponÃ­vel.");
+            return ResultadoOcr.CriarFalha("Serviço de OCR indisponível.");
         }
     }
 }

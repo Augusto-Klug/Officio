@@ -3,6 +3,7 @@ using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
@@ -10,7 +11,7 @@ internal class ProspectoServico(
     IProspectoRepositorio prospectoRepositorio,
     IEmpresaAtual empresaAtual) : IProspectoServico
 {
-    public async Task<ResultadoOperacao<ProspectoCriadoResultado>> CriarAsync(
+    public async Task<Resultado<ProspectoCriadoDto>> CriarAsync(
         CriarProspectoRequisicao requisicao,
         CancellationToken ct = default)
     {
@@ -19,7 +20,7 @@ internal class ProspectoServico(
             var existe = await prospectoRepositorio.ExisteComCnpjAsync(requisicao.Cnpj, ct);
 
             if (existe)
-                return ResultadoOperacao<ProspectoCriadoResultado>.CriarFalha(
+                return Resultado<ProspectoCriadoDto>.CriarFalha(
                     "JÃ¡ existe um prospecto ou cliente com este CNPJ.");
         }
 
@@ -48,21 +49,21 @@ internal class ProspectoServico(
 
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<ProspectoCriadoResultado>.CriarSucesso(
-            new ProspectoCriadoResultado(prospecto.Id, prospecto.RazaoSocial));
+        return Resultado<ProspectoCriadoDto>.CriarSucesso(
+            new ProspectoCriadoDto(prospecto.Id, prospecto.RazaoSocial));
     }
 
-    public async Task<ResultadoOperacao<Guid>> ConverterParaClienteAsync(
+    public async Task<Resultado<Guid>> ConverterParaClienteAsync(
         Guid prospectoId,
         CancellationToken ct = default)
     {
         var prospecto = await prospectoRepositorio.ObterComSociosAsync(prospectoId, ct);
 
         if (prospecto is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Prospecto nÃ£o encontrado.");
+            return Resultado<Guid>.CriarFalha("Prospecto nÃ£o encontrado.");
 
         if (prospecto.Status == StatusProspecto.Convertido)
-            return ResultadoOperacao<Guid>.CriarFalha("Prospecto jÃ¡ foi convertido.");
+            return Resultado<Guid>.CriarFalha("Prospecto jÃ¡ foi convertido.");
 
         var cliente = Cliente.CreateFromProspect(prospecto);
         await prospectoRepositorio.AdicionarAsync(cliente, ct);
@@ -74,10 +75,10 @@ internal class ProspectoServico(
 
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<Guid>.CriarSucesso(cliente.Id);
+        return Resultado<Guid>.CriarSucesso(cliente.Id);
     }
 
-    public async Task<ResultadoOperacao<ResultadoPaginado<ProspectoResumo>>> ObterAsync(
+    public async Task<Resultado<PagedResult<ProspectoDto>>> ObterAsync(
         ObterProspectosFiltro filtro,
         CancellationToken ct = default)
     {
@@ -105,9 +106,17 @@ internal class ProspectoServico(
             filtro.Pagina,
             filtro.TamanhoPagina);
 
-        return ResultadoOperacao<ResultadoPaginado<ProspectoResumo>>.CriarSucesso(
-            new ResultadoPaginado<ProspectoResumo>(
-                dados,
+        return Resultado<PagedResult<ProspectoDto>>.CriarSucesso(
+            new PagedResult<ProspectoDto>(
+                dados
+                    .Select(p => new ProspectoDto(
+                        p.Id,
+                        p.RazaoSocial,
+                        p.Cnpj,
+                        p.Status,
+                        p.ResponsavelNome,
+                        p.CriadoEm))
+                    .ToList(),
                 totalRegistros,
                 filtro.Pagina,
                 filtro.TamanhoPagina,

@@ -1,12 +1,12 @@
 using MediatR;
 using Officio.Dominio.Interfaces;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcamento;
 
 public class AceitarOrcamentoHandler(IOrcamentoServico orcamentoServico)
-    : IRequestHandler<AceitarOrcamentoComando, Resultado<Unit>>
+    : IRequestHandler<AceitarOrcamentoComando, Resultado<bool>>
 {
-    public async Task<Resultado<Unit>> Handle(AceitarOrcamentoComando request, CancellationToken ct)
-        => (await orcamentoServico.AceitarAsync(request.OrcamentoId, ct)).ParaUnit();
+    public async Task<Resultado<bool>> Handle(AceitarOrcamentoComando request, CancellationToken ct)
+        => await orcamentoServico.AceitarAsync(request.OrcamentoId, ct);
 }

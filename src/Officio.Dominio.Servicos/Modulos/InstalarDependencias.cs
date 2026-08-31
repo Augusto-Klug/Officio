@@ -1,9 +1,10 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Servicos.Servicos;
 
-namespace Microsoft.Extensions.DependencyInjection;
+namespace Officio.Dominio.Servicos.Modulos;
 
 public static class InstalarDependenciasServicos
 {

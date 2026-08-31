@@ -1,4 +1,4 @@
-﻿namespace Officio.Dominio.Comum;
+namespace Officio.Dominio.Comum;
 
 public abstract class EntidadeBase
 {

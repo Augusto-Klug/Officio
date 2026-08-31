@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -35,7 +35,7 @@ public class ServicoD4Sign(
             var uploadResult = await uploadResponse.Content
                 .ReadFromJsonAsync<RespostaUploadD4Sign>(ct);
 
-            // 2. Adiciona signatÃ¡rios
+            // 2. Adiciona signatários
             foreach (var signer in request.Assinantes)
             {
                 var signerPayload = new
@@ -63,9 +63,9 @@ public class ServicoD4Sign(
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "D4Sign indisponÃ­vel. Ativando fallback manual.");
+            logger.LogWarning(ex, "D4Sign indisponível. Ativando fallback manual.");
             return ResultadoAssinatura.CriarFalha(
-                "Assinatura digital temporariamente indisponÃ­vel. " +
+                "Assinatura digital temporariamente indisponível. " +
                 "O contrato foi gerado em PDF para assinatura manual.");
         }
     }

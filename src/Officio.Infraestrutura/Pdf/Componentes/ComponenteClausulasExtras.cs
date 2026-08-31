@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -11,7 +11,7 @@ public class ComponenteClausulasExtras(string clausulas) : IComponent
     {
         container.Column(col =>
         {
-            col.Item().Element(SectionTitle("6. CLÃUSULAS ADICIONAIS"));
+            col.Item().Element(SectionTitle("6. CLÁUSULAS ADICIONAIS"));
 
             col.Item().PaddingTop(6)
                .Text(t =>

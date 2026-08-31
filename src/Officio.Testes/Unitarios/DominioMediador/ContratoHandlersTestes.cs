@@ -1,7 +1,7 @@
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
-using Officio.Dominio.Mediador.Comum;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
@@ -14,7 +14,7 @@ public class ContratoHandlersTestes
     public async Task ConverterOrcamentoParaContrato_ChamaServicoERetornaId()
     {
         var contratoId = Guid.NewGuid();
-        var servico = new ContratoServicoFake(ResultadoOperacao<Guid>.CriarSucesso(contratoId));
+        var servico = new ContratoServicoFake(Resultado<Guid>.CriarSucesso(contratoId));
         var handler = new ConverterOrcamentoParaContratoHandler(servico);
 
         var resultado = await handler.Handle(new ConverterOrcamentoParaContratoComando(
@@ -31,9 +31,9 @@ public class ContratoHandlersTestes
     [Fact]
     public async Task ListarContratos_MapeiaResultadoParaDto()
     {
-        var contrato = CriarContratoResultado();
+        var contrato = CriarContratoDto();
         var handler = new ListarContratosHandler(
-            new ContratoServicoFake(ResultadoOperacao<List<ContratoResultado>>.CriarSucesso([contrato])));
+            new ContratoServicoFake(Resultado<List<ContratoDto>>.CriarSucesso([contrato])));
 
         var resultado = await handler.Handle(new ListarContratosConsulta(), CancellationToken.None);
 
@@ -46,9 +46,9 @@ public class ContratoHandlersTestes
     [Fact]
     public async Task ObterContratoPorId_MapeiaResultadoParaDto()
     {
-        var contrato = CriarContratoResultado();
+        var contrato = CriarContratoDto();
         var handler = new ObterContratoPorIdHandler(
-            new ContratoServicoFake(ResultadoOperacao<ContratoResultado>.CriarSucesso(contrato)));
+            new ContratoServicoFake(Resultado<ContratoDto>.CriarSucesso(contrato)));
 
         var resultado = await handler.Handle(
             new ObterContratoPorIdConsulta(contrato.Id), CancellationToken.None);
@@ -58,7 +58,7 @@ public class ContratoHandlersTestes
         Assert.Equal(contrato.ValorTotal, resultado.Valor.ValorTotal);
     }
 
-    private static ContratoResultado CriarContratoResultado()
+    private static ContratoDto CriarContratoDto()
         => new(
             Guid.NewGuid(),
             "CTR-2026-0001",
@@ -77,30 +77,30 @@ public class ContratoHandlersTestes
 
     private sealed class ContratoServicoFake : IContratoServico
     {
-        private readonly ResultadoOperacao<Guid>? conversao;
-        private readonly ResultadoOperacao<List<ContratoResultado>>? listagem;
-        private readonly ResultadoOperacao<ContratoResultado>? detalhe;
+        private readonly Resultado<Guid>? conversao;
+        private readonly Resultado<List<ContratoDto>>? listagem;
+        private readonly Resultado<ContratoDto>? detalhe;
 
-        public ContratoServicoFake(ResultadoOperacao<Guid> resultado) => conversao = resultado;
-        public ContratoServicoFake(ResultadoOperacao<List<ContratoResultado>> resultado) => listagem = resultado;
-        public ContratoServicoFake(ResultadoOperacao<ContratoResultado> resultado) => detalhe = resultado;
+        public ContratoServicoFake(Resultado<Guid> resultado) => conversao = resultado;
+        public ContratoServicoFake(Resultado<List<ContratoDto>> resultado) => listagem = resultado;
+        public ContratoServicoFake(Resultado<ContratoDto> resultado) => detalhe = resultado;
 
-        public Task<ResultadoOperacao<Guid>> ConverterOrcamentoAsync(
+        public Task<Resultado<Guid>> ConverterOrcamentoAsync(
             ConverterOrcamentoContratoRequisicao requisicao, CancellationToken ct = default)
             => Task.FromResult(conversao ?? throw new NotImplementedException());
 
-        public Task<ResultadoOperacao<List<ContratoResultado>>> ListarAsync(CancellationToken ct = default)
+        public Task<Resultado<List<ContratoDto>>> ListarAsync(CancellationToken ct = default)
             => Task.FromResult(listagem ?? throw new NotImplementedException());
 
-        public Task<ResultadoOperacao<ContratoResultado>> ObterPorIdAsync(
+        public Task<Resultado<ContratoDto>> ObterPorIdAsync(
             Guid contratoId, CancellationToken ct = default)
             => Task.FromResult(detalhe ?? throw new NotImplementedException());
 
-        public Task<ResultadoOperacao<PdfContratoResultado>> GerarPdfAsync(
+        public Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(
             Guid contratoId, CancellationToken ct = default)
             => throw new NotImplementedException();
 
-        public Task<ResultadoOperacao<EnvioAssinaturaResultado>> EnviarParaAssinaturaAsync(
+        public Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
             EnviarAssinaturaRequisicao requisicao, CancellationToken ct = default)
             => throw new NotImplementedException();
     }

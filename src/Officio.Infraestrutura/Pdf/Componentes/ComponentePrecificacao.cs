@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -11,7 +11,7 @@ public class ComponentePrecificacao(DadosPdfContrato data) : IComponent
     {
         container.Column(col =>
         {
-            col.Item().Element(SectionTitle("3. DA REMUNERAÃ‡ÃƒO"));
+            col.Item().Element(SectionTitle("3. DA REMUNERAÇÃO"));
 
             col.Item().PaddingTop(8).Table(table =>
             {
@@ -25,7 +25,7 @@ public class ComponentePrecificacao(DadosPdfContrato data) : IComponent
 
                 table.Header(header =>
                 {
-                    foreach (var h in new[] { "DescriÃ§Ã£o", "Qtd.", "Valor Unit.", "Total" })
+                    foreach (var h in new[] { "Descrição", "Qtd.", "Valor Unit.", "Total" })
                         header.Cell()
                               .Background("#1e3a5f")
                               .Padding(6)
@@ -33,16 +33,16 @@ public class ComponentePrecificacao(DadosPdfContrato data) : IComponent
                               .Text(h).Bold().FontSize(9).FontColor(Colors.White);
                 });
 
-                AddRow(table, "HonorÃ¡rios Mensais (base)", 1,
+                AddRow(table, "Honorários Mensais (base)", 1,
                     data.ValorMensalidade, data.ValorMensalidade, 0);
 
                 if (data.ValorPorFuncionario > 0 && data.QtdFuncionarios > 0)
-                    AddRow(table, "Taxa por FuncionÃ¡rio", data.QtdFuncionarios,
+                    AddRow(table, "Taxa por Funcionário", data.QtdFuncionarios,
                         data.ValorPorFuncionario,
                         data.ValorPorFuncionario * data.QtdFuncionarios, 1);
 
                 if (data.ValorTaxasExtras > 0)
-                    AddRow(table, "Taxas e ServiÃ§os Adicionais", 1,
+                    AddRow(table, "Taxas e Serviços Adicionais", 1,
                         data.ValorTaxasExtras, data.ValorTaxasExtras, 2);
 
                 if (data.Desconto > 0)
@@ -71,7 +71,7 @@ public class ComponentePrecificacao(DadosPdfContrato data) : IComponent
                .Text(t =>
                {
                    t.Span("Vencimento:").Bold().FontSize(9);
-                   t.Span($" Todo dia {data.DiaVencimento} de cada mÃªs.").FontSize(9);
+                   t.Span($" Todo dia {data.DiaVencimento} de cada mês.").FontSize(9);
                });
         });
     }

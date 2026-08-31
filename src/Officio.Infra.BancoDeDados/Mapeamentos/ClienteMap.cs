@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Entidades;
+using Officio.Dominio.Entidades;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
