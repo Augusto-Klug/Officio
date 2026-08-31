@@ -3,7 +3,6 @@ namespace Officio.Dominio.Interfaces;
 public interface IServicoAssinatura
 {
     Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default);
-    Task<ResultadoStatusAssinatura> ObterStatusAsync(string envelopeId, CancellationToken ct = default);
 }
 
 public record SolicitacaoAssinatura(
@@ -29,8 +28,6 @@ public record ResultadoAssinatura
 }
 
 public record LinkAssinante(string Email, string Link);
-
-public record ResultadoStatusAssinatura(string Status, DateTime? AssinadoEm);
 
 
 

@@ -25,11 +25,11 @@ public class IntermediarioEmpresaTestes
     }
 
     [Fact]
-    public async Task InvokeAsync_WebhookD4SignPassaSemTenant()
+    public async Task InvokeAsync_WebhookAutentiquePassaSemTenant()
     {
         var chamado = false;
         var contexto = new DefaultHttpContext();
-        contexto.Request.Path = "/api/v1/contratos/webhook/d4sign";
+        contexto.Request.Path = "/api/v1/contratos/webhook/autentique";
         var intermediario = new IntermediarioEmpresa(_ =>
         {
             chamado = true;

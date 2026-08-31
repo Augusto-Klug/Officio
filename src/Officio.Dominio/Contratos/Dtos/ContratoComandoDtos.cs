@@ -9,7 +9,7 @@ public record SignatarioDto(string Nome, string Email, string? Cpf, string Tipo)
 
 public record SendForSignatureResultDto(
     string Metodo,
-    string? DsignEnvelopeId,
+    string? AssinaturaExternaId,
     List<LinkAssinante>? Signatarios,
     string? Message,
     string? PdfUrl);

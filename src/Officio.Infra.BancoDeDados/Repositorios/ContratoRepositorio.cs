@@ -45,6 +45,61 @@ internal class ContratoRepositorio(
             .Include(c => c.Cliente)
             .FirstOrDefaultAsync(c => c.Id == contratoId, cancellationToken);
 
+    public Task<AssinaturaSolicitacao?> ObterSolicitacaoAssinaturaPorIdExternoAsync(
+        string provedor,
+        string idExterno,
+        CancellationToken cancellationToken = default)
+        => Contexto.AssinaturaSolicitacoes
+            .Include(solicitacao => solicitacao.Contrato)
+            .Include(solicitacao => solicitacao.Signatarios)
+            .Include(solicitacao => solicitacao.Eventos)
+            .FirstOrDefaultAsync(
+                solicitacao => solicitacao.Provedor == provedor && solicitacao.IdExterno == idExterno,
+                cancellationToken);
+
+    public async Task<StatusAssinatura> ObterOuCriarStatusAssinaturaAsync(
+        string codigo,
+        string descricao,
+        int ordem,
+        CancellationToken cancellationToken = default)
+    {
+        var statusLocal = Contexto.StatusAssinaturas.Local
+            .FirstOrDefault(item => item.Codigo == codigo);
+        if (statusLocal is not null)
+            return statusLocal;
+
+        var status = await Contexto.StatusAssinaturas
+            .FirstOrDefaultAsync(item => item.Codigo == codigo, cancellationToken);
+
+        if (status is not null)
+            return status;
+
+        status = new StatusAssinatura(codigo, descricao, ordem);
+        await Contexto.StatusAssinaturas.AddAsync(status, cancellationToken);
+        return status;
+    }
+
+    public Task AdicionarSolicitacaoAssinaturaAsync(
+        AssinaturaSolicitacao solicitacao,
+        CancellationToken cancellationToken = default)
+        => AdicionarAsync<AssinaturaSolicitacao>(solicitacao, cancellationToken);
+
+    public Task<bool> ExisteEventoAssinaturaAsync(
+        Guid assinaturaSolicitacaoId,
+        string tipoEvento,
+        string? payload,
+        CancellationToken cancellationToken = default)
+        => Contexto.AssinaturaEventos.AnyAsync(
+            evento => evento.AssinaturaSolicitacaoId == assinaturaSolicitacaoId
+                      && evento.TipoEvento == tipoEvento
+                      && evento.Payload == payload,
+            cancellationToken);
+
+    public Task AdicionarEventoAssinaturaAsync(
+        AssinaturaEvento evento,
+        CancellationToken cancellationToken = default)
+        => AdicionarAsync<AssinaturaEvento>(evento, cancellationToken);
+
     public async Task AdicionarAssinaturaAsync(Assinatura assinatura, CancellationToken cancellationToken = default)
         => await AdicionarAsync<Assinatura>(assinatura, cancellationToken);
 }
