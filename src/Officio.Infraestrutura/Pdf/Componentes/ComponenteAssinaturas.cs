@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Officio.Dominio.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -30,7 +30,7 @@ public class ComponenteAssinaturas(
 
                 row.RelativeItem().Element(SignatureBlock(
                     "CONTRATADA",
-                    "Contador ResponsÃ¡vel",
+                    "Contador Responsável",
                     "CRC: _______________"));
 
                 row.ConstantItem(30);
@@ -49,9 +49,9 @@ public class ComponenteAssinaturas(
 
             col.Item().PaddingTop(8).Row(row =>
             {
-                row.RelativeItem().Element(WitnessBlock("1Âª Testemunha"));
+                row.RelativeItem().Element(WitnessBlock("1ª Testemunha"));
                 row.ConstantItem(30);
-                row.RelativeItem().Element(WitnessBlock("2Âª Testemunha"));
+                row.RelativeItem().Element(WitnessBlock("2ª Testemunha"));
             });
         });
     }

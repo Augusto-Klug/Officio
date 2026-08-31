@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Mediador.Comum.Excecoes;
+using Officio.Dominio.Mediador.Comum.Excecoes;
 using System.Net;
 
 namespace Officio.WebApi.Intermediarios;
@@ -29,7 +29,7 @@ public class IntermediarioExcecao(RequestDelegate next, ILogger<IntermediarioExc
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Erro nÃ£o tratado");
+            logger.LogError(ex, "Erro não tratado");
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             await context.Response.WriteAsJsonAsync(new { error = "Erro interno do servidor." });
         }

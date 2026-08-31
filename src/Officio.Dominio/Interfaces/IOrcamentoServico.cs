@@ -1,37 +1,38 @@
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Interfaces;
 
 public interface IOrcamentoServico
 {
-    Task<ResultadoOperacao<Guid>> CriarAsync(CriarOrcamentoRequisicao requisicao, CancellationToken ct = default);
+    Task<Resultado<Guid>> CriarAsync(CriarOrcamentoRequisicao requisicao, CancellationToken ct = default);
 
-    Task<ResultadoOperacao<Guid>> AtualizarAsync(AtualizarOrcamentoRequisicao requisicao, CancellationToken ct = default);
+    Task<Resultado<Guid>> AtualizarAsync(AtualizarOrcamentoRequisicao requisicao, CancellationToken ct = default);
 
-    Task<ResultadoOperacao<List<OrcamentoResultado>>> ObterPorProspectoAsync(
+    Task<Resultado<List<OrcamentoDto>>> ObterPorProspectoAsync(
         Guid prospectoId,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<Guid>> CriarItemCatalogoAsync(
+    Task<Resultado<Guid>> CriarItemCatalogoAsync(
         CriarItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<Guid>> AtualizarItemCatalogoAsync(
+    Task<Resultado<Guid>> AtualizarItemCatalogoAsync(
         AtualizarItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<Guid>> AlterarAtivoItemCatalogoAsync(
+    Task<Resultado<Guid>> AlterarAtivoItemCatalogoAsync(
         AlterarAtivoItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<List<CatalogoOrcamentoResultado>>> ListarCatalogoAsync(CancellationToken ct = default);
+    Task<Resultado<List<CatalogoOrcamentoDto>>> ListarCatalogoAsync(CancellationToken ct = default);
 
-    Task<ResultadoOperacao<bool>> AlterarStatusAsync(
+    Task<Resultado<bool>> AlterarStatusAsync(
         AlterarStatusOrcamentoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<bool>> AceitarAsync(Guid orcamentoId, CancellationToken ct = default);
+    Task<Resultado<bool>> AceitarAsync(Guid orcamentoId, CancellationToken ct = default);
 
-    Task<ResultadoOperacao<bool>> RecusarAsync(RecusarOrcamentoRequisicao requisicao, CancellationToken ct = default);
+    Task<Resultado<bool>> RecusarAsync(RecusarOrcamentoRequisicao requisicao, CancellationToken ct = default);
 }

@@ -1,4 +1,4 @@
-namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
+namespace Officio.Dominio.Contratos.Dtos;
 
 public record OrcamentoDto(
     Guid Id,
@@ -21,3 +21,11 @@ public record ItemOrcamentoDto(
     decimal ValorUnitario,
     decimal ValorTotal,
     int Ordem);
+
+public record CatalogoOrcamentoDto(
+    Guid Id,
+    string Descricao,
+    string Secao,
+    string Tipo,
+    decimal? ValorReferencia,
+    bool Ativo);

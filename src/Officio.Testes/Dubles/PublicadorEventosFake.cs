@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace Officio.Testes;
+namespace Officio.Testes.Dubles;
 
 internal sealed class PublicadorEventosFake : IPublisher
 {

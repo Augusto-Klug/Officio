@@ -1,15 +1,16 @@
-﻿using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 
 namespace Officio.Dominio.Interfaces;
 
 public interface IDocumentoServico
 {
-    Task<ResultadoOperacao<EnvioDocumentoResultado>> EnviarAsync(
+    Task<Resultado<ResultadoEnvioDocumentoDto>> EnviarAsync(
         EnviarDocumentoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<ValidacaoDocumentoResultado>> ValidarAsync(
+    Task<Resultado<ValidationResultDto>> ValidarAsync(
         Guid documentoId,
         CancellationToken ct = default);
 }

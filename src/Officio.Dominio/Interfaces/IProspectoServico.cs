@@ -1,19 +1,20 @@
-﻿using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 
 namespace Officio.Dominio.Interfaces;
 
 public interface IProspectoServico
 {
-    Task<ResultadoOperacao<ProspectoCriadoResultado>> CriarAsync(
+    Task<Resultado<ProspectoCriadoDto>> CriarAsync(
         CriarProspectoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<Guid>> ConverterParaClienteAsync(
+    Task<Resultado<Guid>> ConverterParaClienteAsync(
         Guid prospectoId,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<ResultadoPaginado<ProspectoResumo>>> ObterAsync(
+    Task<Resultado<PagedResult<ProspectoDto>>> ObterAsync(
         ObterProspectosFiltro filtro,
         CancellationToken ct = default);
 }

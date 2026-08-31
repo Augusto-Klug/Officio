@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 
 namespace Officio.WebApi.Intermediarios;
 
@@ -26,7 +26,7 @@ public class IntermediarioEmpresa(RequestDelegate next)
                  !RotasPublicas.Any(rota => context.Request.Path.StartsWithSegments(rota)))
         {
             context.Response.StatusCode = 401;
-            await context.Response.WriteAsJsonAsync(new { error = "Empresa nÃ£o identificado." });
+            await context.Response.WriteAsJsonAsync(new { error = "Empresa não identificado." });
             return;
         }
 

@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Eventos;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Enumeradores;
 
@@ -71,7 +71,7 @@ public class Prospecto : EntidadeAuditavel
     public void MarkAsConverted(Guid clientId)
     {
         if (Status == StatusProspecto.Convertido)
-            throw new InvalidOperationException("Prospecto jÃ¡ foi convertido.");
+            throw new InvalidOperationException("Prospecto já foi convertido.");
 
         Status = StatusProspecto.Convertido;
         ClientId = clientId;

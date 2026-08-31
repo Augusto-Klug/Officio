@@ -12,7 +12,7 @@ namespace Officio.WebApi.Controllers;
 [ApiController]
 [Route("api/v1/contratos/[action]")]
 [Authorize]
-public class ContratosControlador(
+public class ContratosController(
     IMediator mediator,
     IContratoViewModelConversor contratoViewModelConversor) : ControllerBase
 {

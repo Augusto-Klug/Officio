@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Comum;
+using Officio.Dominio.Comum;
 using Officio.Dominio.Enumeradores;
 
 namespace Officio.Dominio.Entidades;

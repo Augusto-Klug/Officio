@@ -1,4 +1,4 @@
-﻿namespace Officio.Dominio.Interfaces;
+namespace Officio.Dominio.Interfaces;
 
 public interface IServicoAssinatura
 {

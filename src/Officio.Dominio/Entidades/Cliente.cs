@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Comum;
+using Officio.Dominio.Comum;
 using Officio.Dominio.Enumeradores;
 
 namespace Officio.Dominio.Entidades;
@@ -76,7 +76,53 @@ public class Cliente : EntidadeAuditavel
 
     public void AddSocio(Socio socio) => Socios.Add(socio);
 
-    public void VincularSciCodigo(string sciCodigo) => SciCodigo = sciCodigo;
+    public void AtualizarDados(
+        string razaoSocial,
+        string? nomeFantasia,
+        string? cnpj,
+        string? cpf,
+        RegimeTributario? regimeTributario,
+        string? email,
+        string? telefone,
+        string? whatsapp,
+        string? cep,
+        string? logradouro,
+        string? numero,
+        string? bairro,
+        string? cidade,
+        string? uf,
+        string? observacoes)
+    {
+        if (string.IsNullOrWhiteSpace(razaoSocial))
+            throw new ArgumentException("Razao social e obrigatoria.", nameof(razaoSocial));
+
+        RazaoSocial = razaoSocial.Trim();
+        NomeFantasia = Normalizar(nomeFantasia);
+        Cnpj = Normalizar(cnpj);
+        Cpf = Normalizar(cpf);
+        RegimeTributario = regimeTributario;
+        Email = Normalizar(email);
+        Telefone = Normalizar(telefone);
+        Whatsapp = Normalizar(whatsapp);
+        Cep = Normalizar(cep);
+        Logradouro = Normalizar(logradouro);
+        Numero = Normalizar(numero);
+        Bairro = Normalizar(bairro);
+        Cidade = Normalizar(cidade);
+        Uf = Normalizar(uf)?.ToUpperInvariant();
+        Observacoes = Normalizar(observacoes);
+    }
+
+    public void VincularSciCodigo(string sciCodigo)
+    {
+        if (string.IsNullOrWhiteSpace(sciCodigo))
+            throw new ArgumentException("Codigo SCI e obrigatorio.", nameof(sciCodigo));
+
+        SciCodigo = sciCodigo.Trim();
+    }
+
+    private static string? Normalizar(string? valor)
+        => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 }
 
 

@@ -1,4 +1,4 @@
-﻿using Officio.WebApi.Intermediarios;
+using Officio.WebApi.Intermediarios;
 
 namespace Officio.WebApi.Extensoes;
 

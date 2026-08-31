@@ -1,23 +1,24 @@
-﻿using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 
 namespace Officio.Dominio.Interfaces;
 
 public interface IContratoServico
 {
-    Task<ResultadoOperacao<Guid>> ConverterOrcamentoAsync(
+    Task<Resultado<Guid>> ConverterOrcamentoAsync(
         ConverterOrcamentoContratoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<List<ContratoResultado>>> ListarAsync(CancellationToken ct = default);
+    Task<Resultado<List<ContratoDto>>> ListarAsync(CancellationToken ct = default);
 
-    Task<ResultadoOperacao<ContratoResultado>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default);
+    Task<Resultado<ContratoDto>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default);
 
-    Task<ResultadoOperacao<PdfContratoResultado>> GerarPdfAsync(
+    Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(
         Guid contratoId,
         CancellationToken ct = default);
 
-    Task<ResultadoOperacao<EnvioAssinaturaResultado>> EnviarParaAssinaturaAsync(
+    Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
         EnviarAssinaturaRequisicao requisicao,
         CancellationToken ct = default);
 }

@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Enumeradores;
 
 namespace Officio.Dominio.Contratos;
 

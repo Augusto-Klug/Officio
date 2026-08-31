@@ -7,9 +7,9 @@ namespace Officio.Testes.Unitarios.WebApi;
 public class ContratoControllerRotasTestes
 {
     [Fact]
-    public void OrcamentosControlador_ConverterParaContrato_UsaRotaActionComId()
+    public void OrcamentosController_ConverterParaContrato_UsaRotaActionComId()
     {
-        var metodo = typeof(OrcamentosControlador).GetMethod(nameof(OrcamentosControlador.ConverterParaContrato));
+        var metodo = typeof(OrcamentosController).GetMethod(nameof(OrcamentosController.ConverterParaContrato));
 
         var atributo = Assert.Single(metodo!.GetCustomAttributes<HttpPostAttribute>());
 
@@ -17,9 +17,9 @@ public class ContratoControllerRotasTestes
     }
 
     [Fact]
-    public void ContratosControlador_Listar_UsaRotaAction()
+    public void ContratosController_Listar_UsaRotaAction()
     {
-        var metodo = typeof(ContratosControlador).GetMethod(nameof(ContratosControlador.Listar));
+        var metodo = typeof(ContratosController).GetMethod(nameof(ContratosController.Listar));
 
         var atributo = Assert.Single(metodo!.GetCustomAttributes<HttpGetAttribute>());
 
@@ -27,9 +27,9 @@ public class ContratoControllerRotasTestes
     }
 
     [Fact]
-    public void ContratosControlador_ObterPorId_UsaRotaActionComId()
+    public void ContratosController_ObterPorId_UsaRotaActionComId()
     {
-        var metodo = typeof(ContratosControlador).GetMethod(nameof(ContratosControlador.ObterPorId));
+        var metodo = typeof(ContratosController).GetMethod(nameof(ContratosController.ObterPorId));
 
         var atributo = Assert.Single(metodo!.GetCustomAttributes<HttpGetAttribute>());
 

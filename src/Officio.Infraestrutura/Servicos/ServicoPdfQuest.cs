@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using Officio.Infraestrutura.Pdf.Componentes;
 using Microsoft.Extensions.Logging;
 using QuestPDF.Fluent;
@@ -66,7 +66,7 @@ public class ServicoPdfQuest(
         ms.Position = 0;
 
         logger.LogInformation(
-            "PDF gerado para contrato {Numero} â€” {Bytes} bytes",
+            "PDF gerado para contrato {Numero} — {Bytes} bytes",
             data.NumeroContrato, ms.Length);
 
         return Task.FromResult<Stream>(ms);

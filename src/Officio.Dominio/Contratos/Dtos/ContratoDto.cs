@@ -1,4 +1,4 @@
-namespace Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas;
+namespace Officio.Dominio.Contratos.Dtos;
 
 public record ContratoDto(
     Guid Id,

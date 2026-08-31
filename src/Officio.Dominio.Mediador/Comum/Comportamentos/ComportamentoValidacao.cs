@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MediatR;
 
 namespace Officio.Dominio.Mediador.Comum.Comportamentos;

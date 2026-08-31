@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -11,12 +11,12 @@ public class ComponenteServicos(IReadOnlyList<DadosServico> servicos) : ICompone
     {
         container.Column(col =>
         {
-            col.Item().Element(SectionTitle("2. DOS SERVIÃ‡OS"));
+            col.Item().Element(SectionTitle("2. DOS SERVIÇOS"));
 
             if (servicos.Count == 0)
             {
                 col.Item().PaddingTop(6)
-                   .Text("ServiÃ§os contÃ¡beis conforme acordado entre as partes.")
+                   .Text("Serviços contábeis conforme acordado entre as partes.")
                    .FontSize(9);
                 return;
             }
@@ -32,7 +32,7 @@ public class ComponenteServicos(IReadOnlyList<DadosServico> servicos) : ICompone
 
                 table.Header(header =>
                 {
-                    foreach (var h in new[] { "DescriÃ§Ã£o", "Periodicidade", "Valor" })
+                    foreach (var h in new[] { "Descrição", "Periodicidade", "Valor" })
                         header.Cell()
                               .Background(Colors.Grey.Lighten3)
                               .Padding(4)

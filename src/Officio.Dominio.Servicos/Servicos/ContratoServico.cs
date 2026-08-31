@@ -1,5 +1,6 @@
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
@@ -16,23 +17,23 @@ public class ContratoServico(
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual) : IContratoServico
 {
-    public async Task<ResultadoOperacao<Guid>> ConverterOrcamentoAsync(
+    public async Task<Resultado<Guid>> ConverterOrcamentoAsync(
         ConverterOrcamentoContratoRequisicao requisicao,
         CancellationToken ct = default)
     {
         var orcamento = await orcamentoRepositorio.ObterPorIdComItensAsync(requisicao.OrcamentoId, ct);
         if (orcamento is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Orcamento nao encontrado.");
+            return Resultado<Guid>.CriarFalha("Orcamento nao encontrado.");
 
         if (orcamento.Status != StatusOrcamento.Aceito)
-            return ResultadoOperacao<Guid>.CriarFalha("Somente orcamentos aceitos podem ser convertidos em contrato.");
+            return Resultado<Guid>.CriarFalha("Somente orcamentos aceitos podem ser convertidos em contrato.");
 
         if (await contratoRepositorio.ObterPorOrcamentoAsync(orcamento.Id, ct) is not null)
-            return ResultadoOperacao<Guid>.CriarFalha("Ja existe contrato para este orcamento.");
+            return Resultado<Guid>.CriarFalha("Ja existe contrato para este orcamento.");
 
         var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
         if (prospecto is null)
-            return ResultadoOperacao<Guid>.CriarFalha("Prospecto nao encontrado.");
+            return Resultado<Guid>.CriarFalha("Prospecto nao encontrado.");
 
         var contrato = Contrato.CriarDeOrcamento(
             orcamento,
@@ -45,34 +46,34 @@ public class ContratoServico(
         await contratoRepositorio.AdicionarAsync(contrato, ct);
         await contratoRepositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<Guid>.CriarSucesso(contrato.Id);
+        return Resultado<Guid>.CriarSucesso(contrato.Id);
     }
 
-    public async Task<ResultadoOperacao<List<ContratoResultado>>> ListarAsync(CancellationToken ct = default)
+    public async Task<Resultado<List<ContratoDto>>> ListarAsync(CancellationToken ct = default)
     {
         var contratos = await contratoRepositorio.ListarAsync(ct);
-        return ResultadoOperacao<List<ContratoResultado>>.CriarSucesso(contratos.Select(MapearContrato).ToList());
+        return Resultado<List<ContratoDto>>.CriarSucesso(contratos.Select(MapearContrato).ToList());
     }
 
-    public async Task<ResultadoOperacao<ContratoResultado>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default)
+    public async Task<Resultado<ContratoDto>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default)
     {
         var contrato = await contratoRepositorio.ObterDetalheAsync(contratoId, ct);
         if (contrato is null)
-            return ResultadoOperacao<ContratoResultado>.CriarFalha("Contrato nao encontrado.");
+            return Resultado<ContratoDto>.CriarFalha("Contrato nao encontrado.");
 
-        return ResultadoOperacao<ContratoResultado>.CriarSucesso(MapearContrato(contrato));
+        return Resultado<ContratoDto>.CriarSucesso(MapearContrato(contrato));
     }
 
-    public async Task<ResultadoOperacao<PdfContratoResultado>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
+    public async Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
     {
         var contrato = await contratoRepositorio.ObterParaGeracaoPdfAsync(contratoId, cancellationToken);
 
         if (contrato is null)
-            return ResultadoOperacao<PdfContratoResultado>.CriarFalha("Contrato nÃ£o encontrado.");
+            return Resultado<ResultadoPdfContratoDto>.CriarFalha("Contrato nÃ£o encontrado.");
 
         var empresa = await empresaRepositorio.ObterPorIdAsync(empresaAtual.TenantId, cancellationToken);
         if (empresa is null)
-            return ResultadoOperacao<PdfContratoResultado>.CriarFalha("Empresa nÃ£o encontrada.");
+            return Resultado<ResultadoPdfContratoDto>.CriarFalha("Empresa nÃ£o encontrada.");
 
         var dadosPdf = MapearDadosPdf(contrato, empresa);
 
@@ -89,21 +90,21 @@ public class ContratoServico(
 
         var url = await servicoArmazenamento.ObterUrlPreAssinadaAsync(caminho, TimeSpan.FromHours(1), cancellationToken);
 
-        return ResultadoOperacao<PdfContratoResultado>.CriarSucesso(
-            new PdfContratoResultado(url, DateTime.UtcNow));
+        return Resultado<ResultadoPdfContratoDto>.CriarSucesso(
+            new ResultadoPdfContratoDto(url, DateTime.UtcNow));
     }
 
-    public async Task<ResultadoOperacao<EnvioAssinaturaResultado>> EnviarParaAssinaturaAsync(
+    public async Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
         EnviarAssinaturaRequisicao requisicao,
         CancellationToken cancellationToken = default)
     {
         var contrato = await contratoRepositorio.ObterParaAssinaturaAsync(requisicao.ContratoId, cancellationToken);
 
         if (contrato is null)
-            return ResultadoOperacao<EnvioAssinaturaResultado>.CriarFalha("Contrato nÃ£o encontrado.");
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Contrato nÃ£o encontrado.");
 
         if (string.IsNullOrEmpty(contrato.PdfPath))
-            return ResultadoOperacao<EnvioAssinaturaResultado>.CriarFalha(
+            return Resultado<SendForSignatureResultDto>.CriarFalha(
                 "PDF ainda nÃ£o gerado. Execute a geraÃ§Ã£o de PDF primeiro.");
 
         await using var fluxoPdf = await servicoArmazenamento.BaixarAsync(contrato.PdfPath, cancellationToken);
@@ -122,8 +123,8 @@ public class ContratoServico(
                 TimeSpan.FromHours(24),
                 cancellationToken);
 
-            return ResultadoOperacao<EnvioAssinaturaResultado>.CriarSucesso(
-                new EnvioAssinaturaResultado("manual_upload", null, null, resultado.Mensagem, pdfUrl));
+            return Resultado<SendForSignatureResultDto>.CriarSucesso(
+                new SendForSignatureResultDto("manual_upload", null, null, resultado.Mensagem, pdfUrl));
         }
 
         contrato.SetD4SignEnvelope(resultado.EnvelopeId!);
@@ -143,8 +144,8 @@ public class ContratoServico(
 
         await contratoRepositorio.SalvarAlteracoesAsync(cancellationToken);
 
-        return ResultadoOperacao<EnvioAssinaturaResultado>.CriarSucesso(
-            new EnvioAssinaturaResultado(
+        return Resultado<SendForSignatureResultDto>.CriarSucesso(
+            new SendForSignatureResultDto(
                 "digital_api",
                 resultado.EnvelopeId,
                 resultado.LinksAssinantes,
@@ -220,11 +221,11 @@ public class ContratoServico(
         };
     }
 
-    private static ContratoResultado MapearContrato(Contrato contrato)
+    private static ContratoDto MapearContrato(Contrato contrato)
     {
         var razaoSocial = contrato.Cliente?.RazaoSocial ?? contrato.Prospecto.RazaoSocial;
 
-        return new ContratoResultado(
+        return new ContratoDto(
             contrato.Id,
             contrato.Numero,
             contrato.ProspectId,

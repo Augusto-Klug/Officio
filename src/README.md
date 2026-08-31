@@ -104,7 +104,7 @@ Contem integracoes tecnicas e servicos externos, incluindo:
 - armazenamento em Azure Blob Storage;
 - OCR com Azure Form Recognizer / Document Intelligence;
 - geracao de PDFs com QuestPDF;
-- assinatura digital com D4Sign;
+- assinatura digital com Autentique;
 - envio de e-mail.
 
 ### Officio.Testes
@@ -142,8 +142,12 @@ Configuracoes relevantes:
   },
   "Pdf": {
   },
-  "D4Sign": {
-    "BaseUrl": "https://sandbox.d4sign.com.br/api/v1/"
+  "Autentique": {
+    "BaseUrl": "https://api.autentique.com.br/v2/graphql",
+    "ApiToken": "",
+    "WebhookSecret": "",
+    "OrganizationId": "",
+    "FolderId": ""
   }
 }
 ```

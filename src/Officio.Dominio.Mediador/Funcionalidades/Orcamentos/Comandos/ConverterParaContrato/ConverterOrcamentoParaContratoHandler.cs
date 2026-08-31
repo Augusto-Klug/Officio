@@ -1,7 +1,7 @@
 using MediatR;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Interfaces;
-using Officio.Dominio.Mediador.Comum;
+using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
 
@@ -19,6 +19,6 @@ public class ConverterOrcamentoParaContratoHandler(IContratoServico contratoServ
             request.RenovacaoAutomatica,
             request.ClausulasExtras);
 
-        return (await contratoServico.ConverterOrcamentoAsync(requisicao, ct)).ParaResultado();
+        return await contratoServico.ConverterOrcamentoAsync(requisicao, ct);
     }
 }

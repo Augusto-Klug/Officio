@@ -1,5 +1,6 @@
 using System.Buffers;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Interfaces;
@@ -15,7 +16,7 @@ internal class DocumentoServico(
 {
     private const int TamanhoMaximoUploadBytes = 10 * 1024 * 1024;
 
-    public async Task<ResultadoOperacao<EnvioDocumentoResultado>> EnviarAsync(
+    public async Task<Resultado<ResultadoEnvioDocumentoDto>> EnviarAsync(
         EnviarDocumentoRequisicao requisicao,
         CancellationToken ct = default)
     {
@@ -38,7 +39,7 @@ internal class DocumentoServico(
         var qualidadeEstimada = await estimadorQualidade.EstimarAsync(arquivoEmMemoria, ct);
 
         if (qualidadeEstimada < 0.4m)
-            return ResultadoOperacao<EnvioDocumentoResultado>.CriarFalha(
+            return Resultado<ResultadoEnvioDocumentoDto>.CriarFalha(
                 "Imagem muito escura ou desfocada. Tire uma nova foto com boa iluminacao.");
 
         arquivoEmMemoria.Position = 0;
@@ -62,8 +63,8 @@ internal class DocumentoServico(
         await documentoRepositorio.AdicionarAsync(documento, ct);
         await documentoRepositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<EnvioDocumentoResultado>.CriarSucesso(
-            new EnvioDocumentoResultado(
+        return Resultado<ResultadoEnvioDocumentoDto>.CriarSucesso(
+            new ResultadoEnvioDocumentoDto(
                 documento.Id,
                 documento.NomeArquivo,
                 qualidadeEstimada,
@@ -71,17 +72,17 @@ internal class DocumentoServico(
                 "Documento salvo. Chame /validate para iniciar a validacao."));
     }
 
-    public async Task<ResultadoOperacao<ValidacaoDocumentoResultado>> ValidarAsync(
+    public async Task<Resultado<ValidationResultDto>> ValidarAsync(
         Guid documentoId,
         CancellationToken ct = default)
     {
         var documento = await documentoRepositorio.ObterPorIdAsync(documentoId, ct);
 
         if (documento is null)
-            return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha("Documento nao encontrado.");
+            return Resultado<ValidationResultDto>.CriarFalha("Documento nao encontrado.");
 
         if (documento.QualidadeEstimada < 0.4m)
-            return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarFalha(
+            return Resultado<ValidationResultDto>.CriarFalha(
                 "Qualidade do documento abaixo do limite minimo. Reenvie uma imagem mais nitida.");
 
         await using var stream = await servicoArmazenamento.BaixarAsync(documento.CaminhoStorage, ct);
@@ -134,11 +135,16 @@ internal class DocumentoServico(
         await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
         await documentoRepositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarSucesso(
-            new ValidacaoDocumentoResultado(valido, resultadoOcr.ConfiancaOcr, divergencias, false, null));
+        return Resultado<ValidationResultDto>.CriarSucesso(
+            new ValidationResultDto(
+                valido,
+                resultadoOcr.ConfiancaOcr,
+                divergencias.Select(MapearDivergencia).ToList(),
+                false,
+                null));
     }
 
-    private async Task<ResultadoOperacao<ValidacaoDocumentoResultado>> CriarRevisaoManualAsync(
+    private async Task<Resultado<ValidationResultDto>> CriarRevisaoManualAsync(
         Documento documento,
         Dictionary<string, string> camposExtraidos,
         decimal confiancaOcr,
@@ -155,8 +161,13 @@ internal class DocumentoServico(
         await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
         await documentoRepositorio.SalvarAlteracoesAsync(ct);
 
-        return ResultadoOperacao<ValidacaoDocumentoResultado>.CriarSucesso(
-            new ValidacaoDocumentoResultado(false, confiancaOcr, divergencias, true, mensagem));
+        return Resultado<ValidationResultDto>.CriarSucesso(
+            new ValidationResultDto(
+                false,
+                confiancaOcr,
+                divergencias.Select(MapearDivergencia).ToList(),
+                true,
+                mensagem));
     }
 
     private static List<DivergenciaDocumento> CompararCampos(
@@ -212,9 +223,16 @@ internal class DocumentoServico(
         }
     }
 
-    private static ResultadoOperacao<EnvioDocumentoResultado> CriarFalhaArquivoMuitoGrande()
-        => ResultadoOperacao<EnvioDocumentoResultado>.CriarFalha(
+    private static Resultado<ResultadoEnvioDocumentoDto> CriarFalhaArquivoMuitoGrande()
+        => Resultado<ResultadoEnvioDocumentoDto>.CriarFalha(
             "Arquivo excede o limite maximo de upload de 10 MB.");
+
+    private static DivergenciaDto MapearDivergencia(DivergenciaDocumento divergencia)
+        => new(
+            divergencia.Campo,
+            divergencia.ValorDocumento,
+            divergencia.ValorCadastro,
+            divergencia.Similaridade);
 
     private static decimal CalcularSimilaridade(string a, string b)
     {

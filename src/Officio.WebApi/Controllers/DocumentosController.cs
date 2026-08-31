@@ -10,7 +10,7 @@ namespace Officio.WebApi.Controllers;
 [ApiController]
 [Route("api/v1/documentos/[action]")]
 [Authorize]
-public class DocumentosControlador(
+public class DocumentosController(
     IMediator mediator,
     IDocumentoViewModelConversor documentoViewModelConversor) : ControllerBase
 {

@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Interfaces;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Entidades;
 using MediatR;

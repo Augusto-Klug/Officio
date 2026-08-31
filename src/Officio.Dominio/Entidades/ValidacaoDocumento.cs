@@ -1,4 +1,4 @@
-﻿using Officio.Dominio.Eventos;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Enumeradores;
 
