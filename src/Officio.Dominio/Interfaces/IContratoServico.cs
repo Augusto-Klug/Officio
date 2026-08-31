@@ -21,4 +21,8 @@ public interface IContratoServico
     Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
         EnviarAssinaturaRequisicao requisicao,
         CancellationToken ct = default);
+
+    Task<Resultado<bool>> ProcessarWebhookAutentiqueAsync(
+        string payload,
+        CancellationToken ct = default);
 }

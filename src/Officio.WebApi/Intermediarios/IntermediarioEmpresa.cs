@@ -7,7 +7,7 @@ public class IntermediarioEmpresa(RequestDelegate next)
     private static readonly string[] RotasPublicas =
     [
         "/api/v1/autenticacao",
-        "/api/v1/contratos/webhook/d4sign"
+        "/api/v1/contratos/webhook/autentique"
     ];
 
     public async Task InvokeAsync(HttpContext context, IEmpresaAtual currentTenant)

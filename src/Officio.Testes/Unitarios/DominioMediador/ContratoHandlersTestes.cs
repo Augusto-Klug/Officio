@@ -4,6 +4,7 @@ using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.ProcessarWebhookAutentique;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
 
 namespace Officio.Testes.Unitarios.DominioMediador;
@@ -58,6 +59,19 @@ public class ContratoHandlersTestes
         Assert.Equal(contrato.ValorTotal, resultado.Valor.ValorTotal);
     }
 
+    [Fact]
+    public async Task ProcessarWebhookAutentique_ChamaServico()
+    {
+        var handler = new ProcessarWebhookAutentiqueHandler(
+            new ContratoServicoFake(Resultado<bool>.CriarSucesso(true)));
+
+        var resultado = await handler.Handle(
+            new ProcessarWebhookAutentiqueComando("""{"event":"document.finished"}"""),
+            CancellationToken.None);
+
+        Assert.True(resultado.Sucesso);
+    }
+
     private static ContratoDto CriarContratoDto()
         => new(
             Guid.NewGuid(),
@@ -80,10 +94,12 @@ public class ContratoHandlersTestes
         private readonly Resultado<Guid>? conversao;
         private readonly Resultado<List<ContratoDto>>? listagem;
         private readonly Resultado<ContratoDto>? detalhe;
+        private readonly Resultado<bool>? webhook;
 
         public ContratoServicoFake(Resultado<Guid> resultado) => conversao = resultado;
         public ContratoServicoFake(Resultado<List<ContratoDto>> resultado) => listagem = resultado;
         public ContratoServicoFake(Resultado<ContratoDto> resultado) => detalhe = resultado;
+        public ContratoServicoFake(Resultado<bool> resultado) => webhook = resultado;
 
         public Task<Resultado<Guid>> ConverterOrcamentoAsync(
             ConverterOrcamentoContratoRequisicao requisicao, CancellationToken ct = default)
@@ -103,5 +119,9 @@ public class ContratoHandlersTestes
         public Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
             EnviarAssinaturaRequisicao requisicao, CancellationToken ct = default)
             => throw new NotImplementedException();
+
+        public Task<Resultado<bool>> ProcessarWebhookAutentiqueAsync(
+            string payload, CancellationToken ct = default)
+            => Task.FromResult(webhook ?? throw new NotImplementedException());
     }
 }

@@ -35,4 +35,16 @@ public class ContratoControllerRotasTestes
 
         Assert.Equal("{id:guid}", atributo.Template);
     }
+
+    [Fact]
+    public void ContratosWebhookController_Receber_UsaRotaPublicaAbsoluta()
+    {
+        var atributoController = Assert.Single(
+            typeof(ContratosWebhookController).GetCustomAttributes<RouteAttribute>());
+        var metodo = typeof(ContratosWebhookController).GetMethod(nameof(ContratosWebhookController.Receber));
+        var atributoPost = Assert.Single(metodo!.GetCustomAttributes<HttpPostAttribute>());
+
+        Assert.Equal("api/v1/contratos/webhook/autentique", atributoController.Template);
+        Assert.Null(atributoPost.Template);
+    }
 }

@@ -22,7 +22,6 @@ public class Contrato : EntidadeAuditavel
     public bool RenovacaoAutomatica { get; private set; }
     public string? ClausulasExtras { get; private set; }
     public string? PdfPath { get; private set; }
-    public string? D4SignEnvelopeId { get; private set; }
     public DateTime? AssinadoEm { get; private set; }
 
     // Navigation
@@ -89,11 +88,8 @@ public class Contrato : EntidadeAuditavel
 
     public void SetPdfPath(string pdfPath) => PdfPath = pdfPath;
 
-    public void SetD4SignEnvelope(string envelopeId)
-    {
-        D4SignEnvelopeId = envelopeId;
-        Status = StatusContrato.AguardandoAssinatura;
-    }
+    public void MarcarAguardandoAssinatura()
+        => Status = StatusContrato.AguardandoAssinatura;
 
     public void MarkAsSigned()
     {

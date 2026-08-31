@@ -3,6 +3,8 @@ using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Officio.Dominio.Interfaces;
+using Officio.Infraestrutura.Integracoes;
+using Officio.Infraestrutura.Integracoes.Autentique;
 using Officio.Infraestrutura.Identidade;
 using Officio.Infraestrutura.Servicos;
 using QuestPDF.Infrastructure;
@@ -36,11 +38,14 @@ public static class InstalarDependenciasInfraestrutura
         services.Configure<OpcoesPdf>(configuration.GetSection("Pdf"));
         services.AddScoped<IServicoPdf, ServicoPdfQuest>();
 
-        services.Configure<OpcoesD4Sign>(configuration.GetSection("D4Sign"));
-        services.AddHttpClient<IServicoAssinatura, ServicoD4Sign>(client =>
+        services.Configure<OpcoesAutentique>(configuration.GetSection("Autentique"));
+        services.AddHttpClient<IClienteIntegracao<OpcoesAutentique>, ClienteIntegracao<OpcoesAutentique>>(client =>
         {
-            client.BaseAddress = new Uri(configuration["D4Sign:BaseUrl"] ?? "https://sandbox.d4sign.com.br/api/v1/");
+            client.BaseAddress = new Uri(
+                configuration["Autentique:BaseUrl"] ?? "https://api.autentique.com.br/v2/graphql");
         });
+        services.AddScoped<IAutentiqueIntegracaoCliente, AutentiqueIntegracaoCliente>();
+        services.AddScoped<IServicoAssinatura, ServicoAutentique>();
 
         services.AddScoped<IServicoEmail, ServicoEmail>();
 

@@ -17,6 +17,25 @@ public class AssinaturaSignatario : EntidadeAuditavel
 
     private AssinaturaSignatario() { }
 
-    public static AssinaturaSignatario Criar(Guid tenantId, Guid assinaturaSolicitacaoId, string nome, string email, string papel, int ordem)
-        => new() { TenantId = tenantId, AssinaturaSolicitacaoId = assinaturaSolicitacaoId, Nome = nome, Email = email, Papel = papel, Ordem = ordem };
+    public static AssinaturaSignatario Criar(
+        Guid tenantId,
+        Guid assinaturaSolicitacaoId,
+        string nome,
+        string email,
+        string papel,
+        int ordem,
+        string? cpf = null)
+        => new()
+        {
+            TenantId = tenantId,
+            AssinaturaSolicitacaoId = assinaturaSolicitacaoId,
+            Nome = nome,
+            Email = email,
+            Papel = papel,
+            Ordem = ordem,
+            Cpf = cpf
+        };
+
+    public void MarcarAssinado(DateTime assinadoEm)
+        => AssinadoEm = assinadoEm;
 }
