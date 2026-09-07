@@ -38,6 +38,6 @@ public class AssinaturaSolicitacao : EntidadeAuditavel
     public void AdicionarSignatario(string nome, string email, string papel, int ordem, string? cpf = null)
         => _signatarios.Add(AssinaturaSignatario.Criar(TenantId, Id, nome, email, papel, ordem, cpf));
 
-    public void AdicionarEvento(string tipoEvento, string? payload = null)
-        => _eventos.Add(AssinaturaEvento.Criar(TenantId, Id, tipoEvento, payload));
+    public void AdicionarEvento(string tipoEvento, string? payload = null, DateTime? ocorridoEm = null)
+        => _eventos.Add(AssinaturaEvento.Criar(TenantId, Id, tipoEvento, payload, ocorridoEm));
 }
