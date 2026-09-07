@@ -91,10 +91,10 @@ public class Contrato : EntidadeAuditavel
     public void MarcarAguardandoAssinatura()
         => Status = StatusContrato.AguardandoAssinatura;
 
-    public void MarkAsSigned()
+    public void MarkAsSigned(DateTime? assinadoEm = null)
     {
         Status = StatusContrato.Ativo;
-        AssinadoEm = DateTime.UtcNow;
+        AssinadoEm = assinadoEm ?? DateTime.UtcNow;
 
         if (ClientId.HasValue)
             AddDomainEvent(new EventoContratoAssinado(Id, ClientId.Value, TenantId));

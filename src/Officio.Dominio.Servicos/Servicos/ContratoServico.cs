@@ -18,6 +18,14 @@ public class ContratoServico(
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual) : IContratoServico
 {
+    private static readonly HashSet<string> EventosAutentiqueProcessaveis = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "document.finished",
+        "signature.accepted",
+        "signature.rejected",
+        "signature.delivery_failed"
+    };
+
     public async Task<Resultado<Guid>> ConverterOrcamentoAsync(
         ConverterOrcamentoContratoRequisicao requisicao,
         CancellationToken ct = default)
@@ -190,7 +198,7 @@ public class ContratoServico(
             ct);
 
         if (solicitacao is null)
-            return Resultado<bool>.CriarFalha("Solicitacao de assinatura nao encontrada.");
+            return Resultado<bool>.CriarSucesso(true);
 
         if (await contratoRepositorio.ExisteEventoAssinaturaAsync(
                 solicitacao.Id,
@@ -202,8 +210,19 @@ public class ContratoServico(
         }
 
         await contratoRepositorio.AdicionarEventoAssinaturaAsync(
-            AssinaturaEvento.Criar(solicitacao.TenantId, solicitacao.Id, evento.Tipo, payload),
+            AssinaturaEvento.Criar(
+                solicitacao.TenantId,
+                solicitacao.Id,
+                evento.Tipo,
+                payload,
+                evento.OcorridoEm),
             ct);
+
+        if (!EventosAutentiqueProcessaveis.Contains(evento.Tipo))
+        {
+            await contratoRepositorio.SalvarAlteracoesAsync(ct);
+            return Resultado<bool>.CriarSucesso(true);
+        }
 
         if (evento.Tipo == "document.finished")
         {
@@ -213,8 +232,10 @@ public class ContratoServico(
                 90,
                 ct);
 
-            solicitacao.MarcarConcluida(statusAssinado.Id, evento.OcorridoEm ?? DateTime.UtcNow);
-            solicitacao.Contrato.MarkAsSigned();
+            var ocorridoEm = evento.OcorridoEm ?? DateTime.UtcNow;
+            solicitacao.MarcarConcluida(statusAssinado.Id, ocorridoEm);
+            if (!solicitacao.Contrato.AssinadoEm.HasValue)
+                solicitacao.Contrato.MarkAsSigned(ocorridoEm);
         }
         else if (evento.Tipo is "signature.rejected" or "signature.delivery_failed")
         {
@@ -342,7 +363,7 @@ public class ContratoServico(
             {
                 using var document = JsonDocument.Parse(payload);
                 var root = document.RootElement;
-                var tipo = ObterString(root, "event", "type", "evento", "tipo");
+                var tipo = ObterTipo(root);
                 var documentoId = ObterDocumentoId(root);
 
                 if (string.IsNullOrWhiteSpace(tipo) || string.IsNullOrWhiteSpace(documentoId))
@@ -360,23 +381,55 @@ public class ContratoServico(
             }
         }
 
+        private static string? ObterTipo(JsonElement root)
+        {
+            var direto = ObterString(root, "event", "type", "evento", "tipo", "action", "name");
+            if (!string.IsNullOrWhiteSpace(direto))
+                return direto;
+
+            if (root.TryGetProperty("data", out var data))
+                return ObterTipo(data);
+
+            return null;
+        }
+
         private static string? ObterDocumentoId(JsonElement root)
         {
-            var direto = ObterString(root, "document_id", "documentId");
+            var direto = ObterString(root, "document_id", "documentId", "document_uuid", "documentUuid");
             if (!string.IsNullOrWhiteSpace(direto))
                 return direto;
 
             if (root.TryGetProperty("document", out var document))
                 return ObterString(document, "id", "uuid");
 
+            if (root.TryGetProperty("object", out var objeto))
+            {
+                var objetoDireto = ObterString(objeto, "document_id", "documentId", "document_uuid", "documentUuid");
+                if (!string.IsNullOrWhiteSpace(objetoDireto))
+                    return objetoDireto;
+
+                if (objeto.TryGetProperty("document", out var objetoDocument))
+                    return ObterString(objetoDocument, "id", "uuid");
+            }
+
             if (root.TryGetProperty("data", out var data))
             {
-                var dataDireto = ObterString(data, "document_id", "documentId");
+                var dataDireto = ObterString(data, "document_id", "documentId", "document_uuid", "documentUuid");
                 if (!string.IsNullOrWhiteSpace(dataDireto))
                     return dataDireto;
 
                 if (data.TryGetProperty("document", out var dataDocument))
                     return ObterString(dataDocument, "id", "uuid");
+
+                if (data.TryGetProperty("object", out var dataObject))
+                {
+                    var dataObjectDireto = ObterString(dataObject, "document_id", "documentId", "document_uuid", "documentUuid");
+                    if (!string.IsNullOrWhiteSpace(dataObjectDireto))
+                        return dataObjectDireto;
+
+                    if (dataObject.TryGetProperty("document", out var dataObjectDocument))
+                        return ObterString(dataObjectDocument, "id", "uuid");
+                }
             }
 
             return null;
@@ -390,6 +443,9 @@ public class ContratoServico(
             if (root.TryGetProperty("signer", out var signer))
                 return ObterString(signer, "email");
 
+            if (root.TryGetProperty("object", out var objeto))
+                return ObterEmailSignatario(objeto);
+
             if (root.TryGetProperty("data", out var data))
                 return ObterEmailSignatario(data);
 
@@ -398,7 +454,10 @@ public class ContratoServico(
 
         private static DateTime? ObterData(JsonElement root)
         {
-            var data = ObterString(root, "created_at", "createdAt", "occurred_at", "occurredAt");
+            var data = ObterString(root, "created_at", "createdAt", "occurred_at", "occurredAt", "created");
+            if (string.IsNullOrWhiteSpace(data) && root.TryGetProperty("data", out var dataElement))
+                return ObterData(dataElement);
+
             return DateTime.TryParse(data, out var valor) ? valor.ToUniversalTime() : null;
         }
 
