@@ -30,6 +30,15 @@ public interface IContratoRepositorio
     Task AdicionarEventoAssinaturaAsync(
         AssinaturaEvento evento,
         CancellationToken cancellationToken = default);
+    Task<bool> ExisteDocumentoAssinadoAsync(
+        Guid contratoId,
+        CancellationToken cancellationToken = default);
+    Task<Documento?> ObterDocumentoAssinadoAsync(
+        Guid contratoId,
+        CancellationToken cancellationToken = default);
+    Task AdicionarDocumentoAsync(
+        Documento documento,
+        CancellationToken cancellationToken = default);
     Task AdicionarAssinaturaAsync(Assinatura assinatura, CancellationToken cancellationToken = default);
     Task SalvarAlteracoesAsync(CancellationToken cancellationToken = default);
 }

@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -9,8 +10,20 @@ public sealed class ContextoAplicacaoFabricaDesignTime : IDesignTimeDbContextFac
 {
     public ContextoAplicacao CreateDbContext(string[] args)
     {
+        CarregarArquivoEnv();
+
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
             ?? "Server=(localdb)\\mssqllocaldb;Database=Officio;Trusted_Connection=True;TrustServerCertificate=True";
+
+        var senha = Environment.GetEnvironmentVariable("Database__Password");
+        if (!string.IsNullOrWhiteSpace(senha))
+        {
+            var builder = new SqlConnectionStringBuilder(connectionString);
+            if (string.IsNullOrWhiteSpace(builder.Password))
+                builder.Password = senha;
+
+            connectionString = builder.ConnectionString;
+        }
 
         var options = new DbContextOptionsBuilder<ContextoAplicacao>()
             .UseSqlServer(connectionString, configuracao =>
@@ -18,6 +31,52 @@ public sealed class ContextoAplicacaoFabricaDesignTime : IDesignTimeDbContextFac
             .Options;
 
         return new ContextoAplicacao(options, new EmpresaAtualDesignTime(), new PublicadorEventosNulo());
+    }
+
+    private static void CarregarArquivoEnv()
+    {
+        var diretorio = new DirectoryInfo(Directory.GetCurrentDirectory());
+
+        while (diretorio is not null)
+        {
+            var caminho = Path.Combine(diretorio.FullName, ".env");
+            if (File.Exists(caminho))
+            {
+                foreach (var linha in File.ReadLines(caminho))
+                {
+                    var variavel = LerLinha(linha);
+                    if (variavel is null)
+                        continue;
+
+                    Environment.SetEnvironmentVariable(variavel.Value.Chave, variavel.Value.Valor);
+                }
+
+                return;
+            }
+
+            diretorio = diretorio.Parent;
+        }
+    }
+
+    private static (string Chave, string Valor)? LerLinha(string linha)
+    {
+        var conteudo = linha.Trim();
+        if (conteudo.Length == 0 || conteudo.StartsWith('#'))
+            return null;
+
+        var indiceSeparador = conteudo.IndexOf('=');
+        if (indiceSeparador <= 0)
+            return null;
+
+        var chave = conteudo[..indiceSeparador].Trim();
+        var valor = conteudo[(indiceSeparador + 1)..].Trim();
+
+        if (valor.Length >= 2 &&
+            ((valor.StartsWith('"') && valor.EndsWith('"')) ||
+             (valor.StartsWith('\'') && valor.EndsWith('\''))))
+            valor = valor[1..^1];
+
+        return (chave, valor);
     }
 
     private sealed class EmpresaAtualDesignTime : IEmpresaAtual

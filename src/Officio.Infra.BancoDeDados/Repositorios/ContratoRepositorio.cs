@@ -50,6 +50,7 @@ internal class ContratoRepositorio(
         string idExterno,
         CancellationToken cancellationToken = default)
         => Contexto.AssinaturaSolicitacoes
+            .IgnoreQueryFilters()
             .Include(solicitacao => solicitacao.Contrato)
             .Include(solicitacao => solicitacao.Signatarios)
             .Include(solicitacao => solicitacao.Eventos)
@@ -99,6 +100,28 @@ internal class ContratoRepositorio(
         AssinaturaEvento evento,
         CancellationToken cancellationToken = default)
         => AdicionarAsync<AssinaturaEvento>(evento, cancellationToken);
+
+    public Task<bool> ExisteDocumentoAssinadoAsync(
+        Guid contratoId,
+        CancellationToken cancellationToken = default)
+        => Contexto.Documents.AnyAsync(
+            documento => documento.ContratoId == contratoId
+                         && documento.Origem == "ASSINATURA_AUTENTIQUE",
+            cancellationToken);
+
+    public Task<Documento?> ObterDocumentoAssinadoAsync(
+        Guid contratoId,
+        CancellationToken cancellationToken = default)
+        => Contexto.Documents
+            .Where(documento => documento.ContratoId == contratoId
+                                && documento.Origem == "ASSINATURA_AUTENTIQUE")
+            .OrderByDescending(documento => documento.CriadoEm)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task AdicionarDocumentoAsync(
+        Documento documento,
+        CancellationToken cancellationToken = default)
+        => AdicionarAsync<Documento>(documento, cancellationToken);
 
     public async Task AdicionarAssinaturaAsync(Assinatura assinatura, CancellationToken cancellationToken = default)
         => await AdicionarAsync<Assinatura>(assinatura, cancellationToken);

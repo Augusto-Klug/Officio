@@ -6,4 +6,9 @@ public interface IClienteIntegracao<TConfiguracao>
     Task<TResposta?> EnviarAsync<TResposta>(
         RequisicaoIntegracao<TResposta> requisicao,
         CancellationToken cancellationToken = default);
+
+    Task<Stream> BaixarAsync(
+        string endpoint,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default);
 }

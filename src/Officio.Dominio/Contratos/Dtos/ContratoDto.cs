@@ -14,4 +14,6 @@ public record ContratoDto(
     DateTime? DataFim,
     bool RenovacaoAutomatica,
     string? ClausulasExtras,
-    bool PdfGerado);
+    bool PdfGerado,
+    bool PdfAssinadoDisponivel,
+    DateTime? AssinadoEm);

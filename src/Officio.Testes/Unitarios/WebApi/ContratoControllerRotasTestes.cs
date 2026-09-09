@@ -37,6 +37,16 @@ public class ContratoControllerRotasTestes
     }
 
     [Fact]
+    public void ContratosController_ObterPdfAssinado_UsaRotaActionComId()
+    {
+        var metodo = typeof(ContratosController).GetMethod(nameof(ContratosController.ObterPdfAssinado));
+
+        var atributo = Assert.Single(metodo!.GetCustomAttributes<HttpGetAttribute>());
+
+        Assert.Equal("{id:guid}", atributo.Template);
+    }
+
+    [Fact]
     public void ContratosWebhookController_Receber_UsaRotaPublicaAbsoluta()
     {
         var atributoController = Assert.Single(

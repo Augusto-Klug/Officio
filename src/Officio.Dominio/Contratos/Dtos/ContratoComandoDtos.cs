@@ -5,6 +5,8 @@ namespace Officio.Dominio.Contratos.Dtos;
 
 public record ResultadoPdfContratoDto(string PdfUrl, DateTime GeradoEm);
 
+public record ResultadoPdfAssinadoContratoDto(string PdfUrl, DateTime ExpiraEm);
+
 public record SignatarioDto(string Nome, string Email, string? Cpf, string Tipo);
 
 public record SendForSignatureResultDto(
