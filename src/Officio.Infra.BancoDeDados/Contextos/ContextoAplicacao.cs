@@ -12,7 +12,7 @@ public class ContextoAplicacao(
     IEmpresaAtual currentTenant,
     IPublisher publisher) : DbContext(options)
 {
-    public DbSet<Empresa> Tenants => Set<Empresa>();
+    public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Usuario> Users => Set<Usuario>();
     public DbSet<Prospecto> Prospects => Set<Prospecto>();
     public DbSet<Cliente> Clients => Set<Cliente>();

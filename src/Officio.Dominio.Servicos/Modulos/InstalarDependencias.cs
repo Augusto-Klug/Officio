@@ -16,6 +16,8 @@ public static class InstalarDependenciasServicos
         servicos.TryAddScoped<IDocumentoServico, DocumentoServico>();
         servicos.TryAddScoped<IContratoServico, ContratoServico>();
         servicos.TryAddScoped<IOrcamentoServico, OrcamentoServico>();
+        servicos.TryAddScoped<IClienteServico, ClienteServico>();
+        servicos.TryAddScoped<IEstimadorQualidadeDocumento, EstimadorQualidadeDocumento>();
 
         return servicos;
     }

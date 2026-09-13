@@ -14,8 +14,6 @@ public static class InstalarDependencias
     {
         InstalarDependenciasServicos
             .AdicionarServicos(servicos, configuracao);
-        servicos.AddScoped<IEstimadorQualidadeDocumento, EstimadorQualidadeDocumento>();
-        servicos.AddScoped<IClienteServico, ClienteServico>();
 
         return servicos;
     }

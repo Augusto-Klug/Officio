@@ -25,14 +25,19 @@ public static class InstalarDependenciasInfraestrutura
             new BlobServiceClient(configuration.GetConnectionString("AzureBlobStorage")));
         services.AddScoped<IServicoArmazenamento, ServicoArmazenamentoAzureBlob>();
 
-        var ocrEndpoint = configuration["AzureOcr:Endpoint"];
-        var ocrKey = configuration["AzureOcr:Key"];
-        if (!string.IsNullOrEmpty(ocrEndpoint) && !string.IsNullOrEmpty(ocrKey))
+        services.AddSingleton(_ =>
         {
-            services.AddSingleton(_ =>
-                new DocumentAnalysisClient(new Uri(ocrEndpoint), new global::Azure.AzureKeyCredential(ocrKey)));
-            services.AddScoped<IServicoOcr, ServicoOcrAzure>();
-        }
+            var ocrEndpoint = configuration["AzureOcr:Endpoint"];
+            var ocrKey = configuration["AzureOcr:Key"];
+            if (!Uri.TryCreate(ocrEndpoint, UriKind.Absolute, out var endpoint) ||
+                (endpoint.Scheme != Uri.UriSchemeHttps && endpoint.Scheme != Uri.UriSchemeHttp) ||
+                string.IsNullOrWhiteSpace(ocrKey))
+                throw new InvalidOperationException(
+                    "Configure 'AzureOcr:Endpoint' com uma URL HTTP/HTTPS valida e 'AzureOcr:Key' para utilizar o servico de OCR.");
+
+            return new DocumentAnalysisClient(endpoint, new global::Azure.AzureKeyCredential(ocrKey));
+        });
+        services.AddScoped<IServicoOcr, ServicoOcrAzure>();
 
         QuestPDF.Settings.License = LicenseType.Community;
         services.Configure<OpcoesPdf>(configuration.GetSection("Pdf"));

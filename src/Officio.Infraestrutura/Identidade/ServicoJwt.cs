@@ -37,19 +37,23 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IA
         string senha,
         CancellationToken ct = default)
     {
+        email = email.Trim();
         var user = await db.Users
             // O login e publico e ocorre antes de existir contexto de tenant; o email unico evita ambiguidade entre empresas.
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Email == email, ct);
 
-        if (user is null)
+        if (user is null || !user.Ativo)
             return null;
 
         var resultadoSenha = _passwordHasher.VerifyHashedPassword(user, user.SenhaHash, senha);
         if (resultadoSenha == PasswordVerificationResult.Failed)
             return null;
 
-        var expiresAt = DateTime.UtcNow.AddHours(8);
+        var expirationHours = configuration.GetValue<double?>("Jwt:ExpirationHours") ?? 8;
+        if (!double.IsFinite(expirationHours) || expirationHours <= 0)
+            throw new InvalidOperationException("A configuracao 'Jwt:ExpirationHours' deve ser um numero positivo.");
+        var expiresAt = DateTime.UtcNow.AddHours(expirationHours);
         var jwtKey = configuration["Jwt:Key"];
         if (string.IsNullOrWhiteSpace(jwtKey))
             throw new InvalidOperationException("A configuracao 'Jwt:Key' e obrigatoria para autenticacao JWT.");

@@ -11,6 +11,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    await Officio.WebApi.Desenvolvimento.BootstrapUsuario.ExecutarAsync(app.Services, app.Configuration, app.Environment);
 }
 
 app.UseHttpsRedirection();

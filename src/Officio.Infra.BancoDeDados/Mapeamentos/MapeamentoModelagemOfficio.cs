@@ -80,6 +80,8 @@ internal static class MapeamentoModelagemOfficio
 
         builder.Entity<Empresa>(entity =>
         {
+            // Empresas clientes: preserva o nome fisico legado sem alterar o schema.
+            entity.ToTable("Tenants");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Cnpj).HasMaxLength(14).IsRequired();
             entity.Property(e => e.RazaoSocial).HasMaxLength(300).IsRequired();
