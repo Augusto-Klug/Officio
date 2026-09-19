@@ -29,7 +29,7 @@ public static class InstalarDependenciasInfraestrutura
         var ocrKey = configuration["AzureOcr:Key"];
 
         if (Uri.TryCreate(ocrEndpoint, UriKind.Absolute, out var endpoint) &&
-            (endpoint.Scheme == Uri.UriSchemeHttps || endpoint.Scheme == Uri.UriSchemeHttp) &&
+            endpoint.Scheme == Uri.UriSchemeHttps &&
             !string.IsNullOrWhiteSpace(ocrKey))
         {
             services.AddSingleton(_ =>

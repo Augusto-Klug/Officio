@@ -1,7 +1,6 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Officio.Dominio.Entidades;
 using Officio.Infra.BancoDeDados.Contextos;
+using Officio.WebApi.Desenvolvimento;
 using System.Data;
 
 namespace Officio.WebApi.Extensoes;
@@ -10,11 +9,19 @@ public static class ExtensoesBancoDesenvolvimento
 {
     public static async Task<WebApplication> PrepararBancoDesenvolvimentoAsync(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment() ||
-            !app.Configuration.GetValue<bool>("Database:EnsureCreatedOnStartup"))
+        if (!app.Environment.IsDevelopment())
             return app;
 
-        using var scope = app.Services.CreateScope();
+        if (app.Configuration.GetValue<bool>("Database:EnsureCreatedOnStartup"))
+            await PrepararSchemaAsync(app.Services);
+
+        await BootstrapUsuario.ExecutarAsync(app.Services, app.Configuration, app.Environment);
+        return app;
+    }
+
+    private static async Task PrepararSchemaAsync(IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
         var contexto = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
 
         var schemaCriado = await contexto.Database.EnsureCreatedAsync();
@@ -25,9 +32,6 @@ public static class ExtensoesBancoDesenvolvimento
                 "Para teste local, remova esse banco ou use outro nome em ConnectionStrings:DefaultConnection e suba a API novamente. " +
                 "Nao execute as migrations incrementais em uma base vazia.");
 
-        await CriarUsuarioAdministradorAsync(contexto, app.Configuration);
-
-        return app;
     }
 
     private static async Task<bool> TabelaUsuariosExisteAsync(ContextoAplicacao contexto)
@@ -53,57 +57,4 @@ public static class ExtensoesBancoDesenvolvimento
         }
     }
 
-    private static async Task CriarUsuarioAdministradorAsync(
-        ContextoAplicacao contexto,
-        IConfiguration configuration)
-    {
-        var seed = ObterSeedAdministrador(configuration);
-        if (seed is null)
-            return;
-
-        var adminExiste = await contexto.Users
-            .IgnoreQueryFilters()
-            .AnyAsync(usuario => usuario.Email == seed.Email);
-
-        if (adminExiste)
-            return;
-
-        var empresa = Empresa.Create(seed.EmpresaNome, seed.EmpresaDocumento);
-        var usuario = Usuario.Create(empresa.Id, seed.Nome, seed.Email, string.Empty, seed.Perfil);
-        var senhaHash = new PasswordHasher<Usuario>().HashPassword(usuario, seed.Senha);
-        usuario.UpdatePassword(senhaHash);
-
-        contexto.Empresas.Add(empresa);
-        contexto.Users.Add(usuario);
-
-        await contexto.SaveChangesAsync();
-    }
-
-    private static SeedAdministrador? ObterSeedAdministrador(IConfiguration configuration)
-    {
-        var email = configuration["DevelopmentSeed:Admin:Email"];
-        var senha = configuration["DevelopmentSeed:Admin:Password"];
-        var nome = configuration["DevelopmentSeed:Admin:Name"];
-        var perfil = configuration["DevelopmentSeed:Admin:Role"];
-        var empresaNome = configuration["DevelopmentSeed:Company:Name"];
-        var empresaDocumento = configuration["DevelopmentSeed:Company:Document"];
-
-        if (string.IsNullOrWhiteSpace(email) ||
-            string.IsNullOrWhiteSpace(senha) ||
-            string.IsNullOrWhiteSpace(nome) ||
-            string.IsNullOrWhiteSpace(perfil) ||
-            string.IsNullOrWhiteSpace(empresaNome) ||
-            string.IsNullOrWhiteSpace(empresaDocumento))
-            return null;
-
-        return new SeedAdministrador(email, senha, nome, perfil, empresaNome, empresaDocumento);
-    }
-
-    private sealed record SeedAdministrador(
-        string Email,
-        string Senha,
-        string Nome,
-        string Perfil,
-        string EmpresaNome,
-        string EmpresaDocumento);
 }

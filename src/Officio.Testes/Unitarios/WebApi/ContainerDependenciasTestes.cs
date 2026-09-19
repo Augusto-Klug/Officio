@@ -10,17 +10,23 @@ namespace Officio.Testes.Unitarios.WebApi;
 public class ContainerDependenciasTestes
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Container_ValidaGrafoCompletoEResolveImplementacoesExistentes(bool configurarOcr)
+    [InlineData(null, null, false)]
+    [InlineData("https://officio-testes.cognitiveservices.azure.com/", "chave-teste", true)]
+    [InlineData("http://officio-testes.cognitiveservices.azure.com/", "chave-teste", false)]
+    [InlineData("endpoint-invalido", "chave-teste", false)]
+    [InlineData("https://officio-testes.cognitiveservices.azure.com/", "", false)]
+    [InlineData("https://officio-testes.cognitiveservices.azure.com/", null, false)]
+    [InlineData("https://officio-testes.cognitiveservices.azure.com/", "   ", false)]
+    public void Container_ValidaGrafoCompletoEResolveImplementacoesExistentes(
+        string? endpoint, string? chave, bool configurarOcr)
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Jwt:Key"] = "chave-exclusiva-para-testes-container-officio",
             ["ConnectionStrings:DefaultConnection"] = "Server=localhost;Database=Teste;Integrated Security=true",
             ["ConnectionStrings:AzureBlobStorage"] = "UseDevelopmentStorage=true",
-            ["AzureOcr:Endpoint"] = configurarOcr ? "https://officio-testes.cognitiveservices.azure.com/" : null,
-            ["AzureOcr:Key"] = configurarOcr ? "chave-apenas-para-construcao-em-teste" : null
+            ["AzureOcr:Endpoint"] = endpoint,
+            ["AzureOcr:Key"] = chave
         }).Build();
         var services = new ServiceCollection();
         services.AddLogging();

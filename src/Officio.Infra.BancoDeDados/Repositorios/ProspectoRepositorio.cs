@@ -33,7 +33,7 @@ internal class ProspectoRepositorio(
                 p.RazaoSocial,
                 p.Cnpj,
                 p.Status.ToString(),
-                null,
+                p.UsuarioResponsavel != null ? p.UsuarioResponsavel.Nome : null,
                 p.CriadoEm))
             .ToList();
 

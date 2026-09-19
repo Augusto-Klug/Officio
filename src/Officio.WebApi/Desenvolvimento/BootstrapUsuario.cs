@@ -5,7 +5,7 @@ using Officio.Infra.BancoDeDados.Contextos;
 
 namespace Officio.WebApi.Desenvolvimento;
 
-// Infraestrutura temporaria: remover esta classe e a chamada no Program ao encerrar o bootstrap local.
+// Fluxo de criacao do usuario local, chamado por PrepararBancoDesenvolvimentoAsync.
 public static class BootstrapUsuario
 {
     public static async Task ExecutarAsync(IServiceProvider services, IConfiguration configuration,
