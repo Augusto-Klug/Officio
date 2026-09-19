@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,7 +16,7 @@ public static class InstalarDependenciasBancoDeDados
     {
         servicos.AddDbContext<ContextoAplicacao>(options =>
             options.UseSqlServer(
-                configuracao.GetConnectionString("DefaultConnection"),
+                ObterConnectionString(configuracao),
                 b => b.MigrationsAssembly(typeof(ContextoAplicacao).Assembly.FullName)));
 
         servicos.AddScoped<DbContext>(sp => sp.GetRequiredService<ContextoAplicacao>());
@@ -28,5 +29,20 @@ public static class InstalarDependenciasBancoDeDados
         servicos.AddScoped<IClienteRepositorio, ClienteRepositorio>();
 
         return servicos;
+    }
+
+    private static string ObterConnectionString(IConfiguration configuracao)
+    {
+        var connectionString = configuracao.GetConnectionString("DefaultConnection");
+        var senha = configuracao["Database:Password"];
+
+        if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(senha))
+            return connectionString ?? string.Empty;
+
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        if (string.IsNullOrWhiteSpace(builder.Password))
+            builder.Password = senha;
+
+        return builder.ConnectionString;
     }
 }

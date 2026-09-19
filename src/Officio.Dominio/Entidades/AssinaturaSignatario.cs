@@ -37,5 +37,8 @@ public class AssinaturaSignatario : EntidadeAuditavel
         };
 
     public void MarcarAssinado(DateTime assinadoEm)
-        => AssinadoEm = assinadoEm;
+    {
+        if (!AssinadoEm.HasValue || assinadoEm < AssinadoEm.Value)
+            AssinadoEm = assinadoEm;
+    }
 }

@@ -4,6 +4,7 @@ using Officio.Dominio.Mediador.Modulos;
 using Officio.Infra.BancoDeDados.Modulos;
 using Officio.Infraestrutura.Modulos;
 using Officio.WebApi.Conversores;
+using Officio.WebApi.Servicos.Webhooks;
 using System.Text;
 
 namespace Officio.WebApi.Extensoes;
@@ -22,6 +23,8 @@ public static class ExtensoesServiceCollection
         services.AddScoped<IProspectoViewModelConversor, ProspectoViewModelConversor>();
         services.AddScoped<IDocumentoViewModelConversor, DocumentoViewModelConversor>();
         services.AddScoped<IContratoViewModelConversor, ContratoViewModelConversor>();
+        services.AddSingleton<IFilaWebhookAutentique, FilaWebhookAutentique>();
+        services.AddHostedService<ProcessadorWebhookAutentique>();
 
         var jwtKey = configuration["Jwt:Key"];
         if (string.IsNullOrWhiteSpace(jwtKey))

@@ -1,9 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.ProcessarWebhookAutentique;
+using Officio.WebApi.Servicos.Webhooks;
 
 namespace Officio.WebApi.Controllers;
 
@@ -11,7 +10,7 @@ namespace Officio.WebApi.Controllers;
 [AllowAnonymous]
 [Route("api/v1/contratos/webhook/autentique")]
 public class ContratosWebhookController(
-    IMediator mediator,
+    IFilaWebhookAutentique fila,
     IConfiguration configuration) : ControllerBase
 {
     [HttpPost]
@@ -23,11 +22,10 @@ public class ContratosWebhookController(
         if (!AssinaturaValida(payload, Request.Headers["x-autentique-signature"].FirstOrDefault()))
             return Unauthorized();
 
-        var resultado = await mediator.Send(
-            new ProcessarWebhookAutentiqueComando(payload),
-            cancellationToken);
+        if (!fila.TentarEnfileirar(payload))
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
 
-        return resultado.Sucesso ? Ok() : BadRequest(resultado.Erro);
+        return Accepted();
     }
 
     private bool AssinaturaValida(string payload, string? assinaturaRecebida)

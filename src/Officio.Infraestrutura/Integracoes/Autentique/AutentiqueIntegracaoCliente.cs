@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Net.Http.Headers;
 using Microsoft.Extensions.Options;
 using Officio.Dominio.Interfaces;
 using Officio.Infraestrutura.Integracoes;
@@ -28,25 +29,63 @@ public sealed class AutentiqueIntegracaoCliente(
                     new StringContent(JsonSerializer.Serialize(CriarOperacoes(request), RequisicaoBuilder.JsonOpcoes.Padrao), Encoding.UTF8, "application/json"),
                     "operations");
                 content.Add(
-                    new StringContent("""{"0":["variables.file"]}""", Encoding.UTF8, "application/json"),
+                    new StringContent("""{"file":["variables.file"]}""", Encoding.UTF8, "application/json"),
                     "map");
-                content.Add(new StreamContent(request.FluxoPdf), "0", request.NomeDocumento);
+                var arquivo = new StreamContent(request.FluxoPdf);
+                arquivo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+                content.Add(arquivo, "file", request.NomeDocumento);
             })
             .Criar<RespostaCriarDocumentoAutentique>();
 
         return ClienteIntegracao.EnviarAsync(requisicao, cancellationToken);
     }
 
+    public Task<RespostaObterDocumentoAutentique?> ObterDocumentoAsync(
+        string documentoId,
+        string apiToken,
+        CancellationToken cancellationToken = default)
+    {
+        var requisicao = RequisicaoBuilder
+            .Post(EndpointGraphQl)
+            .ComBearerToken(apiToken)
+            .ComJson(new
+            {
+                query = """
+                    query RetrieveDocument($id: UUID!) {
+                      document(id: $id) {
+                        id
+                        name
+                        files { original signed certified pades }
+                      }
+                    }
+                    """,
+                variables = new
+                {
+                    id = documentoId
+                }
+            })
+            .Criar<RespostaObterDocumentoAutentique>();
+
+        return ClienteIntegracao.EnviarAsync(requisicao, cancellationToken);
+    }
+
+    public Task<Stream> BaixarArquivoAsync(
+        string url,
+        CancellationToken cancellationToken = default)
+        => ClienteIntegracao.BaixarAsync(url, cancellationToken: cancellationToken);
+
     private object CriarOperacoes(SolicitacaoAssinatura request)
         => new
         {
-            query = """
+            query = $$"""
                 mutation CreateDocument($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) {
-                  createDocument(document: $document, signers: $signers, file: $file) {
+                  createDocument(document: $document, signers: $signers, file: $file{{CriarArgumentosOpcionais()}}) {
                     id
+                    name
                     signatures {
                       public_id
-                      signer { email }
+                      email
+                      link { short_link }
                     }
                   }
                 }
@@ -59,34 +98,36 @@ public sealed class AutentiqueIntegracaoCliente(
             }
         };
 
-    private Dictionary<string, object?> CriarDocumento(SolicitacaoAssinatura request)
+    private string CriarArgumentosOpcionais()
     {
-        var documento = new Dictionary<string, object?>
+        var argumentos = new List<string>();
+
+        if (options.Value.Sandbox)
+            argumentos.Add("sandbox: true");
+
+        if (!string.IsNullOrWhiteSpace(options.Value.OrganizationId))
+            argumentos.Add($"organization_id: {options.Value.OrganizationId}");
+
+        if (!string.IsNullOrWhiteSpace(options.Value.FolderId))
+            argumentos.Add($"folder_id: {JsonSerializer.Serialize(options.Value.FolderId, RequisicaoBuilder.JsonOpcoes.Padrao)}");
+
+        return argumentos.Count == 0
+            ? string.Empty
+            : ", " + string.Join(", ", argumentos);
+    }
+
+    private Dictionary<string, object?> CriarDocumento(SolicitacaoAssinatura request)
+        => new()
         {
             ["name"] = request.NomeDocumento
         };
 
-        if (!string.IsNullOrWhiteSpace(options.Value.OrganizationId))
-            documento["organization_id"] = options.Value.OrganizationId;
-
-        if (!string.IsNullOrWhiteSpace(options.Value.FolderId))
-            documento["folder_id"] = options.Value.FolderId;
-
-        return documento;
-    }
-
     private static Dictionary<string, object?> CriarSignatario(DadosAssinante assinante)
-    {
-        var signatario = new Dictionary<string, object?>
+        => new()
         {
             ["name"] = assinante.Nome,
             ["email"] = assinante.Email,
+            ["delivery_method"] = "DELIVERY_METHOD_LINK",
             ["action"] = "SIGN"
         };
-
-        if (!string.IsNullOrWhiteSpace(assinante.Cpf))
-            signatario["cpf"] = assinante.Cpf;
-
-        return signatario;
-    }
 }

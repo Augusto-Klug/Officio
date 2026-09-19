@@ -14,6 +14,18 @@ public class AssinaturaEvento : EntidadeAuditavel
 
     private AssinaturaEvento() { }
 
-    public static AssinaturaEvento Criar(Guid tenantId, Guid assinaturaSolicitacaoId, string tipoEvento, string? payload = null)
-        => new() { TenantId = tenantId, AssinaturaSolicitacaoId = assinaturaSolicitacaoId, TipoEvento = tipoEvento, Payload = payload };
+    public static AssinaturaEvento Criar(
+        Guid tenantId,
+        Guid assinaturaSolicitacaoId,
+        string tipoEvento,
+        string? payload = null,
+        DateTime? ocorridoEm = null)
+        => new()
+        {
+            TenantId = tenantId,
+            AssinaturaSolicitacaoId = assinaturaSolicitacaoId,
+            TipoEvento = tipoEvento,
+            Payload = payload,
+            OcorridoEm = ocorridoEm ?? DateTime.UtcNow
+        };
 }

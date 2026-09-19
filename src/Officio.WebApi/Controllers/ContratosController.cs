@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.GerarPdfContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterPdfAssinadoContrato;
 using Officio.ViewModels.Contratos;
 using Officio.WebApi.Conversores;
 
@@ -34,6 +35,13 @@ public class ContratosController(
     public async Task<IActionResult> GerarPdf(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new GerarPdfContratoComando(id), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> ObterPdfAssinado(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ObterPdfAssinadoContratoConsulta(id), cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
 
