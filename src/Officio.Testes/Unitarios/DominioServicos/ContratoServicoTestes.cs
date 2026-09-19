@@ -325,6 +325,34 @@ public class ContratoServicoTestes
     }
 
     [Fact]
+    public async Task ProcessarWebhookAutentiqueAsync_FalhaNoDownloadMantemContratoAssinadoPersistido()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (_, contrato, _) = await CriarContratoComSolicitacaoAsync(contexto, tenantId);
+        var assinatura = new ServicoAssinaturaFake(
+            documentoAssinado: ResultadoDocumentoAssinado.CriarFalha("PDF ainda indisponivel."));
+        var servico = CriarServico(
+            contexto,
+            tenantId,
+            new ServicoPdfFake(),
+            assinatura);
+        var payload = """
+            {"event":"document.finished","document":{"id":"doc-autentique-1"},"created_at":"2026-08-30T10:00:00Z"}
+            """;
+
+        var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
+
+        Assert.False(resultado.Sucesso);
+        contexto.ChangeTracker.Clear();
+        var contratoPersistido = await contexto.Contracts.SingleAsync(item => item.Id == contrato.Id);
+        Assert.Equal(StatusContrato.Ativo, contratoPersistido.Status);
+        Assert.NotNull(contratoPersistido.AssinadoEm);
+        Assert.Single(await contexto.AssinaturaEventos.ToListAsync());
+        Assert.Empty(await contexto.Documents.ToListAsync());
+    }
+
+    [Fact]
     public async Task ProcessarWebhookAutentiqueAsync_DocumentFinishedComEnvelopeAutentique_AtivaContrato()
     {
         var tenantId = Guid.NewGuid();

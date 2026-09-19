@@ -299,6 +299,9 @@ public class ContratoServico(
             if (!solicitacao.Contrato.AssinadoEm.HasValue)
                 solicitacao.Contrato.MarkAsSigned(ocorridoEm);
 
+            // A conclusao do contrato nao pode depender da disponibilidade imediata do arquivo.
+            await contratoRepositorio.SalvarAlteracoesAsync(ct);
+
             if (!documentoAssinadoJaArmazenado)
             {
                 var armazenamento = await ArmazenarPdfAssinadoAsync(

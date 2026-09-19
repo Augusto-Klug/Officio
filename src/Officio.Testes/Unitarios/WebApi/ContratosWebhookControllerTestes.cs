@@ -1,12 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
-using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using Officio.Dominio.Contratos.Response;
-using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.ProcessarWebhookAutentique;
 using Officio.WebApi.Controllers;
+using Officio.WebApi.Servicos.Webhooks;
 
 namespace Officio.Testes.Unitarios.WebApi;
 
@@ -23,22 +21,34 @@ public class ContratosWebhookControllerTestes
     }
 
     [Fact]
-    public async Task Receber_ComAssinaturaValida_EnviaPayloadAoMediator()
+    public async Task Receber_ComAssinaturaValida_EnfileiraPayloadERetornaAccepted()
     {
         const string payload = """{"event":"document.finished","document":{"id":"doc-1"}}""";
-        var mediator = new MediatorFake();
-        var controller = CriarController(payload, CriarAssinatura(payload), mediator);
+        var fila = new FilaFake();
+        var controller = CriarController(payload, CriarAssinatura(payload), fila);
 
         var resultado = await controller.Receber(CancellationToken.None);
 
-        Assert.IsType<OkResult>(resultado);
-        Assert.Equal(payload, mediator.PayloadRecebido);
+        Assert.IsType<AcceptedResult>(resultado);
+        Assert.Equal(payload, fila.PayloadRecebido);
+    }
+
+    [Fact]
+    public async Task Receber_ComFilaCheia_RetornaServiceUnavailable()
+    {
+        const string payload = """{"event":"document.finished","document":{"id":"doc-1"}}""";
+        var controller = CriarController(payload, CriarAssinatura(payload), new FilaFake(false));
+
+        var resultado = await controller.Receber(CancellationToken.None);
+
+        var status = Assert.IsType<StatusCodeResult>(resultado);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, status.StatusCode);
     }
 
     private static ContratosWebhookController CriarController(
         string payload,
         string? assinatura,
-        IMediator? mediator = null)
+        IFilaWebhookAutentique? fila = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -46,7 +56,7 @@ public class ContratosWebhookControllerTestes
                 ["Autentique:WebhookSecret"] = "segredo-teste"
             })
             .Build();
-        var controller = new ContratosWebhookController(mediator ?? new MediatorFake(), configuration);
+        var controller = new ContratosWebhookController(fila ?? new FilaFake(), configuration);
         var contexto = new DefaultHttpContext();
         contexto.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(payload));
         if (assinatura is not null)
@@ -69,42 +79,20 @@ public class ContratosWebhookControllerTestes
         return $"sha256={Convert.ToHexString(hash).ToLowerInvariant()}";
     }
 
-    private sealed class MediatorFake : IMediator
+    private sealed class FilaFake(bool aceita = true) : IFilaWebhookAutentique
     {
         public string? PayloadRecebido { get; private set; }
 
-        public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
+        public bool TentarEnfileirar(string payload)
         {
-            if (request is ProcessarWebhookAutentiqueComando comando)
-                PayloadRecebido = comando.Payload;
+            if (!aceita)
+                return false;
 
-            return Task.FromResult((TResponse)(object)Resultado<bool>.CriarSucesso(true));
+            PayloadRecebido = payload;
+            return true;
         }
 
-        public Task<object?> Send(object request, CancellationToken cancellationToken = default)
-            => Task.FromResult<object?>(Resultado<bool>.CriarSucesso(true));
-
-        public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default)
-            where TRequest : IRequest
-            => Task.CompletedTask;
-
-        public IAsyncEnumerable<TResponse> CreateStream<TResponse>(
-            IStreamRequest<TResponse> request,
-            CancellationToken cancellationToken = default)
-            => AsyncEnumerable.Empty<TResponse>();
-
-        public IAsyncEnumerable<object?> CreateStream(
-            object request,
-            CancellationToken cancellationToken = default)
-            => AsyncEnumerable.Empty<object?>();
-
-        public Task Publish(object notification, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task Publish<TNotification>(
-            TNotification notification,
-            CancellationToken cancellationToken = default)
-            where TNotification : INotification
-            => Task.CompletedTask;
+        public IAsyncEnumerable<string> LerTodosAsync(CancellationToken cancellationToken)
+            => AsyncEnumerable.Empty<string>();
     }
 }
