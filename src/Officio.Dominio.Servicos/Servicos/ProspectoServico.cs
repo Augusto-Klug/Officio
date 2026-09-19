@@ -65,13 +65,8 @@ internal class ProspectoServico(
         if (prospecto.Status == StatusProspecto.Convertido)
             return Resultado<Guid>.CriarFalha("Prospecto jÃ¡ foi convertido.");
 
-        var cliente = Cliente.CreateFromProspect(prospecto);
+        var cliente = prospecto.ConverterParaCliente();
         await prospectoRepositorio.AdicionarAsync(cliente, ct);
-
-        foreach (var socio in prospecto.Socios)
-            cliente.AddSocio(Socio.CopyFor(socio, clientId: cliente.Id));
-
-        prospecto.MarkAsConverted(cliente.Id);
 
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
 

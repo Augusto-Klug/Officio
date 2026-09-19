@@ -81,6 +81,19 @@ public class Prospecto : EntidadeAuditavel
         AddDomainEvent(new EventoProspectoConvertido(Id, clientId, TenantId));
     }
 
+    public Cliente ConverterParaCliente()
+    {
+        if (Status == StatusProspecto.Convertido)
+            throw new InvalidOperationException("Prospecto ja foi convertido.");
+
+        var cliente = Cliente.CreateFromProspect(this);
+        foreach (var socio in Socios)
+            cliente.AddSocio(Socio.CopyFor(socio, cliente.Id));
+
+        MarkAsConverted(cliente.Id);
+        return cliente;
+    }
+
     public void UpdateStatus(StatusProspecto newStatus)
         => Status = newStatus;
 

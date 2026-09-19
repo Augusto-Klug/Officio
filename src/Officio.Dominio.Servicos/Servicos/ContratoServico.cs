@@ -288,6 +288,10 @@ public class ContratoServico(
 
         if (eventoConclusaoDocumento)
         {
+            var conversao = await GarantirClienteDoContratoAsync(solicitacao.Contrato, ct);
+            if (!conversao.Sucesso)
+                return Resultado<bool>.CriarFalha(conversao.Erro!);
+
             var statusAssinado = await contratoRepositorio.ObterOuCriarStatusAssinaturaAsync(
                 "assinado",
                 "Assinado",
@@ -335,6 +339,41 @@ public class ContratoServico(
         }
 
         await contratoRepositorio.SalvarAlteracoesAsync(ct);
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
+    private async Task<Resultado<bool>> GarantirClienteDoContratoAsync(
+        Contrato contrato,
+        CancellationToken ct)
+    {
+        if (contrato.ClientId.HasValue)
+            return Resultado<bool>.CriarSucesso(true);
+
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(contrato.ProspectId, ct);
+        if (prospecto is null)
+            return Resultado<bool>.CriarFalha("Prospecto do contrato nao encontrado.");
+
+        if (prospecto.ClientId is Guid clienteId)
+        {
+            contrato.VincularCliente(clienteId);
+            return Resultado<bool>.CriarSucesso(true);
+        }
+
+        var cliente = await prospectoRepositorio.ObterClientePorProspectoAsync(prospecto.Id, ct);
+        if (cliente is null)
+        {
+            if (prospecto.Status == StatusProspecto.Convertido)
+                return Resultado<bool>.CriarFalha("Prospecto convertido sem cliente vinculado.");
+
+            cliente = prospecto.ConverterParaCliente();
+            await prospectoRepositorio.AdicionarAsync(cliente, ct);
+        }
+        else if (prospecto.Status != StatusProspecto.Convertido)
+        {
+            prospecto.MarkAsConverted(cliente.Id);
+        }
+
+        contrato.VincularCliente(cliente.Id);
         return Resultado<bool>.CriarSucesso(true);
     }
 

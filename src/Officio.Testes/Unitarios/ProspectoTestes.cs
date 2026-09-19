@@ -55,4 +55,32 @@ public class ProspectoTestes
 
         Assert.Throws<InvalidOperationException>(() => prospecto.MarkAsConverted(Guid.NewGuid()));
     }
+
+    [Fact]
+    public void ConverterParaCliente_DeveCopiarDadosSociosERegistrarConversao()
+    {
+        var tenantId = Guid.NewGuid();
+        var prospecto = Prospecto.Create(
+            tenantId,
+            "Empresa Teste",
+            "12345678000190",
+            RegimeTributario.SimplesNacional);
+        prospecto.Socios.Add(Socio.Create(
+            tenantId,
+            "Socio Teste",
+            "12345678901",
+            100m,
+            prospectId: prospecto.Id));
+
+        var cliente = prospecto.ConverterParaCliente();
+
+        Assert.Equal(prospecto.Id, cliente.ProspectOrigemId);
+        Assert.Equal(prospecto.RazaoSocial, cliente.RazaoSocial);
+        Assert.Equal(cliente.Id, prospecto.ClientId);
+        Assert.Equal(StatusProspecto.Convertido, prospecto.Status);
+        var socio = Assert.Single(cliente.Socios);
+        Assert.Equal(cliente.Id, socio.ClientId);
+        Assert.Equal("Socio Teste", socio.Nome);
+        Assert.Contains(prospecto.EventosDominio, evento => evento is EventoProspectoConvertido);
+    }
 }

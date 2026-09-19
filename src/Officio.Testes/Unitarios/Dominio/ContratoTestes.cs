@@ -57,4 +57,28 @@ public class ContratoTestes
 
         Assert.Contains("Prospecto", erro.Message);
     }
+
+    [Fact]
+    public void VincularCliente_DeveSerIdempotenteParaMesmoClienteERejeitarOutro()
+    {
+        var tenantId = Guid.NewGuid();
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
+        orcamento.Aceitar();
+        var contrato = Contrato.CriarDeOrcamento(
+            orcamento,
+            prospecto,
+            DateTime.UtcNow,
+            null,
+            true,
+            null);
+        var clienteId = Guid.NewGuid();
+
+        contrato.VincularCliente(clienteId);
+        contrato.VincularCliente(clienteId);
+
+        Assert.Equal(clienteId, contrato.ClientId);
+        Assert.Throws<InvalidOperationException>(() => contrato.VincularCliente(Guid.NewGuid()));
+        Assert.Throws<ArgumentException>(() => contrato.VincularCliente(Guid.Empty));
+    }
 }

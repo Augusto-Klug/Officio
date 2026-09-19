@@ -521,6 +521,10 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .IsUnique()
                         .HasFilter("[Cnpj] IS NOT NULL");
 
+                    b.HasIndex("TenantId", "ProspectOrigemId")
+                        .IsUnique()
+                        .HasFilter("[ProspectOrigemId] IS NOT NULL");
+
                     b.HasIndex("TenantId", "SciCodigo")
                         .IsUnique()
                         .HasFilter("[SciCodigo] IS NOT NULL");

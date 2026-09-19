@@ -290,6 +290,94 @@ public class ContratoServicoTestes
     }
 
     [Fact]
+    public async Task ProcessarWebhookAutentiqueAsync_DocumentFinishedConverteProspectoEVinculaArtefatosAoCliente()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Prospect", "11222333000144", null);
+        prospecto.Socios.Add(Socio.Create(
+            tenantId,
+            "Socio Prospect",
+            "12345678901",
+            100m,
+            prospectId: prospecto.Id));
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(
+            orcamento,
+            prospecto,
+            new DateTime(2026, 9, 1),
+            null,
+            true,
+            null);
+        var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
+        var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
+        solicitacao.DefinirIdentificadorExterno("doc-autentique-1");
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.Add(orcamento);
+        contexto.Contracts.Add(contrato);
+        contexto.StatusAssinaturas.Add(status);
+        contexto.AssinaturaSolicitacoes.Add(solicitacao);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, tenantId);
+        var payload = """
+            {"event":"document.finished","document":{"id":"doc-autentique-1"},"created_at":"2026-08-30T10:00:00Z"}
+            """;
+
+        var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
+        var reprocessamento = await servico.ProcessarWebhookAutentiqueAsync(payload);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(reprocessamento.Sucesso, reprocessamento.Erro);
+        var cliente = await contexto.Clients.Include(item => item.Socios).SingleAsync();
+        Assert.Equal(prospecto.Id, cliente.ProspectOrigemId);
+        Assert.Equal(cliente.Id, prospecto.ClientId);
+        Assert.Equal(cliente.Id, contrato.ClientId);
+        Assert.Equal(StatusProspecto.Convertido, prospecto.Status);
+        Assert.Equal("Socio Prospect", Assert.Single(cliente.Socios).Nome);
+        Assert.Equal(cliente.Id, Assert.Single(contexto.Documents).ClientId);
+        Assert.Single(contexto.AssinaturaEventos);
+    }
+
+    [Fact]
+    public async Task ProcessarWebhookAutentiqueAsync_ProspectoJaConvertido_ReutilizaClienteExistente()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Prospect", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(
+            orcamento,
+            prospecto,
+            new DateTime(2026, 9, 1),
+            null,
+            true,
+            null);
+        var cliente = prospecto.ConverterParaCliente();
+        var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
+        var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
+        solicitacao.DefinirIdentificadorExterno("doc-autentique-1");
+        contexto.Prospects.Add(prospecto);
+        contexto.Clients.Add(cliente);
+        contexto.Budgets.Add(orcamento);
+        contexto.Contracts.Add(contrato);
+        contexto.StatusAssinaturas.Add(status);
+        contexto.AssinaturaSolicitacoes.Add(solicitacao);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, tenantId);
+        var payload = """
+            {"event":"document.finished","document":{"id":"doc-autentique-1"},"created_at":"2026-08-30T10:00:00Z"}
+            """;
+
+        var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(cliente.Id, contrato.ClientId);
+        Assert.Equal(StatusContrato.Ativo, contrato.Status);
+        Assert.Single(contexto.Clients);
+        Assert.Equal(cliente.Id, Assert.Single(contexto.Documents).ClientId);
+    }
+
+    [Fact]
     public async Task ProcessarWebhookAutentiqueAsync_DocumentFinishedBaixaEArmazenaPdfAssinado()
     {
         var tenantId = Guid.NewGuid();

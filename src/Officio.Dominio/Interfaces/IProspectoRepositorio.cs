@@ -7,6 +7,7 @@ public interface IProspectoRepositorio
 {
     Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default);
     Task<Prospecto?> ObterComSociosAsync(Guid prospectoId, CancellationToken cancellationToken = default);
+    Task<Cliente?> ObterClientePorProspectoAsync(Guid prospectoId, CancellationToken cancellationToken = default);
     IQueryable<Prospecto> MontarConsulta(bool rastreamento = true);
     Task<int> ContarAsync(IQueryable<Prospecto> consulta, CancellationToken cancellationToken = default);
     List<ProspectoResumo> ObterPagina(IQueryable<Prospecto> consulta, int pagina, int tamanhoPagina);
