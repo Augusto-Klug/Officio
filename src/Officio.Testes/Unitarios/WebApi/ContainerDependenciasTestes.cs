@@ -38,14 +38,13 @@ public class ContainerDependenciasTestes
         if (configurarOcr)
         {
             Assert.IsType<ServicoOcrAzure>(scope.ServiceProvider.GetRequiredService<IServicoOcr>());
-            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IDocumentoServico>());
         }
         else
         {
-            var erro = Assert.Throws<InvalidOperationException>(() =>
-                scope.ServiceProvider.GetRequiredService<IServicoOcr>());
-            Assert.Contains("AzureOcr:Endpoint", erro.Message);
-            Assert.Contains("AzureOcr:Key", erro.Message);
+            var tipoOcrIndisponivel = typeof(ServicoOcrAzure).Assembly.GetType(
+                "Officio.Infraestrutura.Servicos.ServicoOcrIndisponivel", throwOnError: true)!;
+            Assert.IsType(tipoOcrIndisponivel, scope.ServiceProvider.GetRequiredService<IServicoOcr>());
         }
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IDocumentoServico>());
     }
 }
