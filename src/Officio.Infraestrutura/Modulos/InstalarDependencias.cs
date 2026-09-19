@@ -27,10 +27,16 @@ public static class InstalarDependenciasInfraestrutura
 
         var ocrEndpoint = configuration["AzureOcr:Endpoint"];
         var ocrKey = configuration["AzureOcr:Key"];
-        if (!string.IsNullOrEmpty(ocrEndpoint) && !string.IsNullOrEmpty(ocrKey))
+
+        if (Uri.TryCreate(ocrEndpoint, UriKind.Absolute, out var endpoint) &&
+            endpoint.Scheme == Uri.UriSchemeHttps &&
+            !string.IsNullOrWhiteSpace(ocrKey))
         {
             services.AddSingleton(_ =>
-                new DocumentAnalysisClient(new Uri(ocrEndpoint), new global::Azure.AzureKeyCredential(ocrKey)));
+                new DocumentAnalysisClient(
+                    endpoint,
+                    new global::Azure.AzureKeyCredential(ocrKey)));
+
             services.AddScoped<IServicoOcr, ServicoOcrAzure>();
         }
         else

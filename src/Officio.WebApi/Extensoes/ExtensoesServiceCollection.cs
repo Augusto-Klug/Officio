@@ -39,6 +39,7 @@ public static class ExtensoesServiceCollection
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
+                    ClockSkew = TimeSpan.FromSeconds(30),
                     ValidIssuer = configuration["Jwt:Issuer"] ?? "Officio",
                     ValidAudience = configuration["Jwt:Audience"] ?? "Officio",
                     IssuerSigningKey = new SymmetricSecurityKey(

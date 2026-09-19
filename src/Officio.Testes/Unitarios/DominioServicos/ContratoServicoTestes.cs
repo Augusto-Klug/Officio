@@ -199,7 +199,7 @@ public class ContratoServicoTestes
             null,
             true,
             null);
-        contexto.Tenants.Add(empresa);
+        contexto.Empresas.Add(empresa);
         contexto.Prospects.Add(prospecto);
         contexto.Budgets.Add(orcamento);
         contexto.Contracts.Add(contrato);

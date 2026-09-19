@@ -1,3 +1,6 @@
+using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.Configuration.Memory;
+
 namespace Officio.WebApi.Extensoes;
 
 public static class ExtensoesEnv
@@ -6,6 +9,9 @@ public static class ExtensoesEnv
         this IConfigurationBuilder configuration,
         IWebHostEnvironment environment)
     {
+        if (!environment.IsDevelopment())
+            return configuration;
+
         var caminho = EncontrarArquivoEnv(environment.ContentRootPath);
         if (caminho is null)
             return configuration;
@@ -19,7 +25,16 @@ public static class ExtensoesEnv
                 par => (string?)par.Valor,
                 StringComparer.OrdinalIgnoreCase);
 
-        configuration.AddInMemoryCollection(variaveis);
+        // Acima de appsettings, abaixo de user-secrets, ambiente e argumentos.
+        // Nao reposicionar os demais providers nem confundir secrets.json com appsettings.
+        var indice = 0;
+        for (var i = 0; i < configuration.Sources.Count; i++)
+        {
+            if (configuration.Sources[i] is JsonConfigurationSource json &&
+                (json.Path == "appsettings.json" || json.Path == $"appsettings.{environment.EnvironmentName}.json"))
+                indice = i + 1;
+        }
+        configuration.Sources.Insert(indice, new MemoryConfigurationSource { InitialData = variaveis });
 
         return configuration;
     }

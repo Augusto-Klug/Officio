@@ -11,6 +11,56 @@ namespace Officio.Testes.Unitarios.Infraestrutura;
 public class ServicoJwtTestes
 {
     [Fact]
+    public async Task AutenticarAsync_UsuarioInexistente_Falha()
+    {
+        await using var contexto = CriarContexto(Guid.NewGuid());
+        Assert.Null(await new ServicoJwt(CriarConfiguracao(), contexto).AutenticarAsync("ausente@test.local", "senha"));
+    }
+
+    [Fact]
+    public async Task AutenticarAsync_UsuarioInativo_Falha()
+    {
+        await using var contexto = CriarContexto(Guid.NewGuid());
+        var usuario = Usuario.Create(Guid.NewGuid(), "Maria", "maria@test.local", "", "Admin");
+        usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha"));
+        contexto.Users.Add(usuario);
+        contexto.Entry(usuario).Property(u => u.Ativo).CurrentValue = false;
+        await contexto.SaveChangesAsync();
+        Assert.Null(await new ServicoJwt(CriarConfiguracao(), contexto).AutenticarAsync(usuario.Email, "senha"));
+    }
+
+    [Theory]
+    [InlineData(null, 8)]
+    [InlineData("2", 2)]
+    public async Task AutenticarAsync_NormalizaEmailSemTenantEUsaExpiracaoConfigurada(string? horas, int esperado)
+    {
+        await using var contexto = CriarContexto(Guid.Empty);
+        var usuario = Usuario.Create(Guid.NewGuid(), "Maria", "maria@test.local", "", "Admin");
+        usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha"));
+        contexto.Users.Add(usuario);
+        await contexto.SaveChangesAsync();
+        var config = CriarConfiguracao();
+        config["Jwt:ExpirationHours"] = horas;
+        var antes = DateTime.UtcNow;
+        var resultado = await new ServicoJwt(config, contexto).AutenticarAsync("  maria@test.local  ", "senha");
+        Assert.NotNull(resultado);
+        Assert.InRange(resultado.ExpiraEm, antes.AddHours(esperado), DateTime.UtcNow.AddHours(esperado));
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(resultado.Token);
+        Assert.InRange((resultado.ExpiraEm - jwt.ValidTo).TotalSeconds, 0, 1);
+    }
+
+    [Fact]
+    public void ConfiguracaoSemChave_FalhaClaramente()
+    {
+        var config = CriarConfiguracao();
+        config["Jwt:Key"] = null;
+        var erro = Assert.Throws<InvalidOperationException>(() =>
+            Officio.WebApi.Extensoes.ExtensoesServiceCollection.AdicionarServicosOfficio(
+                new Microsoft.Extensions.DependencyInjection.ServiceCollection(), config));
+        Assert.Contains("Jwt:Key", erro.Message);
+    }
+
+    [Fact]
     public async Task AutenticarAsync_ComSenhaCorretaHashValido_Autentica()
     {
         var tenantId = Guid.NewGuid();
