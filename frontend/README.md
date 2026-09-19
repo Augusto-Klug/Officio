@@ -89,7 +89,16 @@ Busca com debounce de 350 ms, filtros e página na URL, cancelamento de requisi�
 - Inspeção visual em navegador não executada: nenhum navegador estava conectado à sessão. Responsividade e acessibilidade foram revisadas no código, sem afirmar validação visual.
 - Não há script de lint configurado. A checagem TypeScript faz parte do build; não foi adicionada ferramenta de lint nesta tarefa.
 
-Veja [DESIGN.md](DESIGN.md) para os componentes e tokens, [PRODUCT.md](PRODUCT.md) para escopo e [REVIEW.md](REVIEW.md) para a revisão estática das skills.
+### Verificações pendentes no navegador
+
+- Validar navegação por teclado e gerenciamento de foco ao abrir e fechar o Drawer.
+- Conferir o contraste dos estilos computados em todos os estados dos componentes PrimeVue.
+- Verificar a tabela com nomes longos, incluindo quebra de texto e rolagem horizontal.
+- Validar navegação e layout responsivo nas larguras de 375 px e 1440 px.
+
+Essas verificações continuam pendentes; a revisão estática não substitui a validação visual no navegador.
+
+Veja [DESIGN.md](DESIGN.md) para os componentes e tokens e [PRODUCT.md](PRODUCT.md) para escopo.
 
 ## Arquivos criados
 
@@ -100,7 +109,6 @@ frontend/
 ├── DESIGN.md
 ├── PRODUCT.md
 ├── README.md
-├── REVIEW.md
 ├── index.html
 ├── package.json
 ├── package-lock.json
