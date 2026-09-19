@@ -1,5 +1,6 @@
 using Officio.Dominio.Comum;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
 
 namespace Officio.Dominio.Entidades;
 
@@ -61,6 +62,7 @@ public class Orcamento : EntidadeAuditavel
         ValidarStatusNaoTerminal();
 
         Status = StatusOrcamento.Aceito;
+        AddDomainEvent(new EventoOrcamentoAceito(Id, ProspectId, TenantId));
     }
 
     public void Recusar(string motivo)

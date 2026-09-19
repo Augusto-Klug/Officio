@@ -96,8 +96,7 @@ public class Contrato : EntidadeAuditavel
         Status = StatusContrato.Ativo;
         AssinadoEm = assinadoEm ?? DateTime.UtcNow;
 
-        if (ClientId.HasValue)
-            AddDomainEvent(new EventoContratoAssinado(Id, ClientId.Value, TenantId));
+        AddDomainEvent(new EventoContratoAssinado(Id, ClientId, TenantId));
     }
 }
 

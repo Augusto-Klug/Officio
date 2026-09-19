@@ -16,6 +16,9 @@ public class Notificacao : EntidadeAuditavel
 
     public static Notificacao Create(Guid tenantId, Guid userId, string tipo, string titulo, string? mensagem = null, Guid? referenciaId = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tipo);
+        ArgumentException.ThrowIfNullOrWhiteSpace(titulo);
+
         return new Notificacao
         {
             TenantId = tenantId,
@@ -29,6 +32,9 @@ public class Notificacao : EntidadeAuditavel
 
     public void MarcarComoLida()
     {
+        if (Lida)
+            return;
+
         Lida = true;
         LidaEm = DateTime.UtcNow;
     }

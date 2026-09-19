@@ -117,11 +117,11 @@ public class ContextoAplicacao(
 
         var result = await base.SaveChangesAsync(ct);
 
-        foreach (var domainEvent in events)
-            await publisher.Publish(domainEvent, ct);
-
         foreach (var entry in ChangeTracker.Entries<EntidadeBase>())
             entry.Entity.ClearDomainEvents();
+
+        foreach (var domainEvent in events)
+            await publisher.Publish(domainEvent, ct);
 
         return result;
     }
