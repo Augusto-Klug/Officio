@@ -192,6 +192,31 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .company-create-dialog fieldset + fieldset { border-top: 1px solid var(--officio-border); padding-top: 22px; }
 .company-create-dialog legend { padding: 0; margin-bottom: 6px; color: #253630; font-size: 14px; font-weight: 650; }
 .company-create-dialog fieldset > p { margin: 0 0 16px; color: var(--officio-muted); font-size: 12px; line-height: 1.5; }
+.admission-filters .field:first-child { max-width: 360px; }
+.admission-filters .field:nth-child(2) { width: min(320px, 30vw); }
+.admission-filters .field:nth-child(3) { width: 190px; }
+.admissions-table .p-datatable-table { min-width: 1080px; }
+.admissions-table th:first-child { width: 21%; }
+.admissions-table th:nth-child(2) { width: 18%; }
+.admissions-table th:nth-child(3) { width: 13%; }
+.admissions-table th:nth-child(4) { width: 24%; }
+.admissions-table th:last-child { width: 300px; }
+.admission-form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.admission-form fieldset + fieldset { border-top: 1px solid var(--officio-border); padding-top: 22px; }
+.admission-form legend { padding: 0; color: #253630; font-size: 14px; font-weight: 650; }
+.admission-form fieldset > p { margin: 6px 0 16px; color: var(--officio-muted); font-size: 12px; }
+.admission-form .form-grid.three-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admission-form .form-grid.four-columns { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.admission-form .field-span-2 { grid-column: span 2; }
+.admission-form .form-section-heading legend { margin-bottom: 6px; }
+.admission-form .form-section-heading p { margin: 0; }
+.form-empty { padding: 18px; border: 1px dashed #cbd8d1; border-radius: 6px; color: var(--officio-muted); font-size: 12px; text-align: center; }
+.dependent-row { display: grid; grid-template-columns: minmax(160px, 1.4fr) minmax(120px, 1fr) minmax(130px, 1fr) minmax(120px, 1fr) auto auto 40px; gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--officio-border); border-radius: 6px; background: #fbfcfb; }
+.dependent-row + .dependent-row { margin-top: 10px; }
+.dependent-row .p-button { align-self: end; }
+.admission-detail { display: grid; gap: 24px; }
+.detail-grid-compact { background: transparent; }
+.confirmation-copy { overflow-wrap: anywhere; }
 @media (hover: hover) and (pointer: fine) { .nav-item:hover { background: #3d6657; } .prospects-table .p-datatable-tbody > tr:hover { background: #fbfcfb; } }
 @media (max-width: 1100px) { .desktop-sidebar { width: 210px; flex-basis: 210px; } .app-body { margin-left: 210px; width: calc(100% - 210px); } .page-container { padding: 28px; } .app-header { padding-inline: 28px; } .page-header { flex-wrap: wrap; } .new-prospect { align-items: flex-start; } }
 @media (max-width: 760px) {
@@ -207,10 +232,13 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
   .filters { flex-wrap: wrap; padding: 20px 16px; }
   .filters .field:first-child { flex-basis: 100%; max-width: none; }
   .filters .field:nth-child(2) { flex: 1; min-width: 160px; }
+  .admission-filters .field:nth-child(2), .admission-filters .field:nth-child(3) { width: auto; }
   .list-heading { padding: 20px 16px; }
   .pagination-footer { padding: 12px; flex-wrap: wrap; }
   .prospects-table .p-datatable-table-container, .work-table .p-datatable-table-container { overflow-x: auto; }
-  .form-grid.two-columns, .budget-item-row { grid-template-columns: 1fr; }
+  .form-grid.two-columns, .admission-form .form-grid.three-columns, .admission-form .form-grid.four-columns, .budget-item-row, .dependent-row { grid-template-columns: 1fr; }
+  .admission-form .field-span-2 { grid-column: auto; }
+  .dependent-row .check-field { min-height: 36px; }
   .detail-grid, .detail-list { grid-template-columns: 1fr; }
   .access-summary { grid-template-columns: 1fr; }
   .access-summary > div { flex-direction: row; align-items: baseline; justify-content: space-between; padding: 13px 16px; }

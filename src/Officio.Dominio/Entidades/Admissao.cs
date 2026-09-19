@@ -47,5 +47,83 @@ public class Admissao : EntidadeAuditavel
     private Admissao() { }
 
     public static Admissao Criar(Guid tenantId, Guid empresaId, Guid statusAdmissaoId, string nomeFuncionario)
-        => new() { TenantId = tenantId, EmpresaId = empresaId, StatusAdmissaoId = statusAdmissaoId, NomeFuncionario = nomeFuncionario };
+    {
+        if (string.IsNullOrWhiteSpace(nomeFuncionario))
+            throw new ArgumentException("Nome do funcionario e obrigatorio.", nameof(nomeFuncionario));
+
+        return new()
+        {
+            TenantId = tenantId,
+            EmpresaId = empresaId,
+            StatusAdmissaoId = statusAdmissaoId,
+            NomeFuncionario = nomeFuncionario.Trim()
+        };
+    }
+
+    public void AtualizarDados(
+        string nomeFuncionario,
+        string? cpf,
+        string? rg,
+        DateOnly? dataNascimento,
+        string? sexo,
+        string? estadoCivil,
+        string? escolaridade,
+        string? telefone,
+        string? email,
+        string? pis,
+        string? banco,
+        string? agencia,
+        string? conta,
+        string? tipoConta,
+        DateOnly? dataAdmissaoPrevista,
+        decimal? salario,
+        string? comissao,
+        string? funcao,
+        int? contratoExperienciaDias,
+        bool? utilizaValeTransporte,
+        string? horarioTrabalho,
+        string? observacoes)
+    {
+        if (string.IsNullOrWhiteSpace(nomeFuncionario))
+            throw new ArgumentException("Nome do funcionario e obrigatorio.", nameof(nomeFuncionario));
+        if (salario < 0)
+            throw new ArgumentException("Salario nao pode ser negativo.", nameof(salario));
+        if (contratoExperienciaDias < 0)
+            throw new ArgumentException("Contrato de experiencia nao pode ter duracao negativa.", nameof(contratoExperienciaDias));
+
+        NomeFuncionario = nomeFuncionario.Trim();
+        Cpf = DocumentoFiscal.SomenteDigitos(cpf);
+        Rg = Normalizar(rg);
+        DataNascimento = dataNascimento;
+        Sexo = Normalizar(sexo);
+        EstadoCivil = Normalizar(estadoCivil);
+        Escolaridade = Normalizar(escolaridade);
+        Telefone = Normalizar(telefone);
+        Email = Normalizar(email)?.ToLowerInvariant();
+        Pis = DocumentoFiscal.SomenteDigitos(pis);
+        Banco = Normalizar(banco);
+        Agencia = Normalizar(agencia);
+        Conta = Normalizar(conta);
+        TipoConta = Normalizar(tipoConta);
+        DataAdmissaoPrevista = dataAdmissaoPrevista;
+        Salario = salario;
+        Comissao = Normalizar(comissao);
+        Funcao = Normalizar(funcao);
+        ContratoExperienciaDias = contratoExperienciaDias;
+        UtilizaValeTransporte = utilizaValeTransporte;
+        HorarioTrabalho = Normalizar(horarioTrabalho);
+        Observacoes = Normalizar(observacoes);
+    }
+
+    public void SubstituirDependentes(IEnumerable<AdmissaoDependente> dependentes)
+    {
+        _dependentes.Clear();
+        _dependentes.AddRange(dependentes);
+    }
+
+    public void AlterarStatus(Guid statusAdmissaoId)
+        => StatusAdmissaoId = statusAdmissaoId;
+
+    private static string? Normalizar(string? valor)
+        => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 }

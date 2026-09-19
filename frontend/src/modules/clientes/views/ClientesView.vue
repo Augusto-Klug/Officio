@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
@@ -17,6 +18,7 @@ import { listarClientes, obterCliente, vincularCodigoSci } from '../services/cli
 import type { Cliente, ClienteDetalhe } from '../types/cliente'
 
 const clientes = ref<Cliente[]>([])
+const router = useRouter()
 const loading = ref(true)
 const error = ref('')
 const success = ref('')
@@ -85,6 +87,10 @@ async function salvarSci() {
   finally { saving.value = false }
 }
 
+function abrirAdmissoes(clienteId: string) {
+  void router.push({ name: 'admissoes', query: { clienteId } })
+}
+
 void load()
 onBeforeUnmount(() => controller?.abort())
 </script>
@@ -107,7 +113,7 @@ onBeforeUnmount(() => controller?.abort())
       <Column field="ativo" header="Situação"><template #body="{ data }"><StatusBadge :label="data.ativo ? 'Ativo' : 'Inativo'" :severity="data.ativo ? 'success' : 'secondary'" /></template></Column>
       <Column field="sciCodigo" header="SCI"><template #body="{ data }"><span class="numeric">{{ data.sciCodigo || 'Não vinculado' }}</span></template></Column>
       <Column header="Relacionamentos"><template #body="{ data }"><span class="relation-counts">{{ data.quantidadeContratos }} contratos · {{ data.quantidadeDocumentos }} documentos</span></template></Column>
-      <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton label="Detalhes" icon="pi pi-eye" variant="text" @click="abrirDetalhe(data)" /><BaseButton label="Vincular SCI" icon="pi pi-link" variant="secondary" @click="abrirSci(data)" /></div></template></Column>
+      <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton label="Detalhes" icon="pi pi-eye" variant="text" @click="abrirDetalhe(data)" /><BaseButton label="Admissões" icon="pi pi-id-card" variant="secondary" @click="abrirAdmissoes(data.id)" /><BaseButton label="Vincular SCI" icon="pi pi-link" variant="secondary" @click="abrirSci(data)" /></div></template></Column>
       <template #empty><div class="empty-state"><i class="pi pi-building" /><h3>Nenhum cliente encontrado</h3><p>Clientes são criados quando o fluxo comercial é concluído.</p></div></template>
     </DataTable>
   </BaseCard>
@@ -128,7 +134,7 @@ onBeforeUnmount(() => controller?.abort())
       <section class="detail-section"><h3>Contratos <span>{{ detalhe.contratos.length }}</span></h3><div v-if="detalhe.contratos.length" class="detail-list"><div v-for="contrato in detalhe.contratos" :key="contrato.id"><strong>{{ contrato.numero }} · {{ contrato.status }}</strong><span>{{ formatCurrency(contrato.valorTotal) }} · início em {{ formatDate(contrato.dataInicio) }}</span></div></div><p v-else class="muted">Nenhum contrato vinculado.</p></section>
       <section class="detail-section"><h3>Documentos <span>{{ detalhe.documentos.length }}</span></h3><div v-if="detalhe.documentos.length" class="detail-list"><div v-for="documento in detalhe.documentos" :key="documento.id"><strong>{{ documento.nomeArquivo }}</strong><span>{{ documento.tipo }} · {{ documento.legivel ? 'legível' : 'requer revisão' }}</span></div></div><p v-else class="muted">Nenhum documento vinculado.</p></section>
     </div>
-    <template #footer><BaseButton v-if="detalhe" label="Vincular SCI" icon="pi pi-link" variant="secondary" @click="abrirSci(detalhe)" /><BaseButton label="Fechar" variant="text" @click="detalheOpen = false" /></template>
+    <template #footer><BaseButton label="Fechar" variant="text" @click="detalheOpen = false" /><BaseButton v-if="detalhe" label="Admissões" icon="pi pi-id-card" variant="secondary" @click="abrirAdmissoes(detalhe.id)" /><BaseButton v-if="detalhe" label="Vincular SCI" icon="pi pi-link" variant="secondary" @click="abrirSci(detalhe)" /></template>
   </Dialog>
 
   <Dialog v-model:visible="sciOpen" modal header="Vincular código SCI" class="workflow-dialog" :style="{ width: 'min(440px, 94vw)' }">

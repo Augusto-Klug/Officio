@@ -17,6 +17,27 @@ public class AdmissaoDependente : EntidadeBase
 
     private AdmissaoDependente() { }
 
-    public static AdmissaoDependente Criar(Guid admissaoId, string nome)
-        => new() { AdmissaoId = admissaoId, Nome = nome };
+    public static AdmissaoDependente Criar(
+        Guid admissaoId,
+        string nome,
+        string? cpf = null,
+        DateOnly? dataNascimento = null,
+        string? parentesco = null,
+        bool? dependenteIr = null,
+        bool? salarioFamilia = null)
+    {
+        if (string.IsNullOrWhiteSpace(nome))
+            throw new ArgumentException("Nome do dependente e obrigatorio.", nameof(nome));
+
+        return new()
+        {
+            AdmissaoId = admissaoId,
+            Nome = nome.Trim(),
+            Cpf = DocumentoFiscal.SomenteDigitos(cpf),
+            DataNascimento = dataNascimento,
+            Parentesco = string.IsNullOrWhiteSpace(parentesco) ? null : parentesco.Trim(),
+            DependenteIr = dependenteIr,
+            SalarioFamilia = salarioFamilia
+        };
+    }
 }

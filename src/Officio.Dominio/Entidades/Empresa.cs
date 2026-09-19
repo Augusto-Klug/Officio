@@ -64,6 +64,12 @@ public class Empresa : EntidadeBase
         AtualizadoEm = DateTime.UtcNow;
     }
 
+    public void IncrementarQuantidadeFuncionarios()
+    {
+        QuantidadeFuncionariosAtual++;
+        AtualizadoEm = DateTime.UtcNow;
+    }
+
     public void AlterarStatus(bool ativo)
     {
         Ativo = ativo;

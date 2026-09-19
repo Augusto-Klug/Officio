@@ -15,6 +15,8 @@ const platformAdmin = hasRole('PlatformAdmin')
         <RouterLink to="/prospectos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-users" aria-hidden="true" />Prospectos</RouterLink>
         <RouterLink to="/clientes" class="nav-item" @click="$emit('navigate')"><i class="pi pi-building" aria-hidden="true" />Clientes</RouterLink>
         <RouterLink to="/contratos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-file" aria-hidden="true" />Contratos</RouterLink>
+        <p class="nav-section nav-section-spaced">OPERACIONAL</p>
+        <RouterLink to="/admissoes" class="nav-item" @click="$emit('navigate')"><i class="pi pi-id-card" aria-hidden="true" />Admissões</RouterLink>
       </template>
       <template v-if="hasRole('Admin') && !platformAdmin">
         <p class="nav-section nav-section-spaced">CONFIGURAÇÕES</p>
