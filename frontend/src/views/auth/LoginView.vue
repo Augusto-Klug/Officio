@@ -39,6 +39,7 @@ async function submit() {
           <BaseInput id="email" v-model="email" label="E-mail" type="email" name="email" autocomplete="username" :spellcheck="false" placeholder="voce@escritorio.com.br…" required :disabled="loading" />
           <BaseInput id="senha" v-model="senha" label="Senha" type="password" name="senha" autocomplete="current-password" required :disabled="loading" />
           <BaseButton type="submit" :label="loading ? 'Entrando…' : 'Entrar'" :loading="loading" :disabled="loading" />
+          <RouterLink class="auth-link" to="/esqueci-senha">Esqueci minha senha</RouterLink>
         </form>
       </BaseCard>
       <p class="login-footer">Officio · Gestão contábil</p>

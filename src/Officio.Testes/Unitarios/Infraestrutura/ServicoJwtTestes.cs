@@ -98,6 +98,24 @@ public class ServicoJwtTestes
     }
 
     [Fact]
+    public async Task AutenticarAsync_EmpresaSuspensa_Falha()
+    {
+        var empresa = Empresa.Create("Empresa suspensa", "11222333000144");
+        empresa.AlterarStatus(false);
+        var usuario = Usuario.Create(empresa.Id, "Maria", "maria@suspensa.test", "", "Admin");
+        usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha-correta"));
+        await using var contexto = CriarContexto(Guid.Empty);
+        contexto.Empresas.Add(empresa);
+        contexto.Users.Add(usuario);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await new ServicoJwt(CriarConfiguracao(), contexto)
+            .AutenticarAsync(usuario.Email, "senha-correta");
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
     public async Task AutenticarAsync_TokenContemClaimsEssenciais()
     {
         var tenantId = Guid.NewGuid();

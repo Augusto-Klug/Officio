@@ -77,6 +77,17 @@ public class OrcamentoServico(
         return Resultado<List<OrcamentoDto>>.CriarSucesso(resultados);
     }
 
+    public async Task<Resultado<OrcamentoDto>> ObterPorIdAsync(
+        Guid orcamentoId,
+        CancellationToken ct = default)
+    {
+        var orcamento = await repositorio.ObterPorIdComItensAsync(orcamentoId, ct);
+
+        return orcamento is null
+            ? Resultado<OrcamentoDto>.CriarFalha("Orcamento nao encontrado.")
+            : Resultado<OrcamentoDto>.CriarSucesso(MapearOrcamento(orcamento));
+    }
+
     public async Task<Resultado<Guid>> CriarItemCatalogoAsync(
         CriarItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default)

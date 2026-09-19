@@ -4,6 +4,7 @@ using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AtualizarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.CriarOrcamento;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
 using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
@@ -178,6 +179,79 @@ public class OrcamentoHandlersTestes
         var dto = Assert.Single(resultado.Valor!);
         Assert.Equal(orcamento.Id, dto.Id);
         Assert.Equal(prospecto.Id, dto.ProspectoId);
+    }
+
+    [Fact]
+    public async Task ObterPorId_RetornaOrcamentoComItens()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa A", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta A", 10, "Observacao");
+        orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
+            tenantId,
+            orcamento.Id,
+            null,
+            "Honorarios",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            1,
+            500m,
+            1));
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.Add(orcamento);
+        await contexto.SaveChangesAsync();
+        contexto.ChangeTracker.Clear();
+        var handler = new ObterOrcamentoPorIdHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(new ObterOrcamentoPorIdConsulta(orcamento.Id), CancellationToken.None);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal(orcamento.Id, resultado.Valor!.Id);
+        Assert.Equal("Proposta A", resultado.Valor.Titulo);
+        var item = Assert.Single(resultado.Valor.Itens);
+        Assert.Equal("Honorarios", item.Descricao);
+        Assert.Equal(500m, item.ValorTotal);
+    }
+
+    [Fact]
+    public async Task ObterPorId_QuandoInexistente_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var handler = new ObterOrcamentoPorIdHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(new ObterOrcamentoPorIdConsulta(Guid.NewGuid()), CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("Orcamento nao encontrado", resultado.Erro);
+    }
+
+    [Fact]
+    public async Task ObterPorId_QuandoOrcamentoDeOutroTenant_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        var tenantEstrangeiroId = Guid.NewGuid();
+        var nomeBanco = Guid.NewGuid().ToString();
+        Guid orcamentoEstrangeiroId;
+
+        await using (var contextoEstrangeiro = CriarContexto(tenantEstrangeiroId, nomeBanco))
+        {
+            var prospecto = Prospecto.Create(tenantEstrangeiroId, "Empresa Estrangeira", "55666777000188", null);
+            var orcamento = Orcamento.Criar(tenantEstrangeiroId, prospecto.Id, "Proposta estrangeira", 15, null);
+            contextoEstrangeiro.Prospects.Add(prospecto);
+            contextoEstrangeiro.Budgets.Add(orcamento);
+            await contextoEstrangeiro.SaveChangesAsync();
+            orcamentoEstrangeiroId = orcamento.Id;
+        }
+
+        await using var contexto = CriarContexto(tenantId, nomeBanco);
+        var handler = new ObterOrcamentoPorIdHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(new ObterOrcamentoPorIdConsulta(orcamentoEstrangeiroId), CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("Orcamento nao encontrado", resultado.Erro);
     }
 
     [Fact]

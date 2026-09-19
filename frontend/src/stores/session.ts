@@ -19,6 +19,15 @@ function restore(): Session | null {
 const current = ref<Session | null>(restore())
 export const session = readonly(current)
 export const authenticated = computed(() => !!current.value)
+export const userRole = computed(() => current.value?.usuario.perfil?.trim().toLowerCase() || '')
+
+export function hasRole(role: string): boolean {
+  return userRole.value === role.trim().toLowerCase()
+}
+
+export function defaultAuthenticatedRoute(): string {
+  return hasRole('PlatformAdmin') ? '/admin/empresas' : '/prospectos'
+}
 
 export function setSession(value: Session) {
   current.value = value

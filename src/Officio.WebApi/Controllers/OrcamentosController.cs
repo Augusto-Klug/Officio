@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
 using Officio.ViewModels.Contratos;
 using Officio.ViewModels.Orcamentos;
@@ -16,6 +17,14 @@ namespace Officio.WebApi.Controllers;
 [Authorize]
 public class OrcamentosController(IMediator mediator) : ControllerBase
 {
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ObterOrcamentoPorIdConsulta(id), cancellationToken);
+
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
     [HttpGet("{prospectoId:guid}")]
     public async Task<IActionResult> PorProspecto(Guid prospectoId, CancellationToken cancellationToken)
     {

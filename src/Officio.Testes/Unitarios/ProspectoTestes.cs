@@ -20,6 +20,7 @@ public class ProspectoTestes
 
         Assert.Equal(tenantId, prospecto.TenantId);
         Assert.Equal("Empresa Teste", prospecto.RazaoSocial);
+        Assert.Equal("12345678000190", prospecto.Cnpj);
         Assert.Equal(StatusProspecto.EmNegociacao, prospecto.Status);
         Assert.Empty(prospecto.EventosDominio);
     }

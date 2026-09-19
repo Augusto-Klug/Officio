@@ -46,6 +46,13 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IA
         if (user is null || !user.Ativo)
             return null;
 
+        if (!string.Equals(user.Role, "PlatformAdmin", StringComparison.OrdinalIgnoreCase))
+        {
+            var empresa = await db.Empresas.FirstOrDefaultAsync(item => item.Id == user.TenantId, ct);
+            if (empresa is not null && !empresa.Ativo)
+                return null;
+        }
+
         var resultadoSenha = _passwordHasher.VerifyHashedPassword(user, user.SenhaHash, senha);
         if (resultadoSenha == PasswordVerificationResult.Failed)
             return null;

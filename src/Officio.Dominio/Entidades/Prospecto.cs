@@ -57,14 +57,16 @@ public class Prospecto : EntidadeAuditavel
         string? cnpj,
         RegimeTributario? regime)
     {
+        var cnpjNormalizado = DocumentoFiscal.SomenteDigitos(cnpj);
+
         return new Prospecto
         {
             TenantId = tenantId,
             RazaoSocial = razaoSocial,
-            Cnpj = cnpj,
+            Cnpj = cnpjNormalizado,
             RegimeTributario = regime,
             Status = StatusProspecto.EmNegociacao,
-            TipoProspect = string.IsNullOrWhiteSpace(cnpj) ? "NOVA_EMPRESA" : "EMPRESA_EXISTENTE"
+            TipoProspect = cnpjNormalizado is null ? "NOVA_EMPRESA" : "EMPRESA_EXISTENTE"
         };
     }
 

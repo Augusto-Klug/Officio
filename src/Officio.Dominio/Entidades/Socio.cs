@@ -18,7 +18,7 @@ public class Socio : EntidadeAuditavel
         {
             TenantId = tenantId,
             Nome = nome,
-            Cpf = cpf,
+            Cpf = DocumentoFiscal.SomenteDigitos(cpf),
             Participacao = participacao,
             ProspectId = prospectId,
             ClientId = clientId

@@ -15,4 +15,6 @@ public class UsuarioEmpresa : EntidadeBase
 
     public static UsuarioEmpresa Criar(Guid usuarioId, Guid empresaId)
         => new() { UsuarioId = usuarioId, EmpresaId = empresaId };
+
+    public void AlterarStatus(bool ativo) => Ativo = ativo;
 }

@@ -7,6 +7,7 @@ using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AlterarStatus
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AtualizarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.CriarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.RecusarOrcamento;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
 
 namespace Officio.Testes.Unitarios.DominioMediador;
@@ -20,6 +21,7 @@ public class OrcamentoHandlersArquiteturaTestes
         typeof(AceitarOrcamentoHandler),
         typeof(RecusarOrcamentoHandler),
         typeof(AlterarStatusOrcamentoHandler),
+        typeof(ObterOrcamentoPorIdHandler),
         typeof(ObterOrcamentosPorProspectoHandler),
         typeof(CriarItemCatalogoOrcamentoHandler),
         typeof(AtualizarItemCatalogoOrcamentoHandler),

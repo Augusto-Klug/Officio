@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
-import { login } from './auth.service'
+import { ativarConta, login, redefinirSenha, solicitarRedefinicaoSenha } from './auth.service'
 import { http, onUnauthorized } from './http'
 import { accessToken, clearSession, session, setSession } from '../stores/session'
 
@@ -54,4 +54,31 @@ it('explica falha de conexao sem detalhes tecnicos', async () => {
 it.each([{}, { ...response(), expiraEm: 'invalido' }])('rejeita resposta inesperada sem expor contrato interno', async (data) => {
   http.defaults.adapter = async (config) => ({ data, status: 200, statusText: 'OK', headers: new AxiosHeaders(), config })
   await expect(login('email@test.local', 'senha')).rejects.toThrow('Não foi possível entrar. Tente novamente em instantes.')
+})
+
+it('envia os fluxos publicos de ativacao e recuperacao sem Bearer', async () => {
+  const calls: Array<{ url?: string; data: unknown; authorization: boolean }> = []
+  http.defaults.adapter = async (config) => {
+    calls.push({ url: config.url, data: JSON.parse(config.data), authorization: config.headers.has('Authorization') })
+    return { data: {}, status: 204, statusText: 'No Content', headers: new AxiosHeaders(), config }
+  }
+  await solicitarRedefinicaoSenha(' pessoa@empresa.test ')
+  await ativarConta(' token-ativacao ', 'senha-segura')
+  await redefinirSenha(' token-reset ', 'nova-senha')
+  expect(calls).toEqual([
+    { url: '/v1/autenticacao/EsqueciSenha', data: { email: 'pessoa@empresa.test' }, authorization: false },
+    { url: '/v1/autenticacao/AceitarConvite', data: { token: 'token-ativacao', senha: 'senha-segura' }, authorization: false },
+    { url: '/v1/autenticacao/RedefinirSenha', data: { token: 'token-reset', senha: 'nova-senha' }, authorization: false },
+  ])
+})
+
+it.each([
+  [() => ativarConta('', 'senha-segura'), 'link está incompleto'],
+  [() => redefinirSenha('token', 'curta'), 'pelo menos 8 caracteres'],
+  [() => solicitarRedefinicaoSenha('   '), 'Informe seu e-mail'],
+])('valida dados dos fluxos publicos antes da API', async (action, message) => {
+  const adapter = vi.fn()
+  http.defaults.adapter = adapter
+  await expect(action()).rejects.toThrow(message)
+  expect(adapter).not.toHaveBeenCalled()
 })

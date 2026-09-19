@@ -29,3 +29,32 @@ export async function login(email: string, senha: string): Promise<Session> {
     throw new ApiError('Não foi possível entrar. Tente novamente em instantes.', error.status)
   }
 }
+
+export async function solicitarRedefinicaoSenha(email: string): Promise<void> {
+  email = email.trim()
+  if (!email) throw new ApiError('Informe seu e-mail.')
+  try { await http.post('/v1/autenticacao/EsqueciSenha', { email }, { skipAuth: true }) }
+  catch (cause) {
+    const error = normalizeError(cause)
+    // A recuperação não confirma se uma conta existe para o e-mail informado.
+    if (error.status && error.status >= 400 && error.status < 500) return
+    throw error
+  }
+}
+
+function validarTokenESenha(token: string, senha: string): { token: string; senha: string } {
+  token = token.trim()
+  if (!token) throw new ApiError('O link está incompleto ou inválido.')
+  if (senha.length < 8) throw new ApiError('A senha deve ter pelo menos 8 caracteres.')
+  return { token, senha }
+}
+
+export async function ativarConta(token: string, senha: string): Promise<void> {
+  try { await http.post('/v1/autenticacao/AceitarConvite', validarTokenESenha(token, senha), { skipAuth: true }) }
+  catch (cause) { throw normalizeError(cause) }
+}
+
+export async function redefinirSenha(token: string, senha: string): Promise<void> {
+  try { await http.post('/v1/autenticacao/RedefinirSenha', validarTokenESenha(token, senha), { skipAuth: true }) }
+  catch (cause) { throw normalizeError(cause) }
+}

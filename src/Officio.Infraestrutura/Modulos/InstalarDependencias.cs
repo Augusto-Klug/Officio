@@ -20,6 +20,7 @@ public static class InstalarDependenciasInfraestrutura
         services.AddScoped<IEmpresaAtual, ServicoEmpresaAtual>();
         services.AddScoped<IUsuarioAtual, ServicoUsuarioAtual>();
         services.AddScoped<IAutenticacaoServico, ServicoJwt>();
+        services.AddScoped<IServicoSenha, ServicoSenha>();
 
         services.AddSingleton(_ =>
             new BlobServiceClient(configuration.GetConnectionString("AzureBlobStorage")));

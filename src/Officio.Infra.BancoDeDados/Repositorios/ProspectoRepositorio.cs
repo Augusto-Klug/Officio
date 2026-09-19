@@ -10,7 +10,12 @@ internal class ProspectoRepositorio(
     ContextoAplicacao contexto) : RepositorioBase<ContextoAplicacao, Guid>(contexto), IProspectoRepositorio
 {
     public async Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default)
-        => await VerificarExistenciaAsync<Prospecto>(p => p.Cnpj == cnpj, cancellationToken);
+        => await VerificarExistenciaAsync<Prospecto>(
+            p => p.Cnpj != null && p.Cnpj
+                .Replace(".", "")
+                .Replace("/", "")
+                .Replace("-", "") == cnpj,
+            cancellationToken);
 
     public async Task<Prospecto?> ObterComSociosAsync(Guid prospectoId, CancellationToken cancellationToken = default)
         => await Contexto.Prospects

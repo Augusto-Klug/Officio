@@ -42,7 +42,8 @@ public class Empresa : EntidadeBase
         string razaoSocial,
         string? nomeFantasia = null,
         int quantidadeFuncionariosAtual = 0,
-        int quantidadeProLaboresAtual = 0)
+        int quantidadeProLaboresAtual = 0,
+        string? email = null)
     {
         return new Empresa
         {
@@ -50,6 +51,7 @@ public class Empresa : EntidadeBase
             Cnpj = cnpj,
             RazaoSocial = razaoSocial,
             NomeFantasia = nomeFantasia,
+            Email = email,
             QuantidadeFuncionariosAtual = quantidadeFuncionariosAtual,
             QuantidadeProLaboresAtual = quantidadeProLaboresAtual
         };
@@ -59,6 +61,12 @@ public class Empresa : EntidadeBase
     {
         QuantidadeFuncionariosAtual = quantidadeFuncionariosAtual;
         QuantidadeProLaboresAtual = quantidadeProLaboresAtual;
+        AtualizadoEm = DateTime.UtcNow;
+    }
+
+    public void AlterarStatus(bool ativo)
+    {
+        Ativo = ativo;
         AtualizadoEm = DateTime.UtcNow;
     }
 }

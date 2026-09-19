@@ -9,6 +9,26 @@ namespace Officio.Testes.Unitarios.InfraBancoDeDados;
 public class ProspectoRepositorioTestes
 {
     [Fact]
+    public async Task ExisteComCnpjAsync_IgnoraPontuacaoDeRegistroLegado()
+    {
+        var tenant = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenant);
+        await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            empresaAtual, new PublicadorEventosFake());
+        var prospecto = Prospecto.Create(tenant, "Empresa formatada", "99093538000155", null);
+        db.Prospects.Add(prospecto);
+        db.Entry(prospecto).Property(p => p.Cnpj).CurrentValue = "99.093.538/0001-55";
+        await db.SaveChangesAsync();
+        var repositorio = new ProspectoRepositorio(db);
+
+        var existe = await repositorio.ExisteComCnpjAsync("99093538000155");
+
+        Assert.True(existe);
+    }
+
+    [Fact]
     public async Task ObterPagina_ProjetaResponsavelOpcionalEPreservaFiltroTenant()
     {
         var tenant = Guid.NewGuid();

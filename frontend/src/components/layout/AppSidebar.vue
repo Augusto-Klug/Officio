@@ -1,15 +1,29 @@
 <script setup lang="ts">
+import { hasRole } from '../../stores/session'
 defineEmits<{ navigate: [] }>()
+const platformAdmin = hasRole('PlatformAdmin')
 </script>
 <template>
   <div class="sidebar-content">
-    <RouterLink to="/prospectos" class="brand" aria-label="Officio — Prospectos" @click="$emit('navigate')">
+    <RouterLink :to="platformAdmin ? '/admin/empresas' : '/prospectos'" class="brand" aria-label="Officio" @click="$emit('navigate')">
       <img src="/favicon.svg" width="36" height="36" alt="" /><span translate="no">officio<span class="brand-dot">.</span></span>
     </RouterLink>
-    <div class="workspace-label">Gestão do escritório</div>
+    <div class="workspace-label">{{ platformAdmin ? 'Administração da plataforma' : 'Gestão do escritório' }}</div>
     <nav aria-label="Navegação principal">
-      <p class="nav-section">COMERCIAL</p>
-      <RouterLink to="/prospectos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-users" aria-hidden="true" />Prospectos</RouterLink>
+      <template v-if="!platformAdmin">
+        <p class="nav-section">COMERCIAL</p>
+        <RouterLink to="/prospectos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-users" aria-hidden="true" />Prospectos</RouterLink>
+        <RouterLink to="/clientes" class="nav-item" @click="$emit('navigate')"><i class="pi pi-building" aria-hidden="true" />Clientes</RouterLink>
+        <RouterLink to="/contratos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-file" aria-hidden="true" />Contratos</RouterLink>
+      </template>
+      <template v-if="hasRole('Admin') && !platformAdmin">
+        <p class="nav-section nav-section-spaced">CONFIGURAÇÕES</p>
+        <RouterLink to="/acessos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-user-edit" aria-hidden="true" />Usuários e acessos</RouterLink>
+      </template>
+      <template v-if="platformAdmin">
+        <p class="nav-section">PLATAFORMA</p>
+        <RouterLink to="/admin/empresas" class="nav-item" @click="$emit('navigate')"><i class="pi pi-sitemap" aria-hidden="true" />Empresas</RouterLink>
+      </template>
     </nav>
     <div class="sidebar-footer"><span class="sidebar-mark" aria-hidden="true">O</span><div>Officio<small>Gestão contábil</small></div></div>
   </div>

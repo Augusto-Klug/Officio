@@ -1,15 +1,40 @@
 using Officio.Dominio.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using System.Net;
+using System.Net.Mail;
 
 namespace Officio.Infraestrutura.Servicos;
 
-public class ServicoEmail(ILogger<ServicoEmail> logger) : IServicoEmail
+public class ServicoEmail(ILogger<ServicoEmail> logger, IConfiguration configuration) : IServicoEmail
 {
-    public Task SendAsync(string to, string subject, string body, CancellationToken ct = default)
+    public async Task SendAsync(string to, string subject, string body, CancellationToken ct = default)
     {
-        // TODO: integrar com SendGrid, SMTP ou outro provedor
-        logger.LogInformation("Enviando e-mail para {To}: {Subject}", to, subject);
-        return Task.CompletedTask;
+        if (configuration.GetValue<bool>("Email:ExporConteudoNoLog"))
+        {
+            logger.LogWarning("Conteudo de e-mail exposto para desenvolvimento: {Body}", body);
+            return;
+        }
+
+        var host = configuration["Email:Smtp:Host"];
+        var remetente = configuration["Email:Smtp:From"];
+        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(remetente))
+            throw new InvalidOperationException(
+                "Configure Email:Smtp:Host e Email:Smtp:From para enviar e-mails fora do desenvolvimento.");
+
+        using var mensagem = new MailMessage(remetente, to, subject, body) { IsBodyHtml = false };
+        using var cliente = new SmtpClient(host, configuration.GetValue("Email:Smtp:Port", 587))
+        {
+            EnableSsl = configuration.GetValue("Email:Smtp:EnableSsl", true)
+        };
+
+        var usuario = configuration["Email:Smtp:User"];
+        var senha = configuration["Email:Smtp:Password"];
+        if (!string.IsNullOrWhiteSpace(usuario))
+            cliente.Credentials = new NetworkCredential(usuario, senha);
+
+        await cliente.SendMailAsync(mensagem, ct);
+        logger.LogInformation("E-mail enviado. Destinatario={To} Assunto={Subject}", to, subject);
     }
 }
 
