@@ -33,6 +33,10 @@ public static class InstalarDependenciasInfraestrutura
                 new DocumentAnalysisClient(new Uri(ocrEndpoint), new global::Azure.AzureKeyCredential(ocrKey)));
             services.AddScoped<IServicoOcr, ServicoOcrAzure>();
         }
+        else
+        {
+            services.AddScoped<IServicoOcr, ServicoOcrIndisponivel>();
+        }
 
         QuestPDF.Settings.License = LicenseType.Community;
         services.Configure<OpcoesPdf>(configuration.GetSection("Pdf"));

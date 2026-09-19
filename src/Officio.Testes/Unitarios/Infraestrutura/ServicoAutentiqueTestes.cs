@@ -32,9 +32,11 @@ public class ServicoAutentiqueTestes
                 new DadosCriarDocumentoAutentique(
                     new DocumentoAutentique(
                         "doc-1",
+                        "Contrato Teste",
                         [
-                            new AssinaturaAutentique("assinatura-1", new SignatarioAutentique("cliente@teste.com"))
-                        ])))
+                            new AssinaturaAutentique("assinatura-1", "cliente@teste.com", new LinkAutentique("https://link.test/assinar"))
+                        ])),
+                null)
         };
         var servico = CriarServico(cliente, new OpcoesAutentique { ApiToken = "token-teste" });
 
@@ -45,7 +47,7 @@ public class ServicoAutentiqueTestes
         Assert.Equal("doc-1", resultado.EnvelopeId);
         var link = Assert.Single(resultado.LinksAssinantes);
         Assert.Equal("cliente@teste.com", link.Email);
-        Assert.Equal("https://app.autentique.com.br/assinatura/assinatura-1", link.Link);
+        Assert.Equal("https://link.test/assinar", link.Link);
         Assert.Equal(1, cliente.QuantidadeChamadas);
         Assert.Equal("token-teste", cliente.ApiTokenRecebido);
     }
@@ -66,6 +68,49 @@ public class ServicoAutentiqueTestes
         Assert.Equal(1, cliente.QuantidadeChamadas);
     }
 
+    [Fact]
+    public async Task BaixarDocumentoAssinadoAsync_ComUrlAssinada_BaixaPdf()
+    {
+        var cliente = new AutentiqueIntegracaoClienteFake
+        {
+            RespostaDocumento = new RespostaObterDocumentoAutentique(
+                new DadosObterDocumentoAutentique(
+                    new DocumentoArquivoAutentique(
+                        "doc-1",
+                        "Contrato Teste",
+                        new ArquivosAutentique(null, "https://arquivos.test/assinado.pdf", null, null))),
+                null),
+            ConteudoArquivo = new MemoryStream([1, 2, 3])
+        };
+        var servico = CriarServico(cliente, new OpcoesAutentique { ApiToken = "token-teste" });
+
+        var resultado = await servico.BaixarDocumentoAssinadoAsync("doc-1");
+
+        Assert.True(resultado.Sucesso, resultado.Mensagem);
+        Assert.Equal("Contrato Teste-assinado.pdf", resultado.NomeArquivo);
+        Assert.Equal([1, 2, 3], await LerBytesAsync(resultado.Conteudo!));
+        Assert.Equal("doc-1", cliente.DocumentoIdRecebido);
+        Assert.Equal("https://arquivos.test/assinado.pdf", cliente.UrlBaixada);
+    }
+
+    [Fact]
+    public async Task BaixarDocumentoAssinadoAsync_SemUrlAssinada_RetornaFalha()
+    {
+        var cliente = new AutentiqueIntegracaoClienteFake
+        {
+            RespostaDocumento = new RespostaObterDocumentoAutentique(
+                new DadosObterDocumentoAutentique(
+                    new DocumentoArquivoAutentique("doc-1", "Contrato Teste", new ArquivosAutentique(null, null, null, null))),
+                null)
+        };
+        var servico = CriarServico(cliente, new OpcoesAutentique { ApiToken = "token-teste" });
+
+        var resultado = await servico.BaixarDocumentoAssinadoAsync("doc-1");
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("URL", resultado.Mensagem, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static ServicoAutentique CriarServico(
         IAutentiqueIntegracaoCliente cliente,
         OpcoesAutentique opcoes)
@@ -80,11 +125,23 @@ public class ServicoAutentiqueTestes
             "contrato.pdf",
             [new DadosAssinante("Cliente Teste", "cliente@teste.com", "12345678901", "Cliente")]);
 
+    private static async Task<byte[]> LerBytesAsync(Stream stream)
+    {
+        await using var conteudo = stream;
+        using var memoria = new MemoryStream();
+        await conteudo.CopyToAsync(memoria);
+        return memoria.ToArray();
+    }
+
     private sealed class AutentiqueIntegracaoClienteFake : IAutentiqueIntegracaoCliente
     {
         public int QuantidadeChamadas { get; private set; }
         public string? ApiTokenRecebido { get; private set; }
+        public string? DocumentoIdRecebido { get; private set; }
+        public string? UrlBaixada { get; private set; }
         public RespostaCriarDocumentoAutentique? Resposta { get; init; }
+        public RespostaObterDocumentoAutentique? RespostaDocumento { get; init; }
+        public Stream ConteudoArquivo { get; init; } = new MemoryStream();
         public Exception? Excecao { get; init; }
 
         public Task<RespostaCriarDocumentoAutentique?> CriarDocumentoAsync(
@@ -99,6 +156,28 @@ public class ServicoAutentiqueTestes
                 throw Excecao;
 
             return Task.FromResult(Resposta);
+        }
+
+        public Task<RespostaObterDocumentoAutentique?> ObterDocumentoAsync(
+            string documentoId,
+            string apiToken,
+            CancellationToken cancellationToken = default)
+        {
+            DocumentoIdRecebido = documentoId;
+            ApiTokenRecebido = apiToken;
+
+            if (Excecao is not null)
+                throw Excecao;
+
+            return Task.FromResult(RespostaDocumento);
+        }
+
+        public Task<Stream> BaixarArquivoAsync(
+            string url,
+            CancellationToken cancellationToken = default)
+        {
+            UrlBaixada = url;
+            return Task.FromResult(ConteudoArquivo);
         }
     }
 }

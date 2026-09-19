@@ -18,6 +18,10 @@ public interface IContratoServico
         Guid contratoId,
         CancellationToken ct = default);
 
+    Task<Resultado<ResultadoPdfAssinadoContratoDto>> ObterPdfAssinadoAsync(
+        Guid contratoId,
+        CancellationToken ct = default);
+
     Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
         EnviarAssinaturaRequisicao requisicao,
         CancellationToken ct = default);

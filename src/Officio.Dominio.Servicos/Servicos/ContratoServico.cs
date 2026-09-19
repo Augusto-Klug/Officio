@@ -4,6 +4,7 @@ using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace Officio.Dominio.Servicos.Servicos;
@@ -16,11 +17,13 @@ public class ContratoServico(
     IServicoPdf servicoPdf,
     IServicoAssinatura servicoAssinatura,
     IServicoArmazenamento servicoArmazenamento,
-    IEmpresaAtual empresaAtual) : IContratoServico
+    IEmpresaAtual empresaAtual,
+    ILogger<ContratoServico> logger) : IContratoServico
 {
     private static readonly HashSet<string> EventosAutentiqueProcessaveis = new(StringComparer.OrdinalIgnoreCase)
     {
         "document.finished",
+        "document.updated",
         "signature.accepted",
         "signature.rejected",
         "signature.delivery_failed"
@@ -61,7 +64,11 @@ public class ContratoServico(
     public async Task<Resultado<List<ContratoDto>>> ListarAsync(CancellationToken ct = default)
     {
         var contratos = await contratoRepositorio.ListarAsync(ct);
-        return Resultado<List<ContratoDto>>.CriarSucesso(contratos.Select(MapearContrato).ToList());
+        var dtos = new List<ContratoDto>();
+        foreach (var contrato in contratos)
+            dtos.Add(await MapearContratoAsync(contrato, ct));
+
+        return Resultado<List<ContratoDto>>.CriarSucesso(dtos);
     }
 
     public async Task<Resultado<ContratoDto>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default)
@@ -70,7 +77,7 @@ public class ContratoServico(
         if (contrato is null)
             return Resultado<ContratoDto>.CriarFalha("Contrato nao encontrado.");
 
-        return Resultado<ContratoDto>.CriarSucesso(MapearContrato(contrato));
+        return Resultado<ContratoDto>.CriarSucesso(await MapearContratoAsync(contrato, ct));
     }
 
     public async Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
@@ -103,6 +110,28 @@ public class ContratoServico(
             new ResultadoPdfContratoDto(url, DateTime.UtcNow));
     }
 
+    public async Task<Resultado<ResultadoPdfAssinadoContratoDto>> ObterPdfAssinadoAsync(
+        Guid contratoId,
+        CancellationToken ct = default)
+    {
+        var contrato = await contratoRepositorio.ObterDetalheAsync(contratoId, ct);
+        if (contrato is null)
+            return Resultado<ResultadoPdfAssinadoContratoDto>.CriarFalha("Contrato nao encontrado.");
+
+        var documentoAssinado = await contratoRepositorio.ObterDocumentoAssinadoAsync(contratoId, ct);
+        if (documentoAssinado is null)
+            return Resultado<ResultadoPdfAssinadoContratoDto>.CriarFalha("PDF assinado nao encontrado.");
+
+        var expiracao = TimeSpan.FromHours(1);
+        var url = await servicoArmazenamento.ObterUrlPreAssinadaAsync(
+            documentoAssinado.CaminhoStorage,
+            expiracao,
+            ct);
+
+        return Resultado<ResultadoPdfAssinadoContratoDto>.CriarSucesso(
+            new ResultadoPdfAssinadoContratoDto(url, DateTime.UtcNow.Add(expiracao)));
+    }
+
     public async Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
         EnviarAssinaturaRequisicao requisicao,
         CancellationToken cancellationToken = default)
@@ -122,7 +151,7 @@ public class ContratoServico(
             .Select(s => new DadosAssinante(s.Nome, s.Email, s.Cpf, s.Tipo))
             .ToList();
 
-        var solicitacao = new SolicitacaoAssinatura(fluxoPdf, contrato.Numero, assinantes);
+        var solicitacao = new SolicitacaoAssinatura(fluxoPdf, $"{contrato.Numero}.pdf", assinantes);
         var resultado = await servicoAssinatura.EnviarParaAssinaturaAsync(solicitacao, cancellationToken);
 
         if (resultado.RequerFallback)
@@ -190,7 +219,17 @@ public class ContratoServico(
     {
         var evento = EventoWebhookAutentique.Criar(payload);
         if (evento is null)
+        {
+            logger.LogWarning("Webhook Autentique ignorado: nao foi possivel extrair tipo/documento. Payload: {Payload}", payload);
             return Resultado<bool>.CriarFalha("Payload do webhook Autentique invalido.");
+        }
+
+        logger.LogInformation(
+            "Webhook Autentique recebido. Tipo={Tipo} DocumentoId={DocumentoId} Email={Email} DocumentoFinalizado={DocumentoFinalizado}",
+            evento.Tipo,
+            evento.DocumentoId,
+            evento.EmailSignatario,
+            evento.DocumentoFinalizado);
 
         var solicitacao = await contratoRepositorio.ObterSolicitacaoAssinaturaPorIdExternoAsync(
             "autentique",
@@ -198,33 +237,56 @@ public class ContratoServico(
             ct);
 
         if (solicitacao is null)
+        {
+            logger.LogWarning(
+                "Webhook Autentique sem solicitacao correlacionada. Tipo={Tipo} DocumentoId={DocumentoId}",
+                evento.Tipo,
+                evento.DocumentoId);
             return Resultado<bool>.CriarSucesso(true);
+        }
 
-        if (await contratoRepositorio.ExisteEventoAssinaturaAsync(
+        empresaAtual.SetTenant(solicitacao.TenantId);
+
+        var eventoConclusaoDocumento = EhEventoConclusaoDocumento(evento);
+        var eventoJaRegistrado = await contratoRepositorio.ExisteEventoAssinaturaAsync(
                 solicitacao.Id,
                 evento.Tipo,
                 payload,
-                ct))
+                ct);
+        var documentoAssinadoJaArmazenado = eventoConclusaoDocumento
+            && await contratoRepositorio.ExisteDocumentoAssinadoAsync(solicitacao.ContratoId, ct);
+
+        if (eventoJaRegistrado && !eventoConclusaoDocumento)
+            return Resultado<bool>.CriarSucesso(true);
+
+        if (eventoJaRegistrado && documentoAssinadoJaArmazenado)
         {
             return Resultado<bool>.CriarSucesso(true);
         }
 
-        await contratoRepositorio.AdicionarEventoAssinaturaAsync(
-            AssinaturaEvento.Criar(
-                solicitacao.TenantId,
-                solicitacao.Id,
-                evento.Tipo,
-                payload,
-                evento.OcorridoEm),
-            ct);
+        if (!eventoJaRegistrado)
+        {
+            await contratoRepositorio.AdicionarEventoAssinaturaAsync(
+                AssinaturaEvento.Criar(
+                    solicitacao.TenantId,
+                    solicitacao.Id,
+                    evento.Tipo,
+                    payload,
+                    evento.OcorridoEm),
+                ct);
+        }
 
         if (!EventosAutentiqueProcessaveis.Contains(evento.Tipo))
         {
+            logger.LogInformation(
+                "Webhook Autentique registrado sem alteracao de status. Tipo={Tipo} DocumentoId={DocumentoId}",
+                evento.Tipo,
+                evento.DocumentoId);
             await contratoRepositorio.SalvarAlteracoesAsync(ct);
             return Resultado<bool>.CriarSucesso(true);
         }
 
-        if (evento.Tipo == "document.finished")
+        if (eventoConclusaoDocumento)
         {
             var statusAssinado = await contratoRepositorio.ObterOuCriarStatusAssinaturaAsync(
                 "assinado",
@@ -236,6 +298,20 @@ public class ContratoServico(
             solicitacao.MarcarConcluida(statusAssinado.Id, ocorridoEm);
             if (!solicitacao.Contrato.AssinadoEm.HasValue)
                 solicitacao.Contrato.MarkAsSigned(ocorridoEm);
+
+            // A conclusao do contrato nao pode depender da disponibilidade imediata do arquivo.
+            await contratoRepositorio.SalvarAlteracoesAsync(ct);
+
+            if (!documentoAssinadoJaArmazenado)
+            {
+                var armazenamento = await ArmazenarPdfAssinadoAsync(
+                    solicitacao,
+                    evento.DocumentoId,
+                    ct);
+
+                if (!armazenamento.Sucesso)
+                    return Resultado<bool>.CriarFalha(armazenamento.Erro!);
+            }
         }
         else if (evento.Tipo is "signature.rejected" or "signature.delivery_failed")
         {
@@ -260,6 +336,61 @@ public class ContratoServico(
 
         await contratoRepositorio.SalvarAlteracoesAsync(ct);
         return Resultado<bool>.CriarSucesso(true);
+    }
+
+    private static bool EhEventoConclusaoDocumento(EventoWebhookAutentique evento)
+        => string.Equals(evento.Tipo, "document.finished", StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(evento.Tipo, "document.updated", StringComparison.OrdinalIgnoreCase)
+                && evento.DocumentoFinalizado);
+
+    private async Task<Resultado<bool>> ArmazenarPdfAssinadoAsync(
+        AssinaturaSolicitacao solicitacao,
+        string documentoId,
+        CancellationToken ct)
+    {
+        var resultadoDownload = await servicoAssinatura.BaixarDocumentoAssinadoAsync(documentoId, ct);
+        if (!resultadoDownload.Sucesso || resultadoDownload.Conteudo is null)
+            return Resultado<bool>.CriarFalha(
+                resultadoDownload.Mensagem ?? "Nao foi possivel baixar o PDF assinado da Autentique.");
+
+        await using var conteudoAssinado = resultadoDownload.Conteudo;
+        if (conteudoAssinado.CanSeek)
+            conteudoAssinado.Position = 0;
+
+        var nomeArquivo = NormalizarNomeArquivo(
+            resultadoDownload.NomeArquivo,
+            $"{solicitacao.Contrato.Numero}-assinado.pdf");
+
+        var tamanhoBytes = conteudoAssinado.CanSeek ? conteudoAssinado.Length : (long?)null;
+        var caminho = await servicoArmazenamento.EnviarAsync(
+            conteudoAssinado,
+            $"contratos/{solicitacao.Contrato.Id}/assinaturas/{nomeArquivo}",
+            "contracts",
+            ct);
+
+        var documento = Documento.CriarContratoAssinado(
+            solicitacao.TenantId,
+            solicitacao.ContratoId,
+            solicitacao.Contrato.EmpresaId,
+            solicitacao.Contrato.ClientId,
+            solicitacao.Contrato.ProspectId,
+            nomeArquivo,
+            caminho,
+            tamanhoBytes);
+
+        await contratoRepositorio.AdicionarDocumentoAsync(documento, ct);
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
+    private static string NormalizarNomeArquivo(string? nomeArquivo, string fallback)
+    {
+        var nome = string.IsNullOrWhiteSpace(nomeArquivo) ? fallback : nomeArquivo.Trim();
+        foreach (var caractere in Path.GetInvalidFileNameChars())
+            nome = nome.Replace(caractere, '-');
+
+        return nome.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            ? nome
+            : $"{nome}.pdf";
     }
 
     private static DadosPdfContrato MapearDadosPdf(Contrato contrato, Empresa empresa)
@@ -330,9 +461,10 @@ public class ContratoServico(
         };
     }
 
-    private static ContratoDto MapearContrato(Contrato contrato)
+    private async Task<ContratoDto> MapearContratoAsync(Contrato contrato, CancellationToken ct)
     {
         var razaoSocial = contrato.Cliente?.RazaoSocial ?? contrato.Prospecto.RazaoSocial;
+        var pdfAssinadoDisponivel = await contratoRepositorio.ExisteDocumentoAssinadoAsync(contrato.Id, ct);
 
         return new ContratoDto(
             contrato.Id,
@@ -348,14 +480,17 @@ public class ContratoServico(
             contrato.DataFim,
             contrato.RenovacaoAutomatica,
             contrato.ClausulasExtras,
-            !string.IsNullOrWhiteSpace(contrato.PdfPath));
+            !string.IsNullOrWhiteSpace(contrato.PdfPath),
+            pdfAssinadoDisponivel,
+            contrato.AssinadoEm);
     }
 
     private sealed record EventoWebhookAutentique(
         string Tipo,
         string DocumentoId,
         string? EmailSignatario,
-        DateTime? OcorridoEm)
+        DateTime? OcorridoEm,
+        bool DocumentoFinalizado)
     {
         public static EventoWebhookAutentique? Criar(string payload)
         {
@@ -373,7 +508,8 @@ public class ContratoServico(
                     tipo,
                     documentoId,
                     ObterEmailSignatario(root),
-                    ObterData(root));
+                    ObterData(root),
+                    ObterDocumentoFinalizado(root));
             }
             catch (JsonException)
             {
@@ -383,11 +519,22 @@ public class ContratoServico(
 
         private static string? ObterTipo(JsonElement root)
         {
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            if (TentarObterPropriedade(root, "event", out var eventoObjeto)
+                && eventoObjeto.ValueKind == JsonValueKind.Object)
+            {
+                var tipoEvento = ObterString(eventoObjeto, "type", "name", "event");
+                if (!string.IsNullOrWhiteSpace(tipoEvento))
+                    return tipoEvento;
+            }
+
             var direto = ObterString(root, "event", "type", "evento", "tipo", "action", "name");
             if (!string.IsNullOrWhiteSpace(direto))
                 return direto;
 
-            if (root.TryGetProperty("data", out var data))
+            if (TentarObterPropriedade(root, "data", out var data))
                 return ObterTipo(data);
 
             return null;
@@ -395,40 +542,82 @@ public class ContratoServico(
 
         private static string? ObterDocumentoId(JsonElement root)
         {
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
             var direto = ObterString(root, "document_id", "documentId", "document_uuid", "documentUuid");
             if (!string.IsNullOrWhiteSpace(direto))
                 return direto;
 
-            if (root.TryGetProperty("document", out var document))
-                return ObterString(document, "id", "uuid");
-
-            if (root.TryGetProperty("object", out var objeto))
+            if (TentarObterPropriedade(root, "event", out var eventElement) &&
+                eventElement.ValueKind == JsonValueKind.Object)
             {
+                var documentoId = ObterDocumentoId(eventElement);
+                if (!string.IsNullOrWhiteSpace(documentoId))
+                    return documentoId;
+            }
+
+            if (TentarObterPropriedade(root, "document", out var document))
+            {
+                var documentoId = ObterDocumentoIdDireto(document);
+                if (!string.IsNullOrWhiteSpace(documentoId))
+                    return documentoId;
+            }
+
+            if (TentarObterPropriedade(root, "object", out var objeto) &&
+                objeto.ValueKind == JsonValueKind.Object)
+            {
+                var objetoDocumentoId = ObterIdObjetoDoTipo(objeto, "document");
+                if (!string.IsNullOrWhiteSpace(objetoDocumentoId))
+                    return objetoDocumentoId;
+
                 var objetoDireto = ObterString(objeto, "document_id", "documentId", "document_uuid", "documentUuid");
                 if (!string.IsNullOrWhiteSpace(objetoDireto))
                     return objetoDireto;
 
-                if (objeto.TryGetProperty("document", out var objetoDocument))
-                    return ObterString(objetoDocument, "id", "uuid");
+                if (TentarObterPropriedade(objeto, "document", out var objetoDocument))
+                {
+                    var documentoId = ObterDocumentoIdDireto(objetoDocument);
+                    if (!string.IsNullOrWhiteSpace(documentoId))
+                        return documentoId;
+                }
             }
 
-            if (root.TryGetProperty("data", out var data))
+            if (TentarObterPropriedade(root, "data", out var data) &&
+                data.ValueKind == JsonValueKind.Object)
             {
+                var dataDocumentoId = ObterIdObjetoDoTipo(data, "document");
+                if (!string.IsNullOrWhiteSpace(dataDocumentoId))
+                    return dataDocumentoId;
+
                 var dataDireto = ObterString(data, "document_id", "documentId", "document_uuid", "documentUuid");
                 if (!string.IsNullOrWhiteSpace(dataDireto))
                     return dataDireto;
 
-                if (data.TryGetProperty("document", out var dataDocument))
-                    return ObterString(dataDocument, "id", "uuid");
-
-                if (data.TryGetProperty("object", out var dataObject))
+                if (TentarObterPropriedade(data, "document", out var dataDocument))
                 {
+                    var documentoId = ObterDocumentoIdDireto(dataDocument);
+                    if (!string.IsNullOrWhiteSpace(documentoId))
+                        return documentoId;
+                }
+
+                if (TentarObterPropriedade(data, "object", out var dataObject) &&
+                    dataObject.ValueKind == JsonValueKind.Object)
+                {
+                    var objetoDocumentoId = ObterIdObjetoDoTipo(dataObject, "document");
+                    if (!string.IsNullOrWhiteSpace(objetoDocumentoId))
+                        return objetoDocumentoId;
+
                     var dataObjectDireto = ObterString(dataObject, "document_id", "documentId", "document_uuid", "documentUuid");
                     if (!string.IsNullOrWhiteSpace(dataObjectDireto))
                         return dataObjectDireto;
 
-                    if (dataObject.TryGetProperty("document", out var dataObjectDocument))
-                        return ObterString(dataObjectDocument, "id", "uuid");
+                    if (TentarObterPropriedade(dataObject, "document", out var dataObjectDocument))
+                    {
+                        var documentoId = ObterDocumentoIdDireto(dataObjectDocument);
+                        if (!string.IsNullOrWhiteSpace(documentoId))
+                            return documentoId;
+                    }
                 }
             }
 
@@ -437,40 +626,200 @@ public class ContratoServico(
 
         private static string? ObterEmailSignatario(JsonElement root)
         {
-            if (root.TryGetProperty("signature", out var signature))
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            if (TentarObterPropriedade(root, "signature", out var signature))
                 return ObterString(signature, "email");
 
-            if (root.TryGetProperty("signer", out var signer))
+            if (TentarObterPropriedade(root, "signer", out var signer))
                 return ObterString(signer, "email");
 
-            if (root.TryGetProperty("object", out var objeto))
-                return ObterEmailSignatario(objeto);
+            if (TentarObterPropriedade(root, "user", out var user))
+                return ObterString(user, "email");
 
-            if (root.TryGetProperty("data", out var data))
-                return ObterEmailSignatario(data);
+            if (TentarObterPropriedade(root, "event", out var eventElement) &&
+                eventElement.ValueKind == JsonValueKind.Object)
+            {
+                var email = ObterEmailSignatario(eventElement);
+                if (!string.IsNullOrWhiteSpace(email))
+                    return email;
+            }
+
+            if (TentarObterPropriedade(root, "object", out var objeto) &&
+                objeto.ValueKind == JsonValueKind.Object)
+            {
+                var email = ObterEmailSignatario(objeto);
+                if (!string.IsNullOrWhiteSpace(email))
+                    return email;
+            }
+
+            if (TentarObterPropriedade(root, "data", out var data) &&
+                data.ValueKind == JsonValueKind.Object)
+            {
+                var email = ObterEmailSignatario(data);
+                if (!string.IsNullOrWhiteSpace(email))
+                    return email;
+            }
 
             return ObterString(root, "email", "signer_email", "signerEmail");
         }
 
         private static DateTime? ObterData(JsonElement root)
         {
-            var data = ObterString(root, "created_at", "createdAt", "occurred_at", "occurredAt", "created");
-            if (string.IsNullOrWhiteSpace(data) && root.TryGetProperty("data", out var dataElement))
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var data = ObterString(root, "created_at", "createdAt", "occurred_at", "occurredAt", "created", "signed");
+            if (string.IsNullOrWhiteSpace(data) &&
+                TentarObterPropriedade(root, "event", out var eventElement) &&
+                eventElement.ValueKind == JsonValueKind.Object)
+            {
+                var dataEvento = ObterData(eventElement);
+                if (dataEvento.HasValue)
+                    return dataEvento;
+            }
+
+            if (string.IsNullOrWhiteSpace(data) && TentarObterPropriedade(root, "data", out var dataElement))
                 return ObterData(dataElement);
 
             return DateTime.TryParse(data, out var valor) ? valor.ToUniversalTime() : null;
         }
 
-        private static string? ObterString(JsonElement element, params string[] nomes)
+        private static bool ObterDocumentoFinalizado(JsonElement root)
         {
+            if (root.ValueKind != JsonValueKind.Object)
+                return false;
+
+            if (DocumentoFinalizadoNoObjeto(root))
+                return true;
+
+            if (TentarObterPropriedade(root, "event", out var eventElement) &&
+                eventElement.ValueKind == JsonValueKind.Object &&
+                ObterDocumentoFinalizado(eventElement))
+                return true;
+
+            if (TentarObterPropriedade(root, "data", out var data) &&
+                data.ValueKind == JsonValueKind.Object &&
+                ObterDocumentoFinalizado(data))
+                return true;
+
+            if (TentarObterPropriedade(root, "object", out var objeto) &&
+                objeto.ValueKind == JsonValueKind.Object &&
+                ObterDocumentoFinalizado(objeto))
+                return true;
+
+            return false;
+        }
+
+        private static bool DocumentoFinalizadoNoObjeto(JsonElement element)
+        {
+            var signedFile = ObterArquivoAssinado(element);
+            if (!string.IsNullOrWhiteSpace(signedFile))
+                return true;
+
+            var signaturesCount = ObterInteiro(element, "signatures_count", "signaturesCount");
+            var signedCount = ObterInteiro(element, "signed_count", "signedCount");
+            if (signaturesCount > 0 && signedCount >= signaturesCount)
+                return true;
+
+            if (!TentarObterPropriedade(element, "signatures", out var signatures) ||
+                signatures.ValueKind != JsonValueKind.Array ||
+                signatures.GetArrayLength() == 0)
+                return false;
+
+            foreach (var signature in signatures.EnumerateArray())
+            {
+                if (!AssinaturaFinalizada(signature))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static string? ObterArquivoAssinado(JsonElement element)
+        {
+            if (!TentarObterPropriedade(element, "files", out var files) ||
+                files.ValueKind != JsonValueKind.Object)
+                return null;
+
+            return ObterString(files, "signed", "certified", "pades");
+        }
+
+        private static bool AssinaturaFinalizada(JsonElement signature)
+        {
+            if (signature.ValueKind != JsonValueKind.Object)
+                return false;
+
+            if (TentarObterPropriedade(signature, "signed", out var signed))
+                return signed.ValueKind is JsonValueKind.String or JsonValueKind.Object or JsonValueKind.True;
+
+            return false;
+        }
+
+        private static int? ObterInteiro(JsonElement element, params string[] nomes)
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+                return null;
+
             foreach (var nome in nomes)
             {
-                if (element.TryGetProperty(nome, out var valor)
+                if (!TentarObterPropriedade(element, nome, out var valor))
+                    continue;
+
+                if (valor.ValueKind == JsonValueKind.Number && valor.TryGetInt32(out var inteiro))
+                    return inteiro;
+
+                if (valor.ValueKind == JsonValueKind.String &&
+                    int.TryParse(valor.GetString(), out var inteiroString))
+                    return inteiroString;
+            }
+
+            return null;
+        }
+
+        private static string? ObterString(JsonElement element, params string[] nomes)
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+                return null;
+
+            foreach (var nome in nomes)
+            {
+                if (TentarObterPropriedade(element, nome, out var valor)
                     && valor.ValueKind == JsonValueKind.String)
                     return valor.GetString();
             }
 
             return null;
+        }
+
+        private static string? ObterDocumentoIdDireto(JsonElement element)
+            => element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString(),
+                JsonValueKind.Object => ObterString(element, "id", "uuid"),
+                _ => null
+            };
+
+        private static string? ObterIdObjetoDoTipo(JsonElement element, string tipo)
+        {
+            var objectType = ObterString(element, "object");
+            if (!string.Equals(objectType, tipo, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return ObterString(element, "id", "uuid");
+        }
+
+        private static bool TentarObterPropriedade(
+            JsonElement element,
+            string nome,
+            out JsonElement valor)
+        {
+            if (element.ValueKind == JsonValueKind.Object)
+                return element.TryGetProperty(nome, out valor);
+
+            valor = default;
+            return false;
         }
     }
 }

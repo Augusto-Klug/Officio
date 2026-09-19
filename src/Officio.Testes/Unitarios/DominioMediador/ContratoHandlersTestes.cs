@@ -4,6 +4,7 @@ using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterPdfAssinadoContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.ProcessarWebhookAutentique;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
 
@@ -72,6 +73,21 @@ public class ContratoHandlersTestes
         Assert.True(resultado.Sucesso);
     }
 
+    [Fact]
+    public async Task ObterPdfAssinadoContrato_ChamaServico()
+    {
+        var dto = new ResultadoPdfAssinadoContratoDto("https://storage.test/assinado.pdf", DateTime.UtcNow.AddHours(1));
+        var handler = new ObterPdfAssinadoContratoHandler(
+            new ContratoServicoFake(Resultado<ResultadoPdfAssinadoContratoDto>.CriarSucesso(dto)));
+
+        var resultado = await handler.Handle(
+            new ObterPdfAssinadoContratoConsulta(Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal(dto.PdfUrl, resultado.Valor!.PdfUrl);
+    }
+
     private static ContratoDto CriarContratoDto()
         => new(
             Guid.NewGuid(),
@@ -87,18 +103,22 @@ public class ContratoHandlersTestes
             null,
             true,
             "Clausula",
-            false);
+            false,
+            true,
+            new DateTime(2026, 9, 2));
 
     private sealed class ContratoServicoFake : IContratoServico
     {
         private readonly Resultado<Guid>? conversao;
         private readonly Resultado<List<ContratoDto>>? listagem;
         private readonly Resultado<ContratoDto>? detalhe;
+        private readonly Resultado<ResultadoPdfAssinadoContratoDto>? pdfAssinado;
         private readonly Resultado<bool>? webhook;
 
         public ContratoServicoFake(Resultado<Guid> resultado) => conversao = resultado;
         public ContratoServicoFake(Resultado<List<ContratoDto>> resultado) => listagem = resultado;
         public ContratoServicoFake(Resultado<ContratoDto> resultado) => detalhe = resultado;
+        public ContratoServicoFake(Resultado<ResultadoPdfAssinadoContratoDto> resultado) => pdfAssinado = resultado;
         public ContratoServicoFake(Resultado<bool> resultado) => webhook = resultado;
 
         public Task<Resultado<Guid>> ConverterOrcamentoAsync(
@@ -115,6 +135,10 @@ public class ContratoHandlersTestes
         public Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(
             Guid contratoId, CancellationToken ct = default)
             => throw new NotImplementedException();
+
+        public Task<Resultado<ResultadoPdfAssinadoContratoDto>> ObterPdfAssinadoAsync(
+            Guid contratoId, CancellationToken ct = default)
+            => Task.FromResult(pdfAssinado ?? throw new NotImplementedException());
 
         public Task<Resultado<SendForSignatureResultDto>> EnviarParaAssinaturaAsync(
             EnviarAssinaturaRequisicao requisicao, CancellationToken ct = default)

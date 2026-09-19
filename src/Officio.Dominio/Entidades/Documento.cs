@@ -59,6 +59,35 @@ public class Documento : EntidadeAuditavel
             Observacoes = observacoes
         };
     }
+
+    public static Documento CriarContratoAssinado(
+        Guid tenantId,
+        Guid contratoId,
+        Guid? empresaId,
+        Guid? clientId,
+        Guid prospectId,
+        string nomeArquivo,
+        string caminhoStorage,
+        long? tamanhoBytes = null)
+    {
+        return new Documento
+        {
+            TenantId = tenantId,
+            NomeArquivo = nomeArquivo,
+            Tipo = Enumeradores.TipoDocumento.ContratoSocial,
+            CaminhoStorage = caminhoStorage,
+            MimeType = "application/pdf",
+            TamanhoBytes = tamanhoBytes,
+            Origem = "ASSINATURA_AUTENTIQUE",
+            QualidadeEstimada = 1m,
+            Legivel = true,
+            EmpresaId = empresaId,
+            ClientId = clientId,
+            ProspectId = prospectId,
+            ContratoId = contratoId,
+            Observacoes = "PDF final assinado retornado pela Autentique."
+        };
+    }
 }
 
 
