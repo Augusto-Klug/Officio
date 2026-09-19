@@ -22,6 +22,24 @@ public class EmpresaFuncionario : EntidadeBase
 
     private EmpresaFuncionario() { }
 
-    public static EmpresaFuncionario Criar(Guid empresaId, Guid admissaoOrigemId, string nomeFuncionario, DateOnly dataAdmissao)
-        => new() { EmpresaId = empresaId, AdmissaoOrigemId = admissaoOrigemId, NomeFuncionario = nomeFuncionario, DataAdmissao = dataAdmissao };
+    public static EmpresaFuncionario Criar(
+        Guid empresaId,
+        Guid admissaoOrigemId,
+        string nomeFuncionario,
+        DateOnly dataAdmissao,
+        string? cpf = null,
+        Guid? pessoaId = null,
+        string? funcao = null,
+        decimal? salario = null)
+        => new()
+        {
+            EmpresaId = empresaId,
+            AdmissaoOrigemId = admissaoOrigemId,
+            PessoaId = pessoaId,
+            NomeFuncionario = nomeFuncionario.Trim(),
+            Cpf = DocumentoFiscal.SomenteDigitos(cpf),
+            DataAdmissao = dataAdmissao,
+            Funcao = string.IsNullOrWhiteSpace(funcao) ? null : funcao.Trim(),
+            Salario = salario
+        };
 }
