@@ -91,6 +91,17 @@ public class Contrato : EntidadeAuditavel
     public void MarcarAguardandoAssinatura()
         => Status = StatusContrato.AguardandoAssinatura;
 
+    public void VincularCliente(Guid clientId)
+    {
+        if (clientId == Guid.Empty)
+            throw new ArgumentException("Cliente e obrigatorio.", nameof(clientId));
+
+        if (ClientId.HasValue && ClientId != clientId)
+            throw new InvalidOperationException("Contrato ja esta vinculado a outro cliente.");
+
+        ClientId = clientId;
+    }
+
     public void MarkAsSigned(DateTime? assinadoEm = null)
     {
         Status = StatusContrato.Ativo;

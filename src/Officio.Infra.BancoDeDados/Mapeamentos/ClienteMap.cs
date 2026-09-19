@@ -42,6 +42,10 @@ internal class ClienteMap : IEntityTypeConfiguration<Cliente>
         builder.HasIndex(c => new { c.TenantId, c.SciCodigo })
             .IsUnique()
             .HasFilter("[SciCodigo] IS NOT NULL");
+
+        builder.HasIndex(c => new { c.TenantId, c.ProspectOrigemId })
+            .IsUnique()
+            .HasFilter("[ProspectOrigemId] IS NOT NULL");
     }
 }
 

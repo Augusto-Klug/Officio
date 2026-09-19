@@ -17,6 +17,13 @@ internal class ProspectoRepositorio(
             .Include(p => p.Socios)
             .FirstOrDefaultAsync(p => p.Id == prospectoId, cancellationToken);
 
+    public Task<Cliente?> ObterClientePorProspectoAsync(
+        Guid prospectoId,
+        CancellationToken cancellationToken = default)
+        => Contexto.Clients.FirstOrDefaultAsync(
+            cliente => cliente.ProspectOrigemId == prospectoId,
+            cancellationToken);
+
     public IQueryable<Prospecto> MontarConsulta(bool rastreamento = true)
         => MontarConsulta<Prospecto>(rastreamento);
 
