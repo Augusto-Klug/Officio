@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Comum;
 using Officio.Dominio.Interfaces;
 using Officio.Infra.BancoDeDados.Contextos;
 
@@ -23,11 +24,23 @@ internal class ClienteRepositorio(ContextoAplicacao contexto)
         if (!string.IsNullOrWhiteSpace(busca))
         {
             var termo = busca.Trim();
+            var documento = DocumentoFiscal.SomenteDigitos(termo);
             consulta = consulta.Where(cliente =>
                 cliente.RazaoSocial.Contains(termo) ||
                 (cliente.NomeFantasia != null && cliente.NomeFantasia.Contains(termo)) ||
-                (cliente.Cnpj != null && cliente.Cnpj.Contains(termo)) ||
-                (cliente.Cpf != null && cliente.Cpf.Contains(termo)) ||
+                (cliente.Cnpj != null &&
+                    (cliente.Cnpj.Contains(termo) ||
+                     (documento != null && cliente.Cnpj
+                         .Replace(".", "")
+                         .Replace("/", "")
+                         .Replace("-", "")
+                         .Contains(documento)))) ||
+                (cliente.Cpf != null &&
+                    (cliente.Cpf.Contains(termo) ||
+                     (documento != null && cliente.Cpf
+                         .Replace(".", "")
+                         .Replace("-", "")
+                         .Contains(documento)))) ||
                 (cliente.SciCodigo != null && cliente.SciCodigo.Contains(termo)));
         }
 

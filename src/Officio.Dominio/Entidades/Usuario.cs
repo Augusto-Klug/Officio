@@ -25,6 +25,10 @@ public class Usuario : EntidadeAuditavel
     }
 
     public void UpdatePassword(string newHash) => SenhaHash = newHash;
+
+    public void AlterarPerfil(string perfil) => Role = perfil;
+
+    public void AlterarStatus(bool ativo) => Ativo = ativo;
 }
 
 

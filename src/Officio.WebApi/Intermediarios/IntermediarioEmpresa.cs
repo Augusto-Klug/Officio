@@ -1,4 +1,5 @@
 using Officio.Dominio.Interfaces;
+using Officio.Dominio.Seguranca;
 
 namespace Officio.WebApi.Intermediarios;
 
@@ -10,7 +11,10 @@ public class IntermediarioEmpresa(RequestDelegate next)
         "/api/v1/contratos/webhook/autentique"
     ];
 
-    public async Task InvokeAsync(HttpContext context, IEmpresaAtual currentTenant)
+    public async Task InvokeAsync(
+        HttpContext context,
+        IEmpresaAtual currentTenant,
+        IVerificadorAcesso verificadorAcesso)
     {
         if (RotasPublicas.Any(rota => context.Request.Path.StartsWithSegments(rota)))
         {
@@ -18,10 +22,50 @@ public class IntermediarioEmpresa(RequestDelegate next)
             return;
         }
 
+        if (context.Request.Path.StartsWithSegments("/api/v1/admin"))
+        {
+            if (context.User.Identity?.IsAuthenticated != true)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            if (!context.User.IsInRole(PerfisAcesso.PlatformAdmin))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            if (!ObterUsuarioId(context, out var usuarioId) ||
+                !await verificadorAcesso.UsuarioAtivoAsync(usuarioId, context.RequestAborted))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            await next(context);
+            return;
+        }
+
         var tenantClaim = context.User.FindFirst("tenant_id");
 
         if (tenantClaim is not null && Guid.TryParse(tenantClaim.Value, out var tenantId))
+        {
             currentTenant.SetTenant(tenantId);
+            if (!ObterUsuarioId(context, out var usuarioId) ||
+                !await verificadorAcesso.UsuarioAtivoAsync(usuarioId, context.RequestAborted))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            if (!await verificadorAcesso.EmpresaAtivaAsync(tenantId, context.RequestAborted))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsJsonAsync(new { error = "Empresa inativa." });
+                return;
+            }
+        }
         else if (context.Request.Path.StartsWithSegments("/api") &&
                  !RotasPublicas.Any(rota => context.Request.Path.StartsWithSegments(rota)))
         {
@@ -32,6 +76,11 @@ public class IntermediarioEmpresa(RequestDelegate next)
 
         await next(context);
     }
+
+    private static bool ObterUsuarioId(HttpContext context, out Guid usuarioId)
+        => Guid.TryParse(
+            context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
+            out usuarioId);
 }
 
 

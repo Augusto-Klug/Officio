@@ -1,4 +1,5 @@
 using FluentValidation;
+using Officio.Dominio.Comum;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.CriarProspecto;
 
@@ -11,7 +12,8 @@ public class CriarProspectoValidador : AbstractValidator<CriarProspectoComando>
             .MaximumLength(300);
 
         RuleFor(x => x.Requisicao.Cnpj)
-            .Length(18).When(x => !string.IsNullOrEmpty(x.Requisicao.Cnpj))
+            .Must(cnpj => DocumentoFiscal.SomenteDigitos(cnpj)?.Length == 14)
+            .When(x => !string.IsNullOrWhiteSpace(x.Requisicao.Cnpj))
             .WithMessage("CNPJ inválido.");
     }
 }

@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { ProspectosFiltro, ProspectosPagina } from '../types/prospecto'
+import type { CriarProspectoPayload, ProspectoCriado, ProspectosFiltro, ProspectosPagina } from '../types/prospecto'
 
 function integer(value: unknown, minimum: number): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum) throw new Error('A API retornou uma paginação inválida.')
@@ -33,4 +33,17 @@ export function normalizeProspectos(value: unknown): ProspectosPagina {
 export async function listarProspectos(filtro: ProspectosFiltro, signal?: AbortSignal): Promise<ProspectosPagina> {
   const { data } = await http.get<unknown>('/v1/prospectos/Listar', { params: filtro, signal })
   return normalizeProspectos(data)
+}
+
+export function normalizeProspectoCriado(value: unknown): ProspectoCriado {
+  const body = record(value)
+  return {
+    id: requiredString(field(body, 'id')),
+    razaoSocial: requiredString(field(body, 'razaoSocial')),
+  }
+}
+
+export async function criarProspecto(payload: CriarProspectoPayload): Promise<ProspectoCriado> {
+  const { data } = await http.post<unknown>('/v1/prospectos/Criar', payload)
+  return normalizeProspectoCriado(data)
 }

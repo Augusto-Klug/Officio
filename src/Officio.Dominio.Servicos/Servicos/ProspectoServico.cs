@@ -4,6 +4,7 @@ using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
+using Officio.Dominio.Comum;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
@@ -15,9 +16,11 @@ internal class ProspectoServico(
         CriarProspectoRequisicao requisicao,
         CancellationToken ct = default)
     {
-        if (!string.IsNullOrEmpty(requisicao.Cnpj))
+        var cnpj = DocumentoFiscal.SomenteDigitos(requisicao.Cnpj);
+
+        if (cnpj is not null)
         {
-            var existe = await prospectoRepositorio.ExisteComCnpjAsync(requisicao.Cnpj, ct);
+            var existe = await prospectoRepositorio.ExisteComCnpjAsync(cnpj, ct);
 
             if (existe)
                 return Resultado<ProspectoCriadoDto>.CriarFalha(
@@ -27,7 +30,7 @@ internal class ProspectoServico(
         var prospecto = Prospecto.Create(
             empresaAtual.TenantId,
             requisicao.RazaoSocial,
-            requisicao.Cnpj,
+            cnpj,
             requisicao.RegimeTributario);
 
         await prospectoRepositorio.AdicionarAsync(prospecto, ct);
@@ -79,10 +82,21 @@ internal class ProspectoServico(
     {
         var query = prospectoRepositorio.MontarConsulta();
 
-        if (!string.IsNullOrEmpty(filtro.Busca))
+        if (!string.IsNullOrWhiteSpace(filtro.Busca))
+        {
+            var busca = filtro.Busca.Trim();
+            var documento = DocumentoFiscal.SomenteDigitos(busca);
+
             query = query.Where(p =>
-                p.RazaoSocial.Contains(filtro.Busca) ||
-                (p.Cnpj != null && p.Cnpj.Contains(filtro.Busca)));
+                p.RazaoSocial.Contains(busca) ||
+                (p.Cnpj != null &&
+                    (p.Cnpj.Contains(busca) ||
+                     (documento != null && p.Cnpj
+                         .Replace(".", "")
+                         .Replace("/", "")
+                         .Replace("-", "")
+                         .Contains(documento)))));
+        }
 
         if (!string.IsNullOrEmpty(filtro.Status) &&
             Enum.TryParse<StatusProspecto>(filtro.Status, ignoreCase: true, out var status))

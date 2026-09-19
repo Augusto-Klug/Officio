@@ -98,8 +98,8 @@ public class Cliente : EntidadeAuditavel
 
         RazaoSocial = razaoSocial.Trim();
         NomeFantasia = Normalizar(nomeFantasia);
-        Cnpj = Normalizar(cnpj);
-        Cpf = Normalizar(cpf);
+        Cnpj = DocumentoFiscal.SomenteDigitos(cnpj);
+        Cpf = DocumentoFiscal.SomenteDigitos(cpf);
         RegimeTributario = regimeTributario;
         Email = Normalizar(email);
         Telefone = Normalizar(telefone);

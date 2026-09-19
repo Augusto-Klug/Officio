@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Officio.Dominio.Interfaces;
+using System.Text.Json;
 
 namespace Officio.Infra.BancoDeDados.Contextos;
 
@@ -13,7 +14,9 @@ public sealed class ContextoAplicacaoFabricaDesignTime : IDesignTimeDbContextFac
         CarregarArquivoEnv();
 
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "Server=(localdb)\\mssqllocaldb;Database=Officio;Trusted_Connection=True;TrustServerCertificate=True";
+            ?? ObterConnectionStringAppsettings()
+            ?? throw new InvalidOperationException(
+                "Configure ConnectionStrings__DefaultConnection no .env ou DefaultConnection no appsettings.Development.json.");
 
         var senha = Environment.GetEnvironmentVariable("Database__Password");
         if (!string.IsNullOrWhiteSpace(senha))
@@ -56,6 +59,32 @@ public sealed class ContextoAplicacaoFabricaDesignTime : IDesignTimeDbContextFac
 
             diretorio = diretorio.Parent;
         }
+    }
+
+    private static string? ObterConnectionStringAppsettings()
+    {
+        var diretorio = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (diretorio is not null)
+        {
+            var candidatos = new[]
+            {
+                Path.Combine(diretorio.FullName, "Officio.WebApi", "appsettings.Development.json"),
+                Path.Combine(diretorio.FullName, "src", "Officio.WebApi", "appsettings.Development.json")
+            };
+
+            var caminho = candidatos.FirstOrDefault(File.Exists);
+            if (caminho is not null)
+            {
+                using var documento = JsonDocument.Parse(File.ReadAllText(caminho));
+                if (documento.RootElement.TryGetProperty("ConnectionStrings", out var conexoes) &&
+                    conexoes.TryGetProperty("DefaultConnection", out var valor))
+                    return valor.GetString();
+            }
+
+            diretorio = diretorio.Parent;
+        }
+
+        return null;
     }
 
     private static (string Chave, string Valor)? LerLinha(string linha)

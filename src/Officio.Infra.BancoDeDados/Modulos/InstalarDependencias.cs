@@ -28,6 +28,8 @@ public static class InstalarDependenciasBancoDeDados
         servicos.AddScoped<IOrcamentoRepositorio, OrcamentoRepositorio>();
         servicos.AddScoped<IClienteRepositorio, ClienteRepositorio>();
         servicos.AddScoped<INotificacaoRepositorio, NotificacaoRepositorio>();
+        servicos.AddScoped<IGestaoAcessoRepositorio, GestaoAcessoRepositorio>();
+        servicos.AddScoped<IVerificadorAcesso, VerificadorAcesso>();
 
         return servicos;
     }

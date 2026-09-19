@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { normalizeProspectos } from './prospectos.service'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { http } from '../../../api/http'
+import { RegimeTributario, type CriarProspectoPayload } from '../types/prospecto'
+import { criarProspecto, normalizeProspectoCriado, normalizeProspectos } from './prospectos.service'
+
+afterEach(() => vi.restoreAllMocks())
 
 describe('normalização do contrato de prospectos', () => {
   it('interpreta o PagedResult efetivamente retornado pelo endpoint', () => {
@@ -15,5 +19,30 @@ describe('normalização do contrato de prospectos', () => {
     expect(normalizeProspectos({ data: [], totalCount: 0, page: 1, pageSize: 20, totalPages: 0 }).dados).toEqual([])
     expect(() => normalizeProspectos({ error: 'Falha' })).toThrow()
     expect(() => normalizeProspectos({ data: [], totalCount: 0, page: 0, pageSize: 20, totalPages: 0 })).toThrow()
+  })
+})
+
+describe('criação de prospecto', () => {
+  it('normaliza o retorno efetivo do endpoint', () => {
+    expect(normalizeProspectoCriado({ Id: 'prospecto-1', RazaoSocial: 'Empresa Exemplo' })).toEqual({
+      id: 'prospecto-1',
+      razaoSocial: 'Empresa Exemplo',
+    })
+  })
+
+  it('envia somente os dados efetivamente persistidos ao endpoint real', async () => {
+    const payload: CriarProspectoPayload = {
+      razaoSocial: 'Empresa Exemplo Ltda.', cnpj: '12345678000190',
+      regimeTributario: RegimeTributario.SimplesNacional,
+      socios: [{ nome: 'Maria', cpf: '123.456.789-09', participacao: 100 }],
+    }
+    const post = vi.spyOn(http, 'post').mockResolvedValue({ data: { id: 'prospecto-1', razaoSocial: payload.razaoSocial } })
+
+    await expect(criarProspecto(payload)).resolves.toEqual({ id: 'prospecto-1', razaoSocial: payload.razaoSocial })
+    expect(post).toHaveBeenCalledWith('/v1/prospectos/Criar', payload)
+  })
+
+  it('rejeita uma resposta de criação sem identificador', () => {
+    expect(() => normalizeProspectoCriado({ razaoSocial: 'Empresa' })).toThrow()
   })
 })

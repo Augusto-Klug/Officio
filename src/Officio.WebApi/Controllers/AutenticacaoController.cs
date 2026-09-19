@@ -1,12 +1,18 @@
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Interfaces;
+using Officio.Dominio.Mediador.Funcionalidades.Autenticacao.Comandos.AceitarConvite;
+using Officio.Dominio.Mediador.Funcionalidades.Autenticacao.Comandos.RedefinirSenha;
+using Officio.Dominio.Mediador.Funcionalidades.Autenticacao.Comandos.SolicitarRedefinicaoSenha;
 using Officio.ViewModels.Autenticacao;
 
 namespace Officio.WebApi.Controllers;
 
 [ApiController]
 [Route("api/v1/autenticacao/[action]")]
-public class AutenticacaoController(IAutenticacaoServico autenticacaoServico) : ControllerBase
+[AllowAnonymous]
+public class AutenticacaoController(IAutenticacaoServico autenticacaoServico, IMediator mediator) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Login(
@@ -21,5 +27,34 @@ public class AutenticacaoController(IAutenticacaoServico autenticacaoServico) : 
         return resultado is null
             ? Unauthorized(new { error = "E-mail ou senha incorretos." })
             : Ok(resultado);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> AceitarConvite(
+        [FromBody] AceitarConviteViewModel viewModel,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(
+            new AceitarConviteComando(viewModel.Token, viewModel.Senha), cancellationToken);
+        return resultado.Sucesso ? Ok() : BadRequest(new { error = resultado.Erro });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> EsqueciSenha(
+        [FromBody] EsqueciSenhaViewModel viewModel,
+        CancellationToken cancellationToken)
+    {
+        await mediator.Send(new SolicitarRedefinicaoSenhaComando(viewModel.Email), cancellationToken);
+        return Accepted(new { message = "Se o e-mail estiver cadastrado, as instrucoes serao enviadas." });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> RedefinirSenha(
+        [FromBody] RedefinirSenhaViewModel viewModel,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(
+            new RedefinirSenhaComando(viewModel.Token, viewModel.Senha), cancellationToken);
+        return resultado.Sucesso ? Ok() : BadRequest(new { error = resultado.Erro });
     }
 }

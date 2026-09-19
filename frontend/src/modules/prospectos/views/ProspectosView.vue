@@ -12,6 +12,7 @@ import BaseSelect from '../../../components/base/BaseSelect.vue'
 import BaseCard from '../../../components/base/BaseCard.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import ProspectoStatus from '../components/ProspectoStatus.vue'
+import ProspectoCadastroDialog from '../components/ProspectoCadastroDialog.vue'
 import { listarProspectos } from '../services/prospectos.service'
 import { statusOptions, type ProspectosPagina } from '../types/prospecto'
 import { normalizeError } from '../../../api/errors'
@@ -24,6 +25,7 @@ const status = ref<string | null>(typeof route.query.status === 'string' ? route
 const loading = ref(true)
 const error = ref('')
 const result = ref<ProspectosPagina | null>(null)
+const cadastroOpen = ref(false)
 const pagina = computed(() => Math.max(1, Number.parseInt(String(route.query.pagina || '1'), 10) || 1))
 const filtered = computed(() => !!(route.query.busca || route.query.status || route.query.responsavelId))
 let controller: AbortController | undefined
@@ -72,6 +74,13 @@ function scheduleSearch() {
   clearTimeout(timer)
   timer = setTimeout(applyFilters, 350)
 }
+function prospectoCriado() {
+  cadastroOpen.value = false
+  void router.replace({ query: {} }).then(load)
+}
+function abrirOrcamentos(id: string, nome: string) {
+  void router.push({ name: 'orcamentos-prospecto', params: { prospectoId: id }, query: { nome } })
+}
 watch(() => route.query, () => {
   clearTimeout(timer)
   busca.value = typeof route.query.busca === 'string' ? route.query.busca : ''
@@ -83,7 +92,7 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
 
 <template>
   <PageHeader title="Prospectos" description="Acompanhe as oportunidades comerciais do seu escritório.">
-    <div class="new-prospect"><BaseButton label="Novo prospecto" icon="pi pi-plus" disabled aria-describedby="new-prospect-hint" /><small id="new-prospect-hint">Cadastro disponível em uma próxima etapa.</small></div>
+    <BaseButton label="Novo prospecto" icon="pi pi-plus" @click="cadastroOpen = true" />
   </PageHeader>
 
   <BaseCard class="prospects-card">
@@ -103,6 +112,7 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
         <Column field="status" header="Status"><template #body="{ data }"><ProspectoStatus :status="data.status" /></template></Column>
         <Column field="responsavel" header="Responsável"><template #body="{ data }"><span :class="{ muted: !data.responsavel }">{{ data.responsavel || 'Não atribuído' }}</span></template></Column>
         <Column field="criadoEm" header="Criado em"><template #body="{ data }"><span class="numeric">{{ formatDate(data.criadoEm) }}</span></template></Column>
+        <Column header="Ações"><template #body="{ data }"><BaseButton label="Orçamentos" icon="pi pi-file-edit" variant="text" @click="abrirOrcamentos(data.id, data.razaoSocial)" /></template></Column>
         <template #empty><div class="empty-state"><i class="pi pi-users" aria-hidden="true" /><h3>{{ filtered ? 'Nenhum resultado encontrado' : 'Nenhum prospecto por aqui' }}</h3><p>{{ filtered ? 'Tente outra busca ou remova os filtros aplicados.' : 'Os prospectos cadastrados no escritório aparecerão nesta lista.' }}</p><BaseButton v-if="filtered" label="Limpar filtros" variant="secondary" @click="clearFilters" /></div></template>
       </DataTable>
       <div v-if="result.totalRegistros > 0" class="pagination-footer">
@@ -112,4 +122,5 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
     </template>
   </BaseCard>
   <p class="list-footnote">20 prospectos por página</p>
+  <ProspectoCadastroDialog v-model:visible="cadastroOpen" @criado="prospectoCriado" />
 </template>

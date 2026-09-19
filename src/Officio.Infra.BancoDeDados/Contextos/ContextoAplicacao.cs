@@ -65,6 +65,8 @@ public class ContextoAplicacao(
     public DbSet<ValidacaoDivergencia> ValidacaoDivergencias => Set<ValidacaoDivergencia>();
     public DbSet<StatusFaturamento> StatusFaturamentos => Set<StatusFaturamento>();
     public DbSet<FaturamentoMensal> FaturamentosMensais => Set<FaturamentoMensal>();
+    public DbSet<ConviteUsuario> ConvitesUsuario => Set<ConviteUsuario>();
+    public DbSet<TokenRedefinicaoSenha> TokensRedefinicaoSenha => Set<TokenRedefinicaoSenha>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -75,6 +77,36 @@ public class ContextoAplicacao(
         builder.Entity<Usuario>()
             .HasIndex(usuario => usuario.Email)
             .IsUnique();
+
+        builder.Entity<Usuario>(entity =>
+        {
+            entity.Property(usuario => usuario.Nome).HasMaxLength(200).IsRequired();
+            entity.Property(usuario => usuario.SenhaHash).HasMaxLength(500).IsRequired();
+            entity.Property(usuario => usuario.Role).HasMaxLength(50).IsRequired();
+        });
+
+        builder.Entity<ConviteUsuario>(entity =>
+        {
+            entity.ToTable("UserInvitations");
+            entity.Property(convite => convite.Nome).HasMaxLength(200).IsRequired();
+            entity.Property(convite => convite.Email).HasMaxLength(450).IsRequired();
+            entity.Property(convite => convite.Perfil).HasMaxLength(50).IsRequired();
+            entity.Property(convite => convite.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasIndex(convite => convite.TokenHash).IsUnique();
+            entity.HasIndex(convite => new { convite.TenantId, convite.Email });
+        });
+
+        builder.Entity<TokenRedefinicaoSenha>(entity =>
+        {
+            entity.ToTable("PasswordResetTokens");
+            entity.Property(token => token.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasIndex(token => token.UsuarioId);
+            entity.HasOne(token => token.Usuario)
+                .WithMany()
+                .HasForeignKey(token => token.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.ApplyConfigurationsFromAssembly(typeof(ContextoAplicacao).Assembly);
         Mapeamentos.MapeamentoModelagemOfficio.Configurar(builder);

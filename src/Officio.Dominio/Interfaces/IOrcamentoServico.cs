@@ -10,6 +10,8 @@ public interface IOrcamentoServico
 
     Task<Resultado<Guid>> AtualizarAsync(AtualizarOrcamentoRequisicao requisicao, CancellationToken ct = default);
 
+    Task<Resultado<OrcamentoDto>> ObterPorIdAsync(Guid orcamentoId, CancellationToken ct = default);
+
     Task<Resultado<List<OrcamentoDto>>> ObterPorProspectoAsync(
         Guid prospectoId,
         CancellationToken ct = default);

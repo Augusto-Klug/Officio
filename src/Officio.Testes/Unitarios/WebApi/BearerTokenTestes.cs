@@ -30,6 +30,7 @@ public class BearerTokenTestes
         var services = new ServiceCollection().AddLogging();
         services.AddRouting();
         services.AdicionarServicosOfficio(config);
+        services.AddScoped<IVerificadorAcesso, VerificadorAcessoFake>();
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var usuario = Usuario.Create(Guid.NewGuid(), "Maria", "maria@test.local", "", "Admin");
@@ -63,5 +64,14 @@ public class BearerTokenTestes
         await app.Build()(context);
         Assert.Equal(status, context.Response.StatusCode);
         Assert.Equal(enviarToken, executado);
+    }
+
+    private sealed class VerificadorAcessoFake : IVerificadorAcesso
+    {
+        public Task<bool> UsuarioAtivoAsync(Guid usuarioId, CancellationToken ct = default)
+            => Task.FromResult(true);
+
+        public Task<bool> EmpresaAtivaAsync(Guid empresaId, CancellationToken ct = default)
+            => Task.FromResult(true);
     }
 }

@@ -10,10 +10,8 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         '/api': {
-          target: env.API_PROXY_TARGET || 'https://localhost:7228',
+          target: env.API_PROXY_TARGET || 'http://localhost:5131',
           changeOrigin: true,
-          // Certificado de desenvolvimento do ASP.NET, somente no proxy local.
-          secure: false,
         },
       },
     },

@@ -17,6 +17,16 @@ public class ContratoControllerRotasTestes
     }
 
     [Fact]
+    public void OrcamentosController_ObterPorId_UsaRotaActionComId()
+    {
+        var metodo = typeof(OrcamentosController).GetMethod(nameof(OrcamentosController.ObterPorId));
+
+        var atributo = Assert.Single(metodo!.GetCustomAttributes<HttpGetAttribute>());
+
+        Assert.Equal("{id:guid}", atributo.Template);
+    }
+
+    [Fact]
     public void ContratosController_Listar_UsaRotaAction()
     {
         var metodo = typeof(ContratosController).GetMethod(nameof(ContratosController.Listar));

@@ -28,3 +28,12 @@ it('descarta token expirado antes de enviar uma chamada protegida', async () => 
   expect(current.accessToken()).toBeNull()
   expect(current.authenticated.value).toBe(false)
 })
+
+it('distingue PlatformAdmin de Admin sem promover perfis por aproximacao', async () => {
+  const current = await import('./session')
+  current.setSession({ token: 'platform', expiraEm: new Date(Date.now() + 60_000).toISOString(),
+    usuario: { id: '1', nome: 'Plataforma', email: 'platform@example.test', perfil: 'PlatformAdmin' } })
+  expect(current.hasRole('PlatformAdmin')).toBe(true)
+  expect(current.hasRole('Admin')).toBe(false)
+  expect(current.defaultAuthenticatedRoute()).toBe('/admin/empresas')
+})
