@@ -1420,7 +1420,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Mensagem")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<Guid?>("ReferenciaId")
                         .HasColumnType("uniqueidentifier");
@@ -1430,16 +1431,22 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<string>("Tipo")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("Titulo")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "UserId", "Tipo", "ReferenciaId")
+                        .IsUnique()
+                        .HasFilter("[ReferenciaId] IS NOT NULL");
 
                     b.ToTable("Notifications");
                 });

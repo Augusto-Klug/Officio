@@ -122,7 +122,50 @@ public class ContextoAplicacaoEventosTestes
         var evento = Assert.Single(publicador.Notificacoes.OfType<EventoDocumentoValidado>());
         Assert.Equal(documento.Id, evento.DocumentId);
         Assert.True(evento.Valido);
+        Assert.Equal(tenantId, evento.TenantId);
         Assert.Empty(validacao.EventosDominio);
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_QuandoOrcamentoAceito_PublicaEventoOrcamentoAceito()
+    {
+        var tenantId = Guid.NewGuid();
+        var publicador = new PublicadorEventosFake();
+        await using var contexto = CriarContexto(tenantId, publicador);
+        var orcamento = Orcamento.Criar(tenantId, Guid.NewGuid(), "Proposta", 10, null);
+        contexto.Budgets.Add(orcamento);
+        await contexto.SaveChangesAsync();
+
+        orcamento.Aceitar();
+        await contexto.SaveChangesAsync();
+
+        var evento = Assert.Single(publicador.Notificacoes.OfType<EventoOrcamentoAceito>());
+        Assert.Equal(orcamento.Id, evento.OrcamentoId);
+        Assert.Equal(tenantId, evento.TenantId);
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_QuandoDocumentoExigeRevisao_PublicaEventoRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var publicador = new PublicadorEventosFake();
+        await using var contexto = CriarContexto(tenantId, publicador);
+        var documento = Documento.Create(
+            tenantId,
+            "documento.pdf",
+            TipoDocumento.CartaoCnpj,
+            "documentos/documento.pdf",
+            0.4m,
+            clientId: Guid.NewGuid());
+        var validacao = ValidacaoDocumento.RequireManualReview(tenantId, documento.Id);
+        contexto.Documents.Add(documento);
+        contexto.DocumentValidations.Add(validacao);
+
+        await contexto.SaveChangesAsync();
+
+        var evento = Assert.Single(publicador.Notificacoes.OfType<EventoDocumentoRevisaoManual>());
+        Assert.Equal(documento.Id, evento.DocumentId);
+        Assert.Equal(tenantId, evento.TenantId);
     }
 
     private static ContextoAplicacao CriarContexto(Guid tenantId, IPublisher publicador)

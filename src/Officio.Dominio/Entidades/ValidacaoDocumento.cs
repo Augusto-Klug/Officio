@@ -48,7 +48,7 @@ public class ValidacaoDocumento : EntidadeAuditavel
             FallbackManual = false
         };
 
-        validation.AddDomainEvent(new EventoDocumentoValidado(documentId, valido));
+        validation.AddDomainEvent(new EventoDocumentoValidado(documentId, valido, tenantId));
         return validation;
     }
 
@@ -59,7 +59,7 @@ public class ValidacaoDocumento : EntidadeAuditavel
         decimal confiancaOcr = 0m,
         string? observacao = null)
     {
-        return new ValidacaoDocumento
+        var validation = new ValidacaoDocumento
         {
             TenantId = tenantId,
             DocumentId = documentId,
@@ -69,6 +69,9 @@ public class ValidacaoDocumento : EntidadeAuditavel
             FallbackManual = true,
             Observacao = observacao
         };
+
+        validation.AddDomainEvent(new EventoDocumentoRevisaoManual(documentId, tenantId));
+        return validation;
     }
 
     public void ApproveManually(string? observacao)
