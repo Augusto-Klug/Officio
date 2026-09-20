@@ -256,6 +256,8 @@ internal static class MapeamentoModelagemOfficio
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Salario).HasPrecision(18, 2);
+            entity.Property(e => e.TokenAcessoHash).HasMaxLength(64);
+            entity.HasIndex(e => e.TokenAcessoHash).IsUnique();
             entity.HasOne(e => e.Empresa).WithMany(e => e.Admissoes).HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Pessoa).WithMany().HasForeignKey(e => e.PessoaId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.StatusAdmissao).WithMany().HasForeignKey(e => e.StatusAdmissaoId).OnDelete(DeleteBehavior.Restrict);

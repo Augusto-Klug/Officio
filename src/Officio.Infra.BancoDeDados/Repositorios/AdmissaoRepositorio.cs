@@ -64,6 +64,29 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
                     .ThenInclude(documento => documento!.Validacoes)
             .FirstOrDefaultAsync(admissao => admissao.Id == admissaoId, cancellationToken);
 
+    public Task<Admissao?> ObterPorTokenHashAsync(
+        string tokenHash,
+        bool rastreamento,
+        CancellationToken cancellationToken = default)
+    {
+        var consulta = Contexto.Admissoes
+            .IgnoreQueryFilters()
+            .Include(admissao => admissao.Empresa)
+            .Include(admissao => admissao.StatusAdmissao)
+            .Include(admissao => admissao.Dependentes)
+            .Include(admissao => admissao.Documentos)
+                .ThenInclude(item => item.TipoDocumento)
+            .Include(admissao => admissao.Documentos)
+                .ThenInclude(item => item.Documento)
+                    .ThenInclude(documento => documento!.Validacoes)
+            .Where(admissao => admissao.TokenAcessoHash == tokenHash);
+
+        if (!rastreamento)
+            consulta = consulta.AsNoTracking();
+
+        return consulta.FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<List<ConfigDocumentoAdmissao>> ObterOuCriarConfiguracoesDocumentoPadraoAsync(
         CancellationToken cancellationToken = default)
     {

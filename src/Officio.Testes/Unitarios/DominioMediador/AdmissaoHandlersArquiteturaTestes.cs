@@ -7,6 +7,8 @@ using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.AprovarDocumen
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.EnviarDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RemoverDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.ValidarDocumentoAdmissao;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.GerarLinkFichaAdmissao;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RevogarLinkFichaAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarAdmissoes;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarDocumentosAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ObterAdmissaoPorId;
@@ -36,6 +38,12 @@ public class AdmissaoHandlersArquiteturaTestes
         typeof(ObterUrlDocumentoAdmissaoHandler)
     };
 
+    public static TheoryData<Type> HandlersFicha => new()
+    {
+        typeof(GerarLinkFichaAdmissaoHandler),
+        typeof(RevogarLinkFichaAdmissaoHandler)
+    };
+
     [Theory]
     [MemberData(nameof(Handlers))]
     public void Handler_DeveDependerSomenteDoServicoDeAdmissao(Type handlerType)
@@ -52,5 +60,14 @@ public class AdmissaoHandlersArquiteturaTestes
         var construtor = Assert.Single(handlerType.GetConstructors());
         var dependencia = Assert.Single(construtor.GetParameters());
         Assert.Equal(typeof(IAdmissaoDocumentoServico), dependencia.ParameterType);
+    }
+
+    [Theory]
+    [MemberData(nameof(HandlersFicha))]
+    public void HandlerFicha_DeveDependerSomenteDoServicoDaFicha(Type handlerType)
+    {
+        var construtor = Assert.Single(handlerType.GetConstructors());
+        var dependencia = Assert.Single(construtor.GetParameters());
+        Assert.Equal(typeof(IFichaAdmissaoServico), dependencia.ParameterType);
     }
 }

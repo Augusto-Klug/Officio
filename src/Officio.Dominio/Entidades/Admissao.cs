@@ -127,6 +127,49 @@ public class Admissao : EntidadeAuditavel
     public void AlterarStatus(Guid statusAdmissaoId)
         => StatusAdmissaoId = statusAdmissaoId;
 
+    public void GerarAcessoTemporario(string tokenHash, DateTime expiraEm)
+    {
+        if (string.IsNullOrWhiteSpace(tokenHash))
+            throw new ArgumentException("Hash do token e obrigatorio.", nameof(tokenHash));
+        if (expiraEm <= DateTime.UtcNow)
+            throw new ArgumentException("A expiracao do token deve estar no futuro.", nameof(expiraEm));
+
+        TokenAcessoHash = tokenHash;
+        TokenExpiraEm = expiraEm;
+        PreenchimentoFuncionarioConcluidoEm = null;
+    }
+
+    public void RevogarAcessoTemporario()
+    {
+        TokenAcessoHash = null;
+        TokenExpiraEm = null;
+    }
+
+    public void MarcarPreenchimentoFuncionarioConcluido()
+        => PreenchimentoFuncionarioConcluidoEm ??= DateTime.UtcNow;
+
+    public void AtualizarDadosFuncionario(
+        string nomeFuncionario,
+        string? cpf,
+        string? rg,
+        DateOnly? dataNascimento,
+        string? sexo,
+        string? estadoCivil,
+        string? escolaridade,
+        string? telefone,
+        string? email,
+        string? pis,
+        string? banco,
+        string? agencia,
+        string? conta,
+        string? tipoConta,
+        bool? utilizaValeTransporte)
+        => AtualizarDados(
+            nomeFuncionario, cpf, rg, dataNascimento, sexo, estadoCivil, escolaridade,
+            telefone, email, pis, banco, agencia, conta, tipoConta, DataAdmissaoPrevista,
+            Salario, Comissao, Funcao, ContratoExperienciaDias, utilizaValeTransporte,
+            HorarioTrabalho, Observacoes);
+
     private static string? Normalizar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 }

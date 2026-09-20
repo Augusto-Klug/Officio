@@ -7,6 +7,8 @@ using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.AprovarDocumen
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.EnviarDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RemoverDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.ValidarDocumentoAdmissao;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.GerarLinkFichaAdmissao;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RevogarLinkFichaAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarDocumentosAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarAdmissoes;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ObterAdmissaoPorId;
@@ -75,6 +77,20 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     {
         var resultado = await mediator.Send(new CancelarAdmissaoComando(id), cancellationToken);
         return resultado.Sucesso ? Ok() : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpPost("{id:guid}")]
+    public async Task<IActionResult> GerarLinkFicha(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new GerarLinkFichaAdmissaoComando(id), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpPost("{id:guid}")]
+    public async Task<IActionResult> RevogarLinkFicha(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new RevogarLinkFichaAdmissaoComando(id), cancellationToken);
+        return resultado.Sucesso ? NoContent() : ResultadoErro(resultado.Erro);
     }
 
     [HttpGet("{id:guid}")]

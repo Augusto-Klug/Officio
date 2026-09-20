@@ -11,6 +11,8 @@ public class AdmissoesControllerRotasTestes
     [InlineData(nameof(AdmissoesController.Atualizar))]
     [InlineData(nameof(AdmissoesController.Concluir))]
     [InlineData(nameof(AdmissoesController.Cancelar))]
+    [InlineData(nameof(AdmissoesController.GerarLinkFicha))]
+    [InlineData(nameof(AdmissoesController.RevogarLinkFicha))]
     public void AcaoComId_UsaRestricaoGuid(string nomeMetodo)
     {
         var metodo = typeof(AdmissoesController).GetMethod(nomeMetodo);
