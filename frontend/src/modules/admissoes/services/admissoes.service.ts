@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, CriarAdmissaoPayload, DadosAdmissaoPayload, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
+import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, AtualizarFichaAdmissaoPayload, CriarAdmissaoPayload, DadosAdmissaoPayload, FichaAdmissaoPublica, LinkFichaAdmissao, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
 
 function optionalNumber(value: unknown): number | null {
   if (value == null) return null
@@ -166,4 +166,70 @@ export async function aprovarDocumentoAdmissao(id: string, itemId: string, obser
 
 export async function removerDocumentoAdmissao(id: string, itemId: string): Promise<void> {
   await http.delete(`/v1/admissoes/RemoverDocumento/${id}/itens/${itemId}`)
+}
+
+export async function gerarLinkFichaAdmissao(id: string): Promise<LinkFichaAdmissao> {
+  const { data } = await http.post<unknown>(`/v1/admissoes/GerarLinkFicha/${id}`)
+  const item = record(data)
+  return { token: requiredString(field(item, 'token')), expiraEm: requiredString(field(item, 'expiraEm')) }
+}
+
+export async function revogarLinkFichaAdmissao(id: string): Promise<void> {
+  await http.post(`/v1/admissoes/RevogarLinkFicha/${id}`)
+}
+
+export function normalizeFichaAdmissao(value: unknown): FichaAdmissaoPublica {
+  const item = record(value)
+  const dependentes = field(item, 'dependentes')
+  if (!Array.isArray(dependentes)) throw new Error('A API retornou dependentes em formato inesperado.')
+  return {
+    id: requiredString(field(item, 'id')),
+    empresaNome: requiredString(field(item, 'empresaNome')),
+    nomeFuncionario: requiredString(field(item, 'nomeFuncionario')),
+    cpf: optionalString(field(item, 'cpf')),
+    rg: optionalString(field(item, 'rg')),
+    dataNascimento: optionalString(field(item, 'dataNascimento')),
+    sexo: optionalString(field(item, 'sexo')),
+    estadoCivil: optionalString(field(item, 'estadoCivil')),
+    escolaridade: optionalString(field(item, 'escolaridade')),
+    telefone: optionalString(field(item, 'telefone')),
+    email: optionalString(field(item, 'email')),
+    pis: optionalString(field(item, 'pis')),
+    banco: optionalString(field(item, 'banco')),
+    agencia: optionalString(field(item, 'agencia')),
+    conta: optionalString(field(item, 'conta')),
+    tipoConta: optionalString(field(item, 'tipoConta')),
+    utilizaValeTransporte: optionalBoolean(field(item, 'utilizaValeTransporte')),
+    dataAdmissaoPrevista: optionalString(field(item, 'dataAdmissaoPrevista')),
+    funcao: optionalString(field(item, 'funcao')),
+    preenchimentoConcluido: optionalBoolean(field(item, 'preenchimentoConcluido')) ?? false,
+    expiraEm: requiredString(field(item, 'expiraEm')),
+    dependentes: dependentes.map(normalizeDependente),
+    documentos: normalizeDocumentosAdmissao(field(item, 'documentos')),
+  }
+}
+
+export async function obterFichaAdmissao(token: string): Promise<FichaAdmissaoPublica> {
+  const { data } = await http.get<unknown>(`/v1/admissoes-publicas/Obter/${encodeURIComponent(token)}`, { skipAuth: true })
+  return normalizeFichaAdmissao(data)
+}
+
+export async function atualizarFichaAdmissao(token: string, payload: AtualizarFichaAdmissaoPayload): Promise<void> {
+  await http.put(`/v1/admissoes-publicas/Atualizar/${encodeURIComponent(token)}`, payload, { skipAuth: true })
+}
+
+export async function concluirFichaAdmissao(token: string): Promise<void> {
+  await http.post(`/v1/admissoes-publicas/Concluir/${encodeURIComponent(token)}`, undefined, { skipAuth: true })
+}
+
+export async function enviarDocumentoFichaAdmissao(token: string, itemId: string, arquivo: File): Promise<void> {
+  const form = new FormData()
+  form.append('arquivo', arquivo)
+  await http.post(`/v1/admissoes-publicas/EnviarDocumento/${encodeURIComponent(token)}/itens/${itemId}`, form, { skipAuth: true })
+}
+
+export async function obterUrlDocumentoFichaAdmissao(token: string, itemId: string): Promise<UrlDocumentoAdmissao> {
+  const { data } = await http.get<unknown>(`/v1/admissoes-publicas/ObterUrlDocumento/${encodeURIComponent(token)}/itens/${itemId}`, { skipAuth: true })
+  const item = record(data)
+  return { url: requiredString(field(item, 'url')), expiraEm: requiredString(field(item, 'expiraEm')) }
 }

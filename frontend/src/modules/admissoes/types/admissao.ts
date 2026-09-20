@@ -75,6 +75,56 @@ export interface ResultadoValidacaoDocumento {
   mensagem: string | null
 }
 
+export interface LinkFichaAdmissao {
+  token: string
+  expiraEm: string
+}
+
+export interface FichaAdmissaoPublica {
+  id: string
+  empresaNome: string
+  nomeFuncionario: string
+  cpf: string | null
+  rg: string | null
+  dataNascimento: string | null
+  sexo: string | null
+  estadoCivil: string | null
+  escolaridade: string | null
+  telefone: string | null
+  email: string | null
+  pis: string | null
+  banco: string | null
+  agencia: string | null
+  conta: string | null
+  tipoConta: string | null
+  utilizaValeTransporte: boolean | null
+  dataAdmissaoPrevista: string | null
+  funcao: string | null
+  preenchimentoConcluido: boolean
+  expiraEm: string
+  dependentes: AdmissaoDependente[]
+  documentos: AdmissaoDocumento[]
+}
+
+export interface AtualizarFichaAdmissaoPayload {
+  nomeFuncionario: string
+  cpf?: string
+  rg?: string
+  dataNascimento?: string
+  sexo?: string
+  estadoCivil?: string
+  escolaridade?: string
+  telefone?: string
+  email?: string
+  pis?: string
+  banco?: string
+  agencia?: string
+  conta?: string
+  tipoConta?: string
+  utilizaValeTransporte?: boolean
+  dependentes: DependenteAdmissaoPayload[]
+}
+
 export interface DependenteAdmissaoPayload {
   nome: string
   cpf?: string
