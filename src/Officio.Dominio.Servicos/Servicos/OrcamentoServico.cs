@@ -92,12 +92,16 @@ public class OrcamentoServico(
         CriarItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default)
     {
+        if (!NaturezaCobrancaValida(requisicao.Tipo, requisicao.NaturezaCobranca))
+            return Resultado<Guid>.CriarFalha("Somente itens monetarios podem compor o faturamento recorrente.");
+
         var item = ItemCatalogoOrcamento.Criar(
             empresaAtual.TenantId,
             requisicao.Descricao,
             requisicao.Secao,
             requisicao.Tipo,
-            requisicao.ValorReferencia);
+            requisicao.ValorReferencia,
+            requisicao.NaturezaCobranca);
 
         await repositorio.AdicionarItemCatalogoAsync(item, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
@@ -113,7 +117,15 @@ public class OrcamentoServico(
         if (item is null)
             return Resultado<Guid>.CriarFalha("Item de catalogo nao encontrado.");
 
-        item.Atualizar(requisicao.Descricao, requisicao.Secao, requisicao.Tipo, requisicao.ValorReferencia);
+        if (!NaturezaCobrancaValida(requisicao.Tipo, requisicao.NaturezaCobranca))
+            return Resultado<Guid>.CriarFalha("Somente itens monetarios podem compor o faturamento recorrente.");
+
+        item.Atualizar(
+            requisicao.Descricao,
+            requisicao.Secao,
+            requisicao.Tipo,
+            requisicao.ValorReferencia,
+            requisicao.NaturezaCobranca);
         await repositorio.SalvarAlteracoesAsync(ct);
 
         return Resultado<Guid>.CriarSucesso(item.Id);
@@ -147,6 +159,7 @@ public class OrcamentoServico(
                 item.Descricao,
                 item.Secao.ToString(),
                 item.Tipo.ToString(),
+                item.NaturezaCobranca.ToString(),
                 item.ValorReferencia,
                 item.Ativo))
             .ToList();
@@ -239,6 +252,10 @@ public class OrcamentoServico(
             if (item.Quantidade < 0 || item.ValorUnitario < 0)
                 return ResultadoOperacao<List<ItemOrcamento>>.CriarFalha("Quantidade e valor unitario nao podem ser negativos.");
 
+            var natureza = NormalizarNaturezaCobranca(item);
+            if (item.Tipo is not null && !NaturezaCobrancaValida(item.Tipo.Value, natureza))
+                return ResultadoOperacao<List<ItemOrcamento>>.CriarFalha("Somente itens monetarios podem compor o faturamento recorrente.");
+
             if (item.ItemCatalogoOrcamentoId is Guid itemCatalogoId)
             {
                 var itemCatalogo = await repositorio.ObterItemCatalogoAsync(itemCatalogoId, ct);
@@ -254,7 +271,8 @@ public class OrcamentoServico(
                     itemCatalogo.Tipo,
                     item.Quantidade,
                     itemCatalogo.ValorReferencia ?? 0m,
-                    item.Ordem));
+                    item.Ordem,
+                    itemCatalogo.NaturezaCobranca));
                 continue;
             }
 
@@ -270,7 +288,8 @@ public class OrcamentoServico(
                 item.Tipo.Value,
                 item.Quantidade,
                 item.ValorUnitario,
-                item.Ordem));
+                item.Ordem,
+                natureza));
         }
 
         return ResultadoOperacao<List<ItemOrcamento>>.CriarSucesso(snapshots);
@@ -288,6 +307,10 @@ public class OrcamentoServico(
             if (item.Quantidade < 0 || item.ValorUnitario < 0)
                 return ResultadoOperacao<List<ItemOrcamento>>.CriarFalha("Quantidade e valor unitario nao podem ser negativos.");
 
+            var natureza = NormalizarNaturezaCobranca(item);
+            if (item.Tipo is not null && !NaturezaCobrancaValida(item.Tipo.Value, natureza))
+                return ResultadoOperacao<List<ItemOrcamento>>.CriarFalha("Somente itens monetarios podem compor o faturamento recorrente.");
+
             if (!string.IsNullOrWhiteSpace(item.Descricao) && item.Secao is not null && item.Tipo is not null)
             {
                 snapshots.Add(ItemOrcamento.CriarSnapshot(
@@ -299,7 +322,8 @@ public class OrcamentoServico(
                     item.Tipo.Value,
                     item.Quantidade,
                     item.ValorUnitario,
-                    item.Ordem));
+                    item.Ordem,
+                    natureza));
                 continue;
             }
 
@@ -318,7 +342,8 @@ public class OrcamentoServico(
                     itemCatalogo.Tipo,
                     item.Quantidade,
                     itemCatalogo.ValorReferencia ?? 0m,
-                    item.Ordem));
+                    item.Ordem,
+                    itemCatalogo.NaturezaCobranca));
                 continue;
             }
 
@@ -334,7 +359,8 @@ public class OrcamentoServico(
                 item.Tipo.Value,
                 item.Quantidade,
                 item.ValorUnitario,
-                item.Ordem));
+                item.Ordem,
+                natureza));
         }
 
         return ResultadoOperacao<List<ItemOrcamento>>.CriarSucesso(snapshots);
@@ -342,6 +368,17 @@ public class OrcamentoServico(
 
     private static bool DiaVencimentoValido(int diaVencimento)
         => diaVencimento is >= 1 and <= 31;
+
+    private static NaturezaCobrancaItemOrcamento NormalizarNaturezaCobranca(ItemOrcamentoRequisicao item)
+        => item.NaturezaCobranca
+           ?? (item.Secao == SecaoItemOrcamento.Honorarios && item.Tipo == TipoItemOrcamento.ItemMonetario
+               ? NaturezaCobrancaItemOrcamento.HonorarioMensal
+               : NaturezaCobrancaItemOrcamento.NaoRecorrente);
+
+    private static bool NaturezaCobrancaValida(
+        TipoItemOrcamento tipo,
+        NaturezaCobrancaItemOrcamento natureza)
+        => tipo == TipoItemOrcamento.ItemMonetario || natureza == NaturezaCobrancaItemOrcamento.NaoRecorrente;
 
     private static OrcamentoDto MapearOrcamento(Orcamento orcamento)
         => new(
@@ -360,6 +397,7 @@ public class OrcamentoServico(
                     item.Descricao,
                     item.Secao.ToString(),
                     item.Tipo.ToString(),
+                    item.NaturezaCobranca.ToString(),
                     item.Quantidade,
                     item.ValorUnitario,
                     item.ValorTotal,

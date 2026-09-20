@@ -38,4 +38,18 @@ public class ItemCatalogoOrcamentoTestes
 
         Assert.False(item.Ativo);
     }
+
+    [Fact]
+    public void Criar_ItemNaoMonetarioRecorrente_RejeitaClassificacao()
+    {
+        var excecao = Assert.Throws<ArgumentException>(() => ItemCatalogoOrcamento.Criar(
+            Guid.NewGuid(),
+            "Obrigacao acessoria",
+            SecaoItemOrcamento.ServicosInclusos,
+            TipoItemOrcamento.ServicoDescricao,
+            null,
+            NaturezaCobrancaItemOrcamento.HonorarioMensal));
+
+        Assert.Contains("monetarios", excecao.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

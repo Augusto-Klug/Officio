@@ -29,6 +29,7 @@ public class OrcamentoViewModelConversorTestes
                     Descricao = "Escrituracao contabil",
                     Secao = SecaoItemOrcamentoViewModel.ServicosInclusos,
                     Tipo = TipoItemOrcamentoViewModel.ItemMonetario,
+                    NaturezaCobranca = NaturezaCobrancaItemOrcamentoViewModel.PorFolha,
                     Quantidade = 2,
                     ValorUnitario = 199.90m,
                     Ordem = 3
@@ -45,6 +46,7 @@ public class OrcamentoViewModelConversorTestes
         Assert.Equal("Escrituracao contabil", item.Descricao);
         Assert.Equal(SecaoItemOrcamento.ServicosInclusos, item.Secao);
         Assert.Equal(TipoItemOrcamento.ItemMonetario, item.Tipo);
+        Assert.Equal(NaturezaCobrancaItemOrcamento.PorFolha, item.NaturezaCobranca);
         Assert.Equal(2, item.Quantidade);
         Assert.Equal(199.90m, item.ValorUnitario);
         Assert.Equal(3, item.Ordem);
@@ -58,6 +60,7 @@ public class OrcamentoViewModelConversorTestes
             Descricao = "Abertura de empresa",
             Secao = SecaoItemOrcamentoViewModel.CriacaoEmpresa,
             Tipo = TipoItemOrcamentoViewModel.RegraComercial,
+            NaturezaCobranca = NaturezaCobrancaItemOrcamentoViewModel.NaoRecorrente,
             ValorReferencia = 1200.50m
         };
 
@@ -66,6 +69,7 @@ public class OrcamentoViewModelConversorTestes
         Assert.Equal("Abertura de empresa", comando.Descricao);
         Assert.Equal(SecaoItemOrcamento.CriacaoEmpresa, comando.Secao);
         Assert.Equal(TipoItemOrcamento.RegraComercial, comando.Tipo);
+        Assert.Equal(NaturezaCobrancaItemOrcamento.NaoRecorrente, comando.NaturezaCobranca);
         Assert.Equal(1200.50m, comando.ValorReferencia);
     }
 

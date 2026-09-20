@@ -15,6 +15,7 @@ function normalizeItem(value: unknown): ItemOrcamento {
     descricao: requiredString(field(item, 'descricao')),
     secao: requiredString(field(item, 'secao')),
     tipo: requiredString(field(item, 'tipo')),
+    naturezaCobranca: requiredString(field(item, 'naturezaCobranca')),
     quantidade: numberValue(field(item, 'quantidade')),
     valorUnitario: numberValue(field(item, 'valorUnitario')),
     valorTotal: numberValue(field(item, 'valorTotal')),

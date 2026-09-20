@@ -4,6 +4,7 @@ export interface ItemOrcamento {
   descricao: string
   secao: string
   tipo: string
+  naturezaCobranca: string
   quantidade: number
   valorUnitario: number
   valorTotal: number
@@ -27,6 +28,7 @@ export interface NovoItemOrcamento {
   descricao: string
   secao: number
   tipo: number
+  naturezaCobranca: number
   quantidade: number
   valorUnitario: number
   ordem: number
@@ -62,6 +64,12 @@ export const tipoOptions = [
   { label: 'Regra comercial', value: 3 },
 ] as const
 
+export const naturezaCobrancaOptions = [
+  { label: 'Não recorrente', value: 1 },
+  { label: 'Honorário mensal', value: 2 },
+  { label: 'Por folha', value: 3 },
+] as const
+
 export const secaoPorNome: Record<string, number> = {
   ServicosInclusos: 1,
   Honorarios: 2,
@@ -73,4 +81,10 @@ export const tipoPorNome: Record<string, number> = {
   ServicoDescricao: 1,
   ItemMonetario: 2,
   RegraComercial: 3,
+}
+
+export const naturezaCobrancaPorNome: Record<string, number> = {
+  NaoRecorrente: 1,
+  HonorarioMensal: 2,
+  PorFolha: 3,
 }

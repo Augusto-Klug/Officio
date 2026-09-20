@@ -3,7 +3,7 @@ import Dialog from 'primevue/dialog'
 import BaseButton from '../../../components/base/BaseButton.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { formatCurrency } from '../../../utils/format'
-import { secaoOptions, tipoOptions, secaoPorNome, tipoPorNome, type Orcamento } from '../types/orcamento'
+import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, tipoOptions, secaoPorNome, tipoPorNome, type Orcamento } from '../types/orcamento'
 
 const visible = defineModel<boolean>('visible', { required: true })
 defineProps<{ orcamento: Orcamento | null; busy?: boolean }>()
@@ -51,18 +51,19 @@ function nomeOpcao(nome: string, mapa: Record<string, number>, opcoes: readonly 
         <h3>Itens da proposta <span>{{ orcamento.itens.length }}</span></h3>
         <div class="budget-items-table-wrap">
           <table class="budget-items-table">
-            <thead><tr><th>Descrição</th><th>Seção</th><th>Tipo</th><th class="numeric">Qtd.</th><th class="numeric">Unitário</th><th class="numeric">Total</th></tr></thead>
+            <thead><tr><th>Descrição</th><th>Seção</th><th>Tipo</th><th>Cobrança</th><th class="numeric">Qtd.</th><th class="numeric">Unitário</th><th class="numeric">Total</th></tr></thead>
             <tbody>
               <tr v-for="item in [...orcamento.itens].sort((a, b) => a.ordem - b.ordem)" :key="item.id">
                 <td><strong>{{ item.descricao }}</strong></td>
                 <td>{{ nomeOpcao(item.secao, secaoPorNome, secaoOptions) }}</td>
                 <td>{{ nomeOpcao(item.tipo, tipoPorNome, tipoOptions) }}</td>
+                <td>{{ nomeOpcao(item.naturezaCobranca, naturezaCobrancaPorNome, naturezaCobrancaOptions) }}</td>
                 <td class="numeric">{{ item.quantidade }}</td>
                 <td class="numeric">{{ formatCurrency(item.valorUnitario) }}</td>
                 <td class="numeric"><strong>{{ formatCurrency(item.valorTotal) }}</strong></td>
               </tr>
             </tbody>
-            <tfoot><tr><td colspan="5">Total da proposta</td><td class="numeric">{{ formatCurrency(orcamento.valorTotal) }}</td></tr></tfoot>
+            <tfoot><tr><td colspan="6">Total da proposta</td><td class="numeric">{{ formatCurrency(orcamento.valorTotal) }}</td></tr></tfoot>
           </table>
         </div>
       </section>

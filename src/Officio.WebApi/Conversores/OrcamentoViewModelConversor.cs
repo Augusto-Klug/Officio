@@ -38,7 +38,8 @@ internal static class OrcamentoViewModelConversor
             viewModel.Descricao,
             Converter(viewModel.Secao),
             Converter(viewModel.Tipo),
-            viewModel.ValorReferencia);
+            viewModel.ValorReferencia,
+            ConverterNatureza(viewModel.NaturezaCobranca, viewModel.Secao, viewModel.Tipo));
 
     public static AtualizarItemCatalogoOrcamentoComando ParaComando(
         this AtualizarItemCatalogoOrcamentoViewModel viewModel,
@@ -48,7 +49,8 @@ internal static class OrcamentoViewModelConversor
             viewModel.Descricao,
             Converter(viewModel.Secao),
             Converter(viewModel.Tipo),
-            viewModel.ValorReferencia);
+            viewModel.ValorReferencia,
+            ConverterNatureza(viewModel.NaturezaCobranca, viewModel.Secao, viewModel.Tipo));
 
     public static AlterarAtivoItemCatalogoOrcamentoComando ParaComando(
         this AlterarAtivoItemCatalogoOrcamentoViewModel viewModel,
@@ -63,7 +65,29 @@ internal static class OrcamentoViewModelConversor
             Converter(item.Tipo),
             item.Quantidade,
             item.ValorUnitario,
-            item.Ordem)).ToList();
+            item.Ordem,
+            ConverterNatureza(item.NaturezaCobranca, item.Secao, item.Tipo))).ToList();
+
+    private static NaturezaCobrancaItemOrcamento ConverterNatureza(
+        NaturezaCobrancaItemOrcamentoViewModel? natureza,
+        SecaoItemOrcamentoViewModel? secao,
+        TipoItemOrcamentoViewModel? tipo)
+    {
+        if (natureza is null)
+        {
+            return secao == SecaoItemOrcamentoViewModel.Honorarios && tipo == TipoItemOrcamentoViewModel.ItemMonetario
+                ? NaturezaCobrancaItemOrcamento.HonorarioMensal
+                : NaturezaCobrancaItemOrcamento.NaoRecorrente;
+        }
+
+        return natureza.Value switch
+        {
+            NaturezaCobrancaItemOrcamentoViewModel.NaoRecorrente => NaturezaCobrancaItemOrcamento.NaoRecorrente,
+            NaturezaCobrancaItemOrcamentoViewModel.HonorarioMensal => NaturezaCobrancaItemOrcamento.HonorarioMensal,
+            NaturezaCobrancaItemOrcamentoViewModel.PorFolha => NaturezaCobrancaItemOrcamento.PorFolha,
+            _ => throw new ArgumentOutOfRangeException("naturezaCobranca", natureza, null)
+        };
+    }
 
     private static SecaoItemOrcamento? Converter(SecaoItemOrcamentoViewModel? secao)
         => secao is null ? null : Converter(secao.Value);

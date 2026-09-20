@@ -22,6 +22,10 @@ internal class ItemCatalogoOrcamentoMap : IEntityTypeConfiguration<ItemCatalogoO
             .HasConversion<string>()
             .HasMaxLength(50);
 
+        builder.Property(item => item.NaturezaCobranca)
+            .HasConversion<string>()
+            .HasMaxLength(50);
+
         builder.Property(item => item.ValorReferencia)
             .HasPrecision(18, 2);
 

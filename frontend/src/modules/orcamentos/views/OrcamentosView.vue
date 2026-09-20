@@ -20,7 +20,7 @@ import OrcamentoDetalheDialog from '../components/OrcamentoDetalheDialog.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCurrency } from '../../../utils/format'
 import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
-import { secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type CriarOrcamentoPayload, type Orcamento } from '../types/orcamento'
+import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type CriarOrcamentoPayload, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,7 +49,7 @@ function novoFormulario(): CriarOrcamentoPayload {
     titulo: '',
     diaVencimento: 10,
     observacoes: '',
-    itens: [{ descricao: '', secao: 2, tipo: 2, quantidade: 1, valorUnitario: 0, ordem: 1 }],
+    itens: [{ descricao: '', secao: 2, tipo: 2, naturezaCobranca: 2, quantidade: 1, valorUnitario: 0, ordem: 1 }],
   }
 }
 
@@ -102,6 +102,7 @@ function abrirEdicao(item: Orcamento) {
         descricao: itemOrcamento.descricao,
         secao: secaoPorNome[itemOrcamento.secao] ?? 2,
         tipo: tipoPorNome[itemOrcamento.tipo] ?? 2,
+        naturezaCobranca: naturezaCobrancaPorNome[itemOrcamento.naturezaCobranca] ?? 1,
         quantidade: itemOrcamento.quantidade,
         valorUnitario: itemOrcamento.valorUnitario,
         ordem: index + 1,
@@ -113,7 +114,16 @@ function abrirEdicao(item: Orcamento) {
 }
 
 function adicionarItem() {
-  form.value.itens.push({ descricao: '', secao: 2, tipo: 2, quantidade: 1, valorUnitario: 0, ordem: form.value.itens.length + 1 })
+  form.value.itens.push({ descricao: '', secao: 2, tipo: 2, naturezaCobranca: 2, quantidade: 1, valorUnitario: 0, ordem: form.value.itens.length + 1 })
+}
+
+function atualizarTipo(item: NovoItemOrcamento, tipo: number) {
+  item.tipo = tipo
+  if (tipo !== 2) item.naturezaCobranca = 1
+}
+
+function opcoesNatureza(item: NovoItemOrcamento) {
+  return item.tipo === 2 ? [...naturezaCobrancaOptions] : [naturezaCobrancaOptions[0]]
 }
 
 function removerItem(index: number) {
@@ -234,7 +244,8 @@ onBeforeUnmount(() => controller?.abort())
       <div v-for="(item, index) in form.itens" :key="index" class="budget-item-row">
         <div class="field item-description"><label :for="`item-description-${index}`">Descrição</label><InputText :id="`item-description-${index}`" v-model="item.descricao" /></div>
         <div class="field"><label :for="`item-section-${index}`">Seção</label><Select :input-id="`item-section-${index}`" v-model="item.secao" :options="[...secaoOptions]" option-label="label" option-value="value" /></div>
-        <div class="field"><label :for="`item-type-${index}`">Tipo</label><Select :input-id="`item-type-${index}`" v-model="item.tipo" :options="[...tipoOptions]" option-label="label" option-value="value" /></div>
+        <div class="field"><label :for="`item-type-${index}`">Tipo</label><Select :input-id="`item-type-${index}`" :model-value="item.tipo" :options="[...tipoOptions]" option-label="label" option-value="value" @update:model-value="atualizarTipo(item, $event)" /></div>
+        <div class="field"><label :for="`item-billing-${index}`">Cobrança</label><Select :input-id="`item-billing-${index}`" v-model="item.naturezaCobranca" :options="opcoesNatureza(item)" option-label="label" option-value="value" /></div>
         <div class="field quantity-field"><label :for="`item-quantity-${index}`">Qtd.</label><InputNumber :input-id="`item-quantity-${index}`" v-model="item.quantidade" :min="1" /></div>
         <div class="field value-field"><label :for="`item-value-${index}`">Valor</label><InputNumber :input-id="`item-value-${index}`" v-model="item.valorUnitario" mode="currency" currency="BRL" locale="pt-BR" :min="0" /></div>
         <Button icon="pi pi-trash" text severity="danger" type="button" :disabled="form.itens.length === 1" aria-label="Remover item" @click="removerItem(index)" />

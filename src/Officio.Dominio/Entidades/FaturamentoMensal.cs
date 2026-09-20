@@ -45,4 +45,22 @@ public class FaturamentoMensal : EntidadeAuditavel
             ValorTotal = valorHonorarioBase + quantidadeFolhas * valorPorFolha
         };
     }
+
+    public void Fechar(Guid statusFechadoId)
+    {
+        if (StatusFaturamento.Codigo != "ABERTO")
+            throw new InvalidOperationException("Somente faturamentos abertos podem ser fechados.");
+
+        StatusFaturamentoId = statusFechadoId;
+    }
+
+    public void Cancelar(Guid statusCanceladoId)
+    {
+        if (StatusFaturamento.Codigo == "FECHADO")
+            throw new InvalidOperationException("Faturamento fechado nao pode ser cancelado.");
+        if (StatusFaturamento.Codigo == "CANCELADO")
+            throw new InvalidOperationException("Faturamento ja esta cancelado.");
+
+        StatusFaturamentoId = statusCanceladoId;
+    }
 }

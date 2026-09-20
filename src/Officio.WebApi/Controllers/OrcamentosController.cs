@@ -194,6 +194,7 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
             {
                 "secao" => "Secao do item de orcamento invalida.",
                 "tipo" => "Tipo do item de orcamento invalido.",
+                "naturezaCobranca" => "Natureza de cobranca do item de orcamento invalida.",
                 "status" => "Status do orcamento invalido.",
                 _ => "Valor de enumerador invalido."
             });
