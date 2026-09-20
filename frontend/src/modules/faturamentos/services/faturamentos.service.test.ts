@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { cancelarFaturamento, fecharFaturamento, gerarCompetencia, listarFaturamentos, normalizarFaturamentos } from './faturamentos.service'
+import { cancelarFaturamento, fecharFaturamento, gerarCompetencia, listarFaturamentos, normalizarFaturamentos, obterResumoFaturamento, recalcularCompetencia } from './faturamentos.service'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -17,20 +17,31 @@ describe('contrato HTTP de faturamentos', () => {
     expect(() => normalizarFaturamentos([{ ...faturamento, status: 'PAGO' }])).toThrow('status')
   })
 
-  it('lista, gera, fecha e cancela pelos endpoints esperados', async () => {
-    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: [faturamento] })
+  it('lista, resume, gera, recalcula, fecha e cancela pelos endpoints esperados', async () => {
+    const resumo = {
+      competencia: '2026-09-01', totalRegistros: 1, abertos: 1, fechados: 0, cancelados: 0,
+      quantidadeFolhas: 5, valorAberto: 900, valorFechado: 0, valorTotalAtivo: 900,
+    }
+    const get = vi.spyOn(http, 'get')
+      .mockResolvedValueOnce({ data: [faturamento] })
+      .mockResolvedValueOnce({ data: resumo })
     const post = vi.spyOn(http, 'post')
       .mockResolvedValueOnce({ data: { competencia: '2026-09-01', gerados: 1, ignorados: 0, valorTotal: 900 } })
+      .mockResolvedValueOnce({ data: { competencia: '2026-09-01', recalculados: 1, ignorados: 0, valorTotal: 900 } })
       .mockResolvedValue({ data: undefined })
 
     await expect(listarFaturamentos('2026-09', 'ABERTO')).resolves.toHaveLength(1)
+    await expect(obterResumoFaturamento('2026-09')).resolves.toEqual(resumo)
     await expect(gerarCompetencia('2026-09')).resolves.toMatchObject({ gerados: 1, valorTotal: 900 })
+    await expect(recalcularCompetencia('2026-09')).resolves.toMatchObject({ recalculados: 1, valorTotal: 900 })
     await fecharFaturamento('fat-1')
     await cancelarFaturamento('fat-2')
 
     expect(get).toHaveBeenCalledWith('/v1/faturamentos/Listar', { params: { competencia: '2026-09-01', status: 'ABERTO' }, signal: undefined })
+    expect(get).toHaveBeenCalledWith('/v1/faturamentos/Resumo', { params: { competencia: '2026-09-01' }, signal: undefined })
     expect(post).toHaveBeenNthCalledWith(1, '/v1/faturamentos/GerarCompetencia', { competencia: '2026-09-01' })
-    expect(post).toHaveBeenNthCalledWith(2, '/v1/faturamentos/Fechar/fat-1')
-    expect(post).toHaveBeenNthCalledWith(3, '/v1/faturamentos/Cancelar/fat-2')
+    expect(post).toHaveBeenNthCalledWith(2, '/v1/faturamentos/RecalcularCompetencia', { competencia: '2026-09-01' })
+    expect(post).toHaveBeenNthCalledWith(3, '/v1/faturamentos/Fechar/fat-1')
+    expect(post).toHaveBeenNthCalledWith(4, '/v1/faturamentos/Cancelar/fat-2')
   })
 })

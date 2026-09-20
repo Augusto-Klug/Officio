@@ -319,7 +319,8 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .dashboard-chart-track > span { display: block; height: 100%; border-radius: inherit; background: #3c7d61; }
 .billing-filters { align-items: end; }
 .billing-filters .field { width: 220px; }
-.billing-summary { display: grid; grid-template-columns: 1.4fr repeat(2, 1fr); margin-bottom: 20px; border: 1px solid var(--officio-border); border-radius: 6px; background: var(--officio-surface); }
+.header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.billing-summary { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); margin-bottom: 20px; border: 1px solid var(--officio-border); border-radius: 6px; background: var(--officio-surface); }
 .billing-summary > div { min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 17px 20px; }
 .billing-summary > div + div { border-left: 1px solid var(--officio-border); }
 .billing-summary span { color: var(--officio-muted); font-size: 11px; }

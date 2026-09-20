@@ -21,30 +21,17 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
 
         foreach (var contrato in contratos.Where(item => !calculados.Contains(item.Id)))
         {
-            var empresa = contrato.Cliente?.Empresa ?? contrato.Empresa ?? contrato.Prospecto?.Empresa;
-            var orcamento = contrato.Orcamento;
-            var usaCamposLegados = orcamento is not null
-                && (orcamento.ValorMensalidade > 0 || orcamento.ValorPorFuncionario > 0);
-            var honorarioBase = usaCamposLegados
-                ? orcamento!.ValorMensalidade
-                : orcamento?.Itens
-                    .Where(item => item.NaturezaCobranca == NaturezaCobrancaItemOrcamento.HonorarioMensal)
-                    .Sum(item => item.ValorTotal) ?? contrato.ValorTotal;
-            var valorPorFolha = usaCamposLegados
-                ? orcamento!.ValorPorFuncionario
-                : orcamento?.Itens
-                    .Where(item => item.NaturezaCobranca == NaturezaCobrancaItemOrcamento.PorFolha)
-                    .Sum(item => item.ValorTotal) ?? 0m;
+            var calculo = Calcular(contrato);
 
             var faturamento = FaturamentoMensal.Criar(
                 contrato.TenantId,
                 contrato.Id,
                 statusAberto.Id,
                 competencia,
-                empresa?.QuantidadeFuncionariosAtual ?? 0,
-                empresa?.QuantidadeProLaboresAtual ?? 0,
-                honorarioBase,
-                valorPorFolha);
+                calculo.QuantidadeFuncionarios,
+                calculo.QuantidadeProLabores,
+                calculo.ValorHonorarioBase,
+                calculo.ValorPorFolha);
             await repositorio.AdicionarAsync(faturamento, ct);
             gerados.Add(faturamento);
         }
@@ -57,6 +44,32 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
             gerados.Sum(item => item.ValorTotal)));
     }
 
+    public async Task<Resultado<ResultadoRecalculoFaturamentoDto>> RecalcularCompetenciaAsync(
+        GerarFaturamentoCompetenciaRequisicao requisicao,
+        CancellationToken ct = default)
+    {
+        var competencia = NormalizarCompetencia(requisicao.Competencia);
+        var faturamentos = await repositorio.ListarParaRecalculoAsync(competencia, ct);
+        var abertos = faturamentos.Where(item => item.StatusFaturamento.Codigo == "ABERTO").ToList();
+
+        foreach (var faturamento in abertos)
+        {
+            var calculo = Calcular(faturamento.Contrato);
+            faturamento.Recalcular(
+                calculo.QuantidadeFuncionarios,
+                calculo.QuantidadeProLabores,
+                calculo.ValorHonorarioBase,
+                calculo.ValorPorFolha);
+        }
+
+        await repositorio.SalvarAlteracoesAsync(ct);
+        return Resultado<ResultadoRecalculoFaturamentoDto>.CriarSucesso(new(
+            competencia,
+            abertos.Count,
+            faturamentos.Count - abertos.Count,
+            abertos.Sum(item => item.ValorTotal)));
+    }
+
     public async Task<Resultado<List<FaturamentoMensalDto>>> ListarAsync(
         DateOnly? competencia,
         string? status,
@@ -65,6 +78,28 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
         DateOnly? normalizada = competencia.HasValue ? NormalizarCompetencia(competencia.Value) : null;
         var faturamentos = await repositorio.ListarAsync(normalizada, status, ct);
         return Resultado<List<FaturamentoMensalDto>>.CriarSucesso(faturamentos.Select(Mapear).ToList());
+    }
+
+    public async Task<Resultado<ResumoFaturamentoCompetenciaDto>> ObterResumoAsync(
+        DateOnly competencia,
+        CancellationToken ct = default)
+    {
+        var normalizada = NormalizarCompetencia(competencia);
+        var faturamentos = await repositorio.ListarAsync(normalizada, null, ct);
+        var abertos = faturamentos.Where(item => item.StatusFaturamento.Codigo == "ABERTO").ToList();
+        var fechados = faturamentos.Where(item => item.StatusFaturamento.Codigo == "FECHADO").ToList();
+        var cancelados = faturamentos.Count(item => item.StatusFaturamento.Codigo == "CANCELADO");
+
+        return Resultado<ResumoFaturamentoCompetenciaDto>.CriarSucesso(new(
+            normalizada,
+            faturamentos.Count,
+            abertos.Count,
+            fechados.Count,
+            cancelados,
+            abertos.Concat(fechados).Sum(item => item.QuantidadeFolhas),
+            abertos.Sum(item => item.ValorTotal),
+            fechados.Sum(item => item.ValorTotal),
+            abertos.Concat(fechados).Sum(item => item.ValorTotal)));
     }
 
     public Task<Resultado<bool>> FecharAsync(Guid id, CancellationToken ct = default)
@@ -102,6 +137,30 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
     private static DateOnly NormalizarCompetencia(DateOnly competencia)
         => new(competencia.Year, competencia.Month, 1);
 
+    private static ParametrosCalculoFaturamento Calcular(Contrato contrato)
+    {
+        var empresa = contrato.Cliente?.Empresa ?? contrato.Empresa ?? contrato.Prospecto?.Empresa;
+        var orcamento = contrato.Orcamento;
+        var usaCamposLegados = orcamento is not null
+            && (orcamento.ValorMensalidade > 0 || orcamento.ValorPorFuncionario > 0);
+        var honorarioBase = usaCamposLegados
+            ? orcamento!.ValorMensalidade
+            : orcamento?.Itens
+                .Where(item => item.NaturezaCobranca == NaturezaCobrancaItemOrcamento.HonorarioMensal)
+                .Sum(item => item.ValorTotal) ?? contrato.ValorTotal;
+        var valorPorFolha = usaCamposLegados
+            ? orcamento!.ValorPorFuncionario
+            : orcamento?.Itens
+                .Where(item => item.NaturezaCobranca == NaturezaCobrancaItemOrcamento.PorFolha)
+                .Sum(item => item.ValorTotal) ?? 0m;
+
+        return new(
+            empresa?.QuantidadeFuncionariosAtual ?? 0,
+            empresa?.QuantidadeProLaboresAtual ?? 0,
+            honorarioBase,
+            valorPorFolha);
+    }
+
     private static FaturamentoMensalDto Mapear(FaturamentoMensal item)
         => new(
             item.Id,
@@ -117,4 +176,10 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
             item.ValorPorFolha,
             item.ValorTotal,
             item.CalculadoEm);
+
+    private record ParametrosCalculoFaturamento(
+        int QuantidadeFuncionarios,
+        int QuantidadeProLabores,
+        decimal ValorHonorarioBase,
+        decimal ValorPorFolha);
 }

@@ -22,3 +22,22 @@ export interface ResultadoGeracaoFaturamento {
   ignorados: number
   valorTotal: number
 }
+
+export interface ResultadoRecalculoFaturamento {
+  competencia: string
+  recalculados: number
+  ignorados: number
+  valorTotal: number
+}
+
+export interface ResumoFaturamentoCompetencia {
+  competencia: string
+  totalRegistros: number
+  abertos: number
+  fechados: number
+  cancelados: number
+  quantidadeFolhas: number
+  valorAberto: number
+  valorFechado: number
+  valorTotalAtivo: number
+}

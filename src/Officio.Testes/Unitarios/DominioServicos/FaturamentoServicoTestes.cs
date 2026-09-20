@@ -80,6 +80,86 @@ public class FaturamentoServicoTestes
         Assert.Equal(900m, faturamento.ValorTotal);
     }
 
+    [Fact]
+    public async Task RecalcularCompetenciaAsync_AtualizaSomenteFaturamentoAberto()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 800m, 4, 1, 20m);
+        await contexto.SaveChangesAsync();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var competencia = new DateOnly(2026, 9, 1);
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+        var empresa = await contexto.Empresas.SingleAsync();
+        empresa.AtualizarQuantidadesOperacionais(6, 2);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await servico.RecalcularCompetenciaAsync(
+            new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(1, resultado.Valor!.Recalculados);
+        Assert.Equal(0, resultado.Valor.Ignorados);
+        Assert.Equal(960m, resultado.Valor.ValorTotal);
+        contexto.ChangeTracker.Clear();
+        var faturamento = await contexto.FaturamentosMensais.SingleAsync();
+        Assert.Equal(6, faturamento.QuantidadeFuncionarios);
+        Assert.Equal(2, faturamento.QuantidadeProLabores);
+        Assert.Equal(8, faturamento.QuantidadeFolhas);
+        Assert.Equal(960m, faturamento.ValorTotal);
+    }
+
+    [Fact]
+    public async Task RecalcularCompetenciaAsync_PreservaFaturamentoFechado()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 500m, 2, 0, 10m);
+        await contexto.SaveChangesAsync();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var competencia = new DateOnly(2026, 9, 1);
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+        var faturamentoId = await contexto.FaturamentosMensais.Select(item => item.Id).SingleAsync();
+        await servico.FecharAsync(faturamentoId);
+        var empresa = await contexto.Empresas.SingleAsync();
+        empresa.AtualizarQuantidadesOperacionais(20, 0);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await servico.RecalcularCompetenciaAsync(
+            new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(0, resultado.Valor!.Recalculados);
+        Assert.Equal(1, resultado.Valor.Ignorados);
+        contexto.ChangeTracker.Clear();
+        var faturamento = await contexto.FaturamentosMensais.SingleAsync();
+        Assert.Equal(2, faturamento.QuantidadeFolhas);
+        Assert.Equal(520m, faturamento.ValorTotal);
+    }
+
+    [Fact]
+    public async Task ObterResumoAsync_SeparaStatusEExcluiCanceladosDoTotalAtivo()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 500m, 2, 0);
+        await contexto.SaveChangesAsync();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var competencia = new DateOnly(2026, 9, 1);
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        var resumo = await servico.ObterResumoAsync(competencia);
+
+        Assert.True(resumo.Sucesso, resumo.Erro);
+        Assert.Equal(1, resumo.Valor!.TotalRegistros);
+        Assert.Equal(1, resumo.Valor.Abertos);
+        Assert.Equal(0, resumo.Valor.Fechados);
+        Assert.Equal(0, resumo.Valor.Cancelados);
+        Assert.Equal(2, resumo.Valor.QuantidadeFolhas);
+        Assert.Equal(500m, resumo.Valor.ValorAberto);
+        Assert.Equal(500m, resumo.Valor.ValorTotalAtivo);
+    }
+
     private static void AdicionarContratoAtivo(
         ContextoAplicacao contexto,
         Guid tenantId,

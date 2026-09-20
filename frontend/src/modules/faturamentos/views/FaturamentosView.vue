@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import InputText from 'primevue/inputtext'
@@ -11,14 +11,15 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCurrency } from '../../../utils/format'
-import { cancelarFaturamento, fecharFaturamento, gerarCompetencia, listarFaturamentos } from '../services/faturamentos.service'
-import type { FaturamentoMensal } from '../types/faturamento'
+import { cancelarFaturamento, fecharFaturamento, gerarCompetencia, listarFaturamentos, obterResumoFaturamento, recalcularCompetencia } from '../services/faturamentos.service'
+import type { FaturamentoMensal, ResumoFaturamentoCompetencia } from '../types/faturamento'
 
 const hoje = new Date()
 const competenciaAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`
 const competencia = ref(competenciaAtual)
 const situacao = ref('')
 const faturamentos = ref<FaturamentoMensal[]>([])
+const resumo = ref<ResumoFaturamentoCompetencia>(resumoVazio())
 const loading = ref(true)
 const actionId = ref('')
 const error = ref('')
@@ -29,8 +30,10 @@ const statusOptions = [
   { label: 'Todas', value: '' }, { label: 'Aberto', value: 'ABERTO' },
   { label: 'Fechado', value: 'FECHADO' }, { label: 'Cancelado', value: 'CANCELADO' },
 ]
-const valorTotal = computed(() => faturamentos.value.filter((item) => item.status !== 'CANCELADO').reduce((total, item) => total + item.valorTotal, 0))
-const folhasTotal = computed(() => faturamentos.value.filter((item) => item.status !== 'CANCELADO').reduce((total, item) => total + item.quantidadeFolhas, 0))
+
+function resumoVazio(): ResumoFaturamentoCompetencia {
+  return { competencia: '', totalRegistros: 0, abertos: 0, fechados: 0, cancelados: 0, quantidadeFolhas: 0, valorAberto: 0, valorFechado: 0, valorTotalAtivo: 0 }
+}
 
 function competenciaLabel(value: string): string {
   const [ano, mes] = value.slice(0, 7).split('-').map(Number)
@@ -52,9 +55,29 @@ async function carregar() {
   controller = new AbortController()
   loading.value = true
   error.value = ''
-  try { faturamentos.value = await listarFaturamentos(competencia.value, situacao.value, controller.signal) }
+  try {
+    const [lista, resumoCompetencia] = await Promise.all([
+      listarFaturamentos(competencia.value, situacao.value, controller.signal),
+      obterResumoFaturamento(competencia.value, controller.signal),
+    ])
+    faturamentos.value = lista
+    resumo.value = resumoCompetencia
+  }
   catch (cause) { if (!controller.signal.aborted) error.value = normalizeError(cause).message }
   finally { if (!controller.signal.aborted) loading.value = false }
+}
+
+async function recalcular() {
+  if (!competencia.value || resumo.value.abertos === 0) return
+  if (!window.confirm(`Recalcular os ${resumo.value.abertos} faturamento(s) abertos de ${competenciaLabel(competencia.value)}?`)) return
+  actionId.value = 'recalcular'
+  error.value = ''
+  try {
+    const resultado = await recalcularCompetencia(competencia.value)
+    success.value = `${resultado.recalculados} faturamento(s) recalculado(s), totalizando ${formatCurrency(resultado.valorTotal)}.`
+    await carregar()
+  } catch (cause) { error.value = normalizeError(cause).message }
+  finally { actionId.value = '' }
 }
 
 async function gerar() {
@@ -90,7 +113,10 @@ onBeforeUnmount(() => controller?.abort())
 
 <template>
   <PageHeader title="Faturamento mensal" description="Calcule e consolide os honorários contratados por competência.">
-    <BaseButton label="Gerar competência" icon="pi pi-calculator" :loading="actionId === 'gerar'" @click="gerar" />
+    <div class="header-actions">
+      <BaseButton label="Recalcular abertos" icon="pi pi-refresh" variant="secondary" :loading="actionId === 'recalcular'" :disabled="loading || resumo.abertos === 0 || !!actionId" @click="recalcular" />
+      <BaseButton label="Gerar competência" icon="pi pi-calculator" :loading="actionId === 'gerar'" :disabled="!!actionId && actionId !== 'gerar'" @click="gerar" />
+    </div>
   </PageHeader>
   <Message v-if="success" severity="success" :closable="true" class="page-message" @close="success = ''">{{ success }}</Message>
   <Message v-if="error" severity="error" :closable="false" class="page-message">{{ error }}</Message>
@@ -102,9 +128,10 @@ onBeforeUnmount(() => controller?.abort())
   </form>
 
   <div class="billing-summary" aria-label="Resumo da competência">
-    <div><span>Valor da competência</span><strong class="numeric">{{ formatCurrency(valorTotal) }}</strong></div>
-    <div><span>Contratos calculados</span><strong class="numeric">{{ faturamentos.length }}</strong></div>
-    <div><span>Folhas consideradas</span><strong class="numeric">{{ folhasTotal }}</strong></div>
+    <div><span>Valor ativo</span><strong class="numeric">{{ formatCurrency(resumo.valorTotalAtivo) }}</strong></div>
+    <div><span>Em aberto ({{ resumo.abertos }})</span><strong class="numeric">{{ formatCurrency(resumo.valorAberto) }}</strong></div>
+    <div><span>Fechados ({{ resumo.fechados }})</span><strong class="numeric">{{ formatCurrency(resumo.valorFechado) }}</strong></div>
+    <div><span>Folhas consideradas</span><strong class="numeric">{{ resumo.quantidadeFolhas }}</strong></div>
   </div>
 
   <BaseCard class="data-card">
