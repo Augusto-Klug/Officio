@@ -132,6 +132,10 @@ public class AdmissaoServico(
             return Resultado<bool>.CriarFalha(validacao);
         if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId is null))
             return Resultado<bool>.CriarFalha("Envie todos os documentos obrigatorios antes de concluir a admissao.");
+        if (admissao.Documentos.Any(item => item.Obrigatorio &&
+                item.Documento!.Validacoes.OrderByDescending(validacaoDocumento => validacaoDocumento.CriadoEm)
+                    .FirstOrDefault()?.Status != Officio.Dominio.Enumeradores.StatusValidacao.Aprovado))
+            return Resultado<bool>.CriarFalha("Valide e aprove todos os documentos obrigatorios antes de concluir a admissao.");
         if (admissao.Documentos.Any(item =>
                 item.Documento?.Validacoes.OrderByDescending(validacaoDocumento => validacaoDocumento.CriadoEm)
                     .FirstOrDefault()?.Status is Officio.Dominio.Enumeradores.StatusValidacao.Reprovado or Officio.Dominio.Enumeradores.StatusValidacao.RevisaoManual))

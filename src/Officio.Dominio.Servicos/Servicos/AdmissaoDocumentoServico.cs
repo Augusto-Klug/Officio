@@ -167,6 +167,66 @@ public sealed class AdmissaoDocumentoServico(
         return resultado;
     }
 
+    public async Task<Resultado<ResumoValidacaoDocumentosAdmissaoDto>> ValidarPendentesAsync(
+        Guid admissaoId,
+        CancellationToken ct = default)
+    {
+        var admissao = await repositorio.ObterDetalheAsync(admissaoId, ct);
+        if (admissao is null)
+            return Resultado<ResumoValidacaoDocumentosAdmissaoDto>.CriarFalha("Admissao nao encontrada.");
+
+        var documentos = await repositorio.ListarDocumentosAsync(admissaoId, ct);
+        var pendentes = documentos
+            .Where(item => item.DocumentoId.HasValue && item.Documento!.Validacoes.Count == 0)
+            .ToList();
+        var aprovados = 0;
+        var pendentesRevisao = 0;
+        var falhas = 0;
+
+        foreach (var item in pendentes)
+        {
+            try
+            {
+                var resultado = await ValidarAsync(admissaoId, item.Id, ct);
+                if (!resultado.Sucesso)
+                {
+                    falhas++;
+                    logger.LogWarning(
+                        "Nao foi possivel validar automaticamente o documento {DocumentoId} da admissao {AdmissaoId}: {Erro}",
+                        item.DocumentoId, admissaoId, resultado.Erro);
+                    continue;
+                }
+
+                if (resultado.Valor!.Valido && !resultado.Valor.FallbackManual)
+                    aprovados++;
+                else
+                    pendentesRevisao++;
+            }
+            catch (Exception exception)
+            {
+                falhas++;
+                logger.LogWarning(exception,
+                    "Falha ao validar automaticamente o documento {DocumentoId} da admissao {AdmissaoId}.",
+                    item.DocumentoId, admissaoId);
+            }
+        }
+
+        if (falhas > 0)
+        {
+            var admissaoParaAlteracao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
+            if (admissaoParaAlteracao is not null)
+            {
+                var status = await repositorio.ObterOuCriarStatusAsync(
+                    StatusAdmissaoCodigos.PendenteRevisao, "Pendente de revisao", 4, ct);
+                admissaoParaAlteracao.AlterarStatus(status.Id);
+                await repositorio.SalvarAlteracoesAsync(ct);
+            }
+        }
+
+        return Resultado<ResumoValidacaoDocumentosAdmissaoDto>.CriarSucesso(
+            new(pendentes.Count, aprovados, pendentesRevisao, falhas));
+    }
+
     public async Task<Resultado<bool>> AprovarManualmenteAsync(
         AprovarDocumentoAdmissaoRequisicao requisicao,
         CancellationToken ct = default)

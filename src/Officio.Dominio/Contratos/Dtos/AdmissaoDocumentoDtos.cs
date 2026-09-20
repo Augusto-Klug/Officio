@@ -17,3 +17,9 @@ public record AdmissaoDocumentoDto(
     string StatusValidacao,
     decimal? ConfiancaOcr,
     string? MensagemValidacao);
+
+public record ResumoValidacaoDocumentosAdmissaoDto(
+    int Processados,
+    int Aprovados,
+    int PendentesRevisao,
+    int Falhas);

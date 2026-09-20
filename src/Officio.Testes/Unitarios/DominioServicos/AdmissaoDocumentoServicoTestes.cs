@@ -64,6 +64,28 @@ public class AdmissaoDocumentoServicoTestes
     }
 
     [Fact]
+    public async Task ValidarPendentes_ProcessaSomenteDocumentosSemValidacao()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var itens = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).Take(2).ToListAsync();
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, itens[0].Id, "identidade.pdf"));
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, itens[1].Id, "cpf.pdf"));
+        var primeiroDocumentoId = (await contexto.AdmissaoDocumentos.SingleAsync(item => item.Id == itens[0].Id)).DocumentoId!.Value;
+        contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
+            cenario.TenantId, primeiroDocumentoId, [], [], true, 1m, itens[0].Id));
+        await contexto.SaveChangesAsync();
+
+        var resultado = await cenario.Servico.ValidarPendentesAsync(cenario.AdmissaoId);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(1, resultado.Valor!.Processados);
+        Assert.Equal(1, resultado.Valor.Aprovados);
+        Assert.Equal(0, resultado.Valor.PendentesRevisao);
+        Assert.Equal(0, resultado.Valor.Falhas);
+    }
+
+    [Fact]
     public async Task AprovarManualmente_AprovaUltimaValidacao()
     {
         var cenario = await CriarCenarioAsync();

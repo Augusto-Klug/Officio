@@ -114,6 +114,7 @@ public sealed class FichaAdmissaoServico(
         admissao.MarcarPreenchimentoFuncionarioConcluido();
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await documentoServico.ValidarPendentesAsync(admissao.Id, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
