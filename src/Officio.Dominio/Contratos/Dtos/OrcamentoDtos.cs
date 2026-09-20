@@ -17,6 +17,7 @@ public record ItemOrcamentoDto(
     string Descricao,
     string Secao,
     string Tipo,
+    string NaturezaCobranca,
     int Quantidade,
     decimal ValorUnitario,
     decimal ValorTotal,
@@ -27,5 +28,6 @@ public record CatalogoOrcamentoDto(
     string Descricao,
     string Secao,
     string Tipo,
+    string NaturezaCobranca,
     decimal? ValorReferencia,
     bool Ativo);

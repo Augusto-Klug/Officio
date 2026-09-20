@@ -9,10 +9,10 @@ describe('contrato HTTP de orçamentos', () => {
     const result = normalizeOrcamentos([{
       id: 'orc-1', prospectoId: 'pro-1', titulo: 'Proposta mensal', status: 'Rascunho',
       valorTotal: 500, diaVencimento: 10, observacoes: null, motivoRecusa: null,
-      itens: [{ id: 'item-1', itemCatalogoOrcamentoId: null, descricao: 'Honorários', secao: 'Honorarios', tipo: 'ItemMonetario', quantidade: 1, valorUnitario: 500, valorTotal: 500, ordem: 1 }],
+      itens: [{ id: 'item-1', itemCatalogoOrcamentoId: null, descricao: 'Honorários', secao: 'Honorarios', tipo: 'ItemMonetario', naturezaCobranca: 'HonorarioMensal', quantidade: 1, valorUnitario: 500, valorTotal: 500, ordem: 1 }],
     }])
 
-    expect(result[0]).toMatchObject({ id: 'orc-1', valorTotal: 500, itens: [{ descricao: 'Honorários' }] })
+    expect(result[0]).toMatchObject({ id: 'orc-1', valorTotal: 500, itens: [{ descricao: 'Honorários', naturezaCobranca: 'HonorarioMensal' }] })
   })
 
   it('rejeita resposta estruturalmente inválida', () => {
@@ -24,7 +24,7 @@ describe('contrato HTTP de orçamentos', () => {
     const resposta = {
       id: 'orc-1', prospectoId: 'pro-1', titulo: 'Proposta mensal', status: 'Rascunho',
       valorTotal: 500, diaVencimento: 10, observacoes: null, motivoRecusa: null,
-      itens: [{ id: 'item-1', itemCatalogoOrcamentoId: null, descricao: 'Honorários', secao: 'Honorarios', tipo: 'ItemMonetario', quantidade: 1, valorUnitario: 500, valorTotal: 500, ordem: 1 }],
+      itens: [{ id: 'item-1', itemCatalogoOrcamentoId: null, descricao: 'Honorários', secao: 'Honorarios', tipo: 'ItemMonetario', naturezaCobranca: 'HonorarioMensal', quantidade: 1, valorUnitario: 500, valorTotal: 500, ordem: 1 }],
     }
     const get = vi.spyOn(http, 'get').mockResolvedValue({ data: resposta })
 
@@ -37,7 +37,7 @@ describe('contrato HTTP de orçamentos', () => {
       .mockResolvedValueOnce({ data: 'orc-1' })
       .mockResolvedValueOnce({ data: undefined })
       .mockResolvedValueOnce({ data: 'con-1' })
-    const payload = { prospectoId: 'pro-1', titulo: 'Proposta', diaVencimento: 10, itens: [{ descricao: 'Honorários', secao: 2, tipo: 2, quantidade: 1, valorUnitario: 500, ordem: 1 }] }
+    const payload = { prospectoId: 'pro-1', titulo: 'Proposta', diaVencimento: 10, itens: [{ descricao: 'Honorários', secao: 2, tipo: 2, naturezaCobranca: 2, quantidade: 1, valorUnitario: 500, ordem: 1 }] }
     await expect(criarOrcamento(payload)).resolves.toBe('orc-1')
     await aceitarOrcamento('orc-1')
     await expect(converterOrcamento('orc-1', { dataInicio: '2026-09-19', renovacaoAutomatica: true })).resolves.toBe('con-1')
@@ -52,7 +52,7 @@ describe('contrato HTTP de orçamentos', () => {
       titulo: 'Proposta revisada',
       diaVencimento: 15,
       observacoes: 'Nova condição',
-      itens: [{ descricao: 'Honorários', secao: 2, tipo: 2, quantidade: 1, valorUnitario: 650, ordem: 1 }],
+      itens: [{ descricao: 'Honorários', secao: 2, tipo: 2, naturezaCobranca: 2, quantidade: 1, valorUnitario: 650, ordem: 1 }],
     }
 
     await expect(atualizarOrcamento('orc-1', payload)).resolves.toBe('orc-1')

@@ -14,7 +14,8 @@ public class CriarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServic
             request.Descricao,
             request.Secao,
             request.Tipo,
-            request.ValorReferencia);
+            request.ValorReferencia,
+            request.NaturezaCobranca);
 
         return await orcamentoServico.CriarItemCatalogoAsync(requisicao, ct);
     }

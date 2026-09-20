@@ -23,20 +23,23 @@ public record ItemOrcamentoRequisicao(
     TipoItemOrcamento? Tipo,
     int Quantidade,
     decimal ValorUnitario,
-    int Ordem);
+    int Ordem,
+    NaturezaCobrancaItemOrcamento? NaturezaCobranca = null);
 
 public record CriarItemCatalogoOrcamentoRequisicao(
     string Descricao,
     SecaoItemOrcamento Secao,
     TipoItemOrcamento Tipo,
-    decimal? ValorReferencia);
+    decimal? ValorReferencia,
+    NaturezaCobrancaItemOrcamento NaturezaCobranca);
 
 public record AtualizarItemCatalogoOrcamentoRequisicao(
     Guid ItemId,
     string Descricao,
     SecaoItemOrcamento Secao,
     TipoItemOrcamento Tipo,
-    decimal? ValorReferencia);
+    decimal? ValorReferencia,
+    NaturezaCobrancaItemOrcamento NaturezaCobranca);
 
 public record AlterarAtivoItemCatalogoOrcamentoRequisicao(Guid ItemId, bool Ativo);
 
@@ -61,6 +64,7 @@ public record ItemOrcamentoResultado(
     string Descricao,
     string Secao,
     string Tipo,
+    string NaturezaCobranca,
     int Quantidade,
     decimal ValorUnitario,
     decimal ValorTotal,
@@ -71,5 +75,6 @@ public record CatalogoOrcamentoResultado(
     string Descricao,
     string Secao,
     string Tipo,
+    string NaturezaCobranca,
     decimal? ValorReferencia,
     bool Ativo);

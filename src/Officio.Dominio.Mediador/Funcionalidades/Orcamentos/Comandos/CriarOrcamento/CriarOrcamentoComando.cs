@@ -18,4 +18,5 @@ public record CriarItemOrcamentoDto(
     TipoItemOrcamento? Tipo,
     int Quantidade,
     decimal ValorUnitario,
-    int Ordem);
+    int Ordem,
+    NaturezaCobrancaItemOrcamento? NaturezaCobranca = null);

@@ -15,7 +15,8 @@ public class AtualizarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoSe
             request.Descricao,
             request.Secao,
             request.Tipo,
-            request.ValorReferencia);
+            request.ValorReferencia,
+            request.NaturezaCobranca);
 
         return await orcamentoServico.AtualizarItemCatalogoAsync(requisicao, ct);
     }

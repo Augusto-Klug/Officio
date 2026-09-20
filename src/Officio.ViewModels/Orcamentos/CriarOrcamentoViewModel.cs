@@ -17,6 +17,7 @@ public class CriarItemOrcamentoViewModel
     public string? Descricao { get; set; }
     public SecaoItemOrcamentoViewModel? Secao { get; set; }
     public TipoItemOrcamentoViewModel? Tipo { get; set; }
+    public NaturezaCobrancaItemOrcamentoViewModel? NaturezaCobranca { get; set; }
     public int Quantidade { get; set; }
     public decimal ValorUnitario { get; set; }
     public int Ordem { get; set; }

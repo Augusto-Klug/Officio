@@ -9,4 +9,5 @@ public record AtualizarItemCatalogoOrcamentoComando(
     string Descricao,
     SecaoItemOrcamento Secao,
     TipoItemOrcamento Tipo,
-    decimal? ValorReferencia) : IRequest<Resultado<Guid>>;
+    decimal? ValorReferencia,
+    NaturezaCobrancaItemOrcamento NaturezaCobranca = NaturezaCobrancaItemOrcamento.NaoRecorrente) : IRequest<Resultado<Guid>>;

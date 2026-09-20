@@ -1318,6 +1318,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("NaturezaCobranca")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("Secao")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1363,6 +1368,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<Guid?>("ItemCatalogoOrcamentoId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NaturezaCobranca")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("OrcamentoId")
                         .HasColumnType("uniqueidentifier");
