@@ -200,7 +200,7 @@ public sealed class FichaAdmissaoServico(
             item.RotuloExibicao ?? item.TipoDocumento.Descricao, item.Obrigatorio, item.Ordem,
             item.DocumentoId, item.Documento?.NomeArquivo, item.Documento?.MimeType,
             item.Documento?.TamanhoBytes, item.Documento?.QualidadeEstimada, item.Documento?.CriadoEm,
-            status, validacao?.ConfiancaOcr, validacao?.Observacao);
+            status, validacao?.ConfiancaOcr, validacao?.Observacao, [], []);
     }
 
     private static string GerarToken()

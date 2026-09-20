@@ -16,13 +16,20 @@ public class ValidacaoDivergencia : EntidadeBase
 
     private ValidacaoDivergencia() { }
 
-    public static ValidacaoDivergencia Criar(Guid validacaoDocumentoId, string codigoCampo, string tipoDivergencia, string? valorInformado = null, string? valorExtraido = null)
+    public static ValidacaoDivergencia Criar(
+        Guid validacaoDocumentoId,
+        string codigoCampo,
+        string tipoDivergencia,
+        string? valorInformado = null,
+        string? valorExtraido = null,
+        decimal? confianca = null)
         => new()
         {
             ValidacaoDocumentoId = validacaoDocumentoId,
             CodigoCampo = codigoCampo,
             TipoDivergencia = tipoDivergencia,
             ValorInformado = valorInformado,
-            ValorExtraido = valorExtraido
+            ValorExtraido = valorExtraido,
+            Confianca = confianca
         };
 }

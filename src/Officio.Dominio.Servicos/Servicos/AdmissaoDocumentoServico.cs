@@ -310,7 +310,13 @@ public sealed class AdmissaoDocumentoServico(
             item.RotuloExibicao ?? item.TipoDocumento.Descricao, item.Obrigatorio, item.Ordem,
             item.DocumentoId, item.Documento?.NomeArquivo, item.Documento?.MimeType,
             item.Documento?.TamanhoBytes, item.Documento?.QualidadeEstimada, item.Documento?.CriadoEm,
-            status, validacao?.ConfiancaOcr, validacao?.Observacao);
+            status, validacao?.ConfiancaOcr, validacao?.Observacao,
+            validacao?.CamposExtraidos ?? [],
+            validacao?.Divergencias.Select(divergencia => new DivergenciaDto(
+                divergencia.CodigoCampo,
+                divergencia.ValorExtraido ?? string.Empty,
+                divergencia.ValorInformado ?? string.Empty,
+                divergencia.Confianca ?? 0m)).ToList() ?? []);
     }
 
     private static TipoDocumento MapearTipo(string codigo)

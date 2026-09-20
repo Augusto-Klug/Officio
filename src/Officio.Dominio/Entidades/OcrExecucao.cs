@@ -24,4 +24,28 @@ public class OcrExecucao : EntidadeBase
 
     public static OcrExecucao Criar(Guid documentoId, string? provedor = null)
         => new() { DocumentoId = documentoId, Provedor = provedor };
+
+    public void Concluir(
+        string? modeloUtilizado,
+        IReadOnlyDictionary<string, string> campos,
+        IReadOnlyDictionary<string, decimal> confiancas)
+    {
+        ModeloUtilizado = modeloUtilizado;
+        StatusProcessamento = "CONCLUIDO";
+        ConcluidoEm = DateTime.UtcNow;
+
+        foreach (var (codigo, valor) in campos)
+        {
+            confiancas.TryGetValue(codigo, out var confianca);
+            _campos.Add(OcrCampoExtraido.Criar(Id, codigo, valor, confianca));
+        }
+    }
+
+    public void Falhar(string? modeloUtilizado, string? mensagemErro)
+    {
+        ModeloUtilizado = modeloUtilizado;
+        StatusProcessamento = "FALHA";
+        MensagemErro = mensagemErro;
+        ConcluidoEm = DateTime.UtcNow;
+    }
 }

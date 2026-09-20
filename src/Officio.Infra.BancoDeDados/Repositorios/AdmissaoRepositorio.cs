@@ -136,6 +136,7 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(item => item.TipoDocumento)
             .Include(item => item.Documento)
                 .ThenInclude(documento => documento!.Validacoes)
+                    .ThenInclude(validacao => validacao.Divergencias)
             .OrderBy(item => item.Ordem)
             .ToListAsync(cancellationToken);
 
@@ -152,6 +153,7 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(item => item.TipoDocumento)
             .Include(item => item.Documento)
                 .ThenInclude(documento => documento!.Validacoes)
+                    .ThenInclude(validacao => validacao.Divergencias)
             .AsQueryable();
 
         if (!rastreamento)

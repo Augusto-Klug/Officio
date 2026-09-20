@@ -1,5 +1,6 @@
 using Officio.Dominio.Eventos;
 using Officio.Dominio.Comum;
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Enumeradores;
 
 namespace Officio.Dominio.Entidades;
@@ -33,22 +34,25 @@ public class ValidacaoDocumento : EntidadeAuditavel
         Guid tenantId,
         Guid documentId,
         Dictionary<string, string> camposExtraidos,
-        List<object> divergencias,
+        IReadOnlyCollection<DivergenciaDocumento> divergencias,
         bool valido,
         decimal confiancaOcr,
-        Guid? admissaoDocumentoId = null)
+        Guid? admissaoDocumentoId = null,
+        Guid? ocrExecucaoId = null)
     {
         var validation = new ValidacaoDocumento
         {
             TenantId = tenantId,
             DocumentId = documentId,
             AdmissaoDocumentoId = admissaoDocumentoId,
-            OcrExecucaoId = null,
+            OcrExecucaoId = ocrExecucaoId,
             CamposExtraidos = camposExtraidos,
             ConfiancaOcr = confiancaOcr,
             Status = valido ? StatusValidacao.Aprovado : StatusValidacao.Reprovado,
             FallbackManual = false
         };
+
+        validation.AdicionarDivergencias(divergencias);
 
         validation.AddDomainEvent(new EventoDocumentoValidado(documentId, valido, tenantId));
         return validation;
@@ -60,19 +64,24 @@ public class ValidacaoDocumento : EntidadeAuditavel
         Dictionary<string, string>? camposExtraidos = null,
         decimal confiancaOcr = 0m,
         string? observacao = null,
-        Guid? admissaoDocumentoId = null)
+        Guid? admissaoDocumentoId = null,
+        IReadOnlyCollection<DivergenciaDocumento>? divergencias = null,
+        Guid? ocrExecucaoId = null)
     {
         var validation = new ValidacaoDocumento
         {
             TenantId = tenantId,
             DocumentId = documentId,
             AdmissaoDocumentoId = admissaoDocumentoId,
+            OcrExecucaoId = ocrExecucaoId,
             Status = StatusValidacao.RevisaoManual,
             CamposExtraidos = camposExtraidos ?? [],
             ConfiancaOcr = confiancaOcr,
             FallbackManual = true,
             Observacao = observacao
         };
+
+        validation.AdicionarDivergencias(divergencias ?? []);
 
         validation.AddDomainEvent(new EventoDocumentoRevisaoManual(documentId, tenantId));
         return validation;
@@ -84,6 +93,20 @@ public class ValidacaoDocumento : EntidadeAuditavel
         Observacao = observacao;
         RevisadoEm = DateTime.UtcNow;
         ObservacaoRevisao = observacao;
+    }
+
+    private void AdicionarDivergencias(IEnumerable<DivergenciaDocumento> divergencias)
+    {
+        foreach (var divergencia in divergencias)
+        {
+            Divergencias.Add(ValidacaoDivergencia.Criar(
+                Id,
+                divergencia.Campo,
+                string.IsNullOrWhiteSpace(divergencia.ValorDocumento) ? "CAMPO_NAO_EXTRAIDO" : "VALOR_DIVERGENTE",
+                divergencia.ValorCadastro,
+                divergencia.ValorDocumento,
+                divergencia.Similaridade));
+        }
     }
 }
 

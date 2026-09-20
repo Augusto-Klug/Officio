@@ -1,4 +1,6 @@
 using System.Buffers;
+using System.Globalization;
+using System.Text;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
@@ -89,6 +91,20 @@ internal class DocumentoServico(
 
         await using var stream = await servicoArmazenamento.BaixarAsync(documento.CaminhoStorage, ct);
         var resultadoOcr = await servicoOcr.AnalisarDocumentoAsync(stream, documento.Tipo, ct);
+        var execucaoOcr = OcrExecucao.Criar(documento.Id, "AZURE_DOCUMENT_INTELLIGENCE");
+        if (resultadoOcr.Sucesso)
+        {
+            execucaoOcr.Concluir(
+                resultadoOcr.ModeloUtilizado,
+                resultadoOcr.CamposExtraidos,
+                resultadoOcr.ConfiancasCampos);
+        }
+        else
+        {
+            execucaoOcr.Falhar(resultadoOcr.ModeloUtilizado, resultadoOcr.Erro);
+        }
+
+        await documentoRepositorio.AdicionarExecucaoOcrAsync(execucaoOcr, ct);
 
         if (!resultadoOcr.Sucesso)
         {
@@ -99,6 +115,7 @@ internal class DocumentoServico(
                 [],
                 "OCR indisponivel. Documento marcado para revisao manual.",
                 admissaoDocumentoId,
+                execucaoOcr.Id,
                 ct);
         }
 
@@ -112,6 +129,7 @@ internal class DocumentoServico(
                 [],
                 "Dados de cadastro ausentes. Documento marcado para revisao manual.",
                 admissaoDocumentoId,
+                execucaoOcr.Id,
                 ct);
         }
 
@@ -125,6 +143,7 @@ internal class DocumentoServico(
                 divergencias,
                 "Um ou mais campos esperados nao foram identificados pelo OCR. Documento marcado para revisao manual.",
                 admissaoDocumentoId,
+                execucaoOcr.Id,
                 ct);
         }
 
@@ -133,10 +152,11 @@ internal class DocumentoServico(
             documento.TenantId,
             documento.Id,
             resultadoOcr.CamposExtraidos,
-            divergencias.Cast<object>().ToList(),
+            divergencias,
             valido,
             resultadoOcr.ConfiancaOcr,
-            admissaoDocumentoId);
+            admissaoDocumentoId,
+            execucaoOcr.Id);
 
         await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
         await documentoRepositorio.SalvarAlteracoesAsync(ct);
@@ -157,6 +177,7 @@ internal class DocumentoServico(
         List<DivergenciaDocumento> divergencias,
         string mensagem,
         Guid? admissaoDocumentoId,
+        Guid ocrExecucaoId,
         CancellationToken ct)
     {
         var validacao = ValidacaoDocumento.RequireManualReview(
@@ -165,7 +186,9 @@ internal class DocumentoServico(
             camposExtraidos,
             confiancaOcr,
             mensagem,
-            admissaoDocumentoId);
+            admissaoDocumentoId,
+            divergencias,
+            ocrExecucaoId);
         await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
         await documentoRepositorio.SalvarAlteracoesAsync(ct);
 
@@ -271,6 +294,19 @@ internal class DocumentoServico(
     }
 
     private static string Normalizar(string valor)
-        => valor.ToUpperInvariant().Trim()
-            .Replace(".", "").Replace("-", "").Replace("/", "");
+    {
+        var decomposicao = valor.Trim().Normalize(NormalizationForm.FormD);
+        var normalizado = new StringBuilder(decomposicao.Length);
+
+        foreach (var caractere in decomposicao)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(caractere) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            if (char.IsLetterOrDigit(caractere))
+                normalizado.Append(char.ToUpperInvariant(caractere));
+        }
+
+        return normalizado.ToString();
+    }
 }

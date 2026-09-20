@@ -9,5 +9,6 @@ public interface IDocumentoRepositorio
     Task<Dictionary<string, string>> ObterDadosCadastroAsync(Documento documento, CancellationToken cancellationToken = default);
     Task AdicionarAsync(Documento documento, CancellationToken cancellationToken = default);
     Task AdicionarValidacaoAsync(ValidacaoDocumento validacao, CancellationToken cancellationToken = default);
+    Task AdicionarExecucaoOcrAsync(OcrExecucao execucao, CancellationToken cancellationToken = default);
     Task SalvarAlteracoesAsync(CancellationToken cancellationToken = default);
 }

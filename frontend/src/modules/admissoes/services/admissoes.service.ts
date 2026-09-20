@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, AtualizarFichaAdmissaoPayload, CriarAdmissaoPayload, DadosAdmissaoPayload, FichaAdmissaoPublica, LinkFichaAdmissao, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
+import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, AtualizarFichaAdmissaoPayload, CriarAdmissaoPayload, DadosAdmissaoPayload, DivergenciaDocumento, FichaAdmissaoPublica, LinkFichaAdmissao, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
 
 function optionalNumber(value: unknown): number | null {
   if (value == null) return null
@@ -12,6 +12,26 @@ function optionalBoolean(value: unknown): boolean | null {
   if (value == null) return null
   if (typeof value !== 'boolean') throw new Error('A API retornou um valor lógico inválido.')
   return value
+}
+
+function normalizeCamposExtraidos(value: unknown): Record<string, string> {
+  if (value == null) return {}
+  const item = record(value)
+  return Object.fromEntries(Object.entries(item).map(([chave, conteudo]) => [chave, requiredString(conteudo)]))
+}
+
+function normalizeDivergencias(value: unknown): DivergenciaDocumento[] {
+  if (value == null) return []
+  if (!Array.isArray(value)) throw new Error('A API retornou divergências em formato inesperado.')
+  return value.map((conteudo) => {
+    const item = record(conteudo)
+    return {
+      campo: requiredString(field(item, 'campo')),
+      valorDocumento: requiredString(field(item, 'valorDocumento')),
+      valorCadastro: requiredString(field(item, 'valorCadastro')),
+      similaridade: optionalNumber(field(item, 'similaridade')) ?? 0,
+    }
+  })
 }
 
 function normalizeDependente(value: unknown): AdmissaoDependente {
@@ -96,6 +116,8 @@ function normalizeDocumento(value: unknown): AdmissaoDocumento {
     statusValidacao: requiredString(field(item, 'statusValidacao')),
     confiancaOcr: optionalNumber(field(item, 'confiancaOcr')),
     mensagemValidacao: optionalString(field(item, 'mensagemValidacao')),
+    camposExtraidos: normalizeCamposExtraidos(field(item, 'camposExtraidos')),
+    divergencias: normalizeDivergencias(field(item, 'divergencias')),
   }
 }
 
@@ -157,6 +179,7 @@ export async function validarDocumentoAdmissao(id: string, itemId: string): Prom
     confiancaOcr: optionalNumber(field(item, 'confiancaOcr')) ?? 0,
     fallbackManual: optionalBoolean(field(item, 'fallbackManual')) ?? false,
     mensagem: optionalString(field(item, 'mensagem')),
+    divergencias: normalizeDivergencias(field(item, 'divergencias')),
   }
 }
 

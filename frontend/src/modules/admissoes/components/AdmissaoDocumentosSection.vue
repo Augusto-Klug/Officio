@@ -35,6 +35,29 @@ function tamanho(bytes: number | null): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+const rotulosCampos: Record<string, string> = {
+  nome: 'Nome',
+  cpf: 'CPF',
+  rg: 'RG',
+  data_nascimento: 'Data de nascimento',
+  razao_social: 'Razão social',
+  nome_fantasia: 'Nome fantasia',
+  cnpj: 'CNPJ',
+  email: 'E-mail',
+}
+
+function rotuloCampo(campo: string): string {
+  return rotulosCampos[campo] ?? campo.replaceAll('_', ' ')
+}
+
+function percentual(valor: number | null): string {
+  return valor == null ? 'Não informada' : `${Math.round(valor * 100)}%`
+}
+
+function possuiDetalhesOcr(documento: AdmissaoDocumento): boolean {
+  return Object.keys(documento.camposExtraidos).length > 0 || documento.divergencias.length > 0
+}
+
 async function carregar() {
   loading.value = true
   error.value = ''
@@ -123,6 +146,21 @@ watch(() => props.admissaoId, () => void carregar(), { immediate: true })
           <input :id="`documento-${documento.id}`" class="visually-hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" :disabled="actionId === documento.id" @change="enviar(documento, $event)" />
           <BaseButton v-if="editable && documento.documentoId" icon="pi pi-trash" variant="text" title="Remover documento" aria-label="Remover documento" :loading="actionId === documento.id" @click="remover(documento)" />
         </div>
+        <details v-if="possuiDetalhesOcr(documento)" class="ocr-review">
+          <summary><span><i class="pi pi-sparkles" />Detalhes da validação</span><strong>Confiança {{ percentual(documento.confiancaOcr) }}</strong></summary>
+          <div v-if="documento.divergencias.length" class="ocr-divergence-list">
+            <div class="ocr-comparison ocr-comparison-heading" aria-hidden="true"><span>Campo</span><span>Documento</span><span>Cadastro</span><span>Similaridade</span></div>
+            <div v-for="divergencia in documento.divergencias" :key="divergencia.campo" class="ocr-comparison">
+              <strong>{{ rotuloCampo(divergencia.campo) }}</strong>
+              <span>{{ divergencia.valorDocumento || 'Não identificado' }}</span>
+              <span>{{ divergencia.valorCadastro || 'Não informado' }}</span>
+              <span>{{ percentual(divergencia.similaridade) }}</span>
+            </div>
+          </div>
+          <dl class="ocr-extracted-fields">
+            <div v-for="(valor, campo) in documento.camposExtraidos" :key="campo"><dt>{{ rotuloCampo(campo) }}</dt><dd>{{ valor }}</dd></div>
+          </dl>
+        </details>
       </article>
     </div>
   </section>

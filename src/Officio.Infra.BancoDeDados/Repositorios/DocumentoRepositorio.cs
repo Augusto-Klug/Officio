@@ -94,6 +94,9 @@ internal class DocumentoRepositorio(
     public async Task AdicionarValidacaoAsync(ValidacaoDocumento validacao, CancellationToken cancellationToken = default)
         => await AdicionarAsync<ValidacaoDocumento>(validacao, cancellationToken);
 
+    public async Task AdicionarExecucaoOcrAsync(OcrExecucao execucao, CancellationToken cancellationToken = default)
+        => await AdicionarAsync<OcrExecucao>(execucao, cancellationToken);
+
     private static Dictionary<string, string> RemoverVazios(Dictionary<string, string?> valores)
         => valores
             .Where(par => !string.IsNullOrWhiteSpace(par.Value))
