@@ -49,7 +49,7 @@ public class ProspectosController(
         var resultado = await mediator.Send(new ConverterProspectoComando(id), cancellationToken);
 
         if (!resultado.Sucesso)
-            return resultado.Erro!.Contains("não encontrado", StringComparison.OrdinalIgnoreCase)
+            return resultado.Erro!.Contains("encontrado", StringComparison.OrdinalIgnoreCase)
                 ? NotFound(resultado.Erro)
                 : BadRequest(resultado.Erro);
 
