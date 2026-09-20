@@ -16,6 +16,7 @@ it('restaura a sessao apos recarga e limpa a persistencia no logout local', asyn
   const restored = await import('./session')
   expect(restored.authenticated.value).toBe(true)
   expect(restored.accessToken()).toBe('teste')
+  expect(restored.defaultAuthenticatedRoute()).toBe('/dashboard')
   restored.clearSession()
   expect(restored.authenticated.value).toBe(false)
   expect(storage.size).toBe(0)
