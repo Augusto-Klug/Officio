@@ -12,6 +12,36 @@ namespace Officio.Testes.Unitarios.InfraBancoDeDados;
 public class ContextoAplicacaoEventosTestes
 {
     [Fact]
+    public async Task SaveChangesAsync_QuandoComandoEstaEmExecucao_RegistraAuditoriaNaMesmaPersistencia()
+    {
+        var tenantId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenantId);
+        var contextoAuditoria = new ContextoAuditoriaFake("CriarProspectoComando", usuarioId);
+        var options = new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        await using var contexto = new ContextoAplicacao(
+            options,
+            empresaAtual,
+            new PublicadorEventosFake(),
+            contextoAuditoria);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Auditada", "11222333000144", null);
+        contexto.Prospects.Add(prospecto);
+
+        await contexto.SaveChangesAsync();
+
+        var registro = await contexto.AuditLogs.SingleAsync();
+        Assert.Equal(tenantId, registro.TenantId);
+        Assert.Equal(usuarioId, registro.UserId);
+        Assert.Equal(nameof(Prospecto), registro.Entidade);
+        Assert.Equal(prospecto.Id, registro.EntidadeId);
+        Assert.Equal("CriarProspectoComando:CRIADO", registro.Acao);
+    }
+
+    [Fact]
     public async Task SaveChangesAsync_QuandoEntidadePossuiEvento_PublicaEventoELimpaFila()
     {
         var tenantId = Guid.NewGuid();
@@ -178,5 +208,18 @@ public class ContextoAplicacaoEventosTestes
             .Options;
 
         return new ContextoAplicacao(options, empresaAtual, publicador);
+    }
+
+    private sealed class ContextoAuditoriaFake(string operacao, Guid usuarioId) : Officio.Dominio.Interfaces.IContextoAuditoria
+    {
+        public string? OperacaoAtual => operacao;
+        public Guid? UsuarioIdAtual => usuarioId;
+
+        public IDisposable Iniciar(string nomeOperacao, Guid? idUsuario) => new EscopoNulo();
+
+        private sealed class EscopoNulo : IDisposable
+        {
+            public void Dispose() { }
+        }
     }
 }

@@ -10,7 +10,8 @@ namespace Officio.Infra.BancoDeDados.Contextos;
 public class ContextoAplicacao(
     DbContextOptions<ContextoAplicacao> options,
     IEmpresaAtual currentTenant,
-    IPublisher publisher) : DbContext(options)
+    IPublisher publisher,
+    IContextoAuditoria? contextoAuditoria = null) : DbContext(options)
 {
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Usuario> Users => Set<Usuario>();
@@ -137,11 +138,16 @@ public class ContextoAplicacao(
 
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
-        foreach (var entry in ChangeTracker.Entries<EntidadeAuditavel>()
-            .Where(e => e.State is EntityState.Modified))
+        var entidadesAlteradas = ChangeTracker.Entries<EntidadeAuditavel>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        foreach (var entry in entidadesAlteradas.Where(entry => entry.State is EntityState.Modified))
         {
             entry.Entity.AtualizadoEm = DateTime.UtcNow;
         }
+
+        AdicionarRegistrosAuditoria(entidadesAlteradas);
 
         var events = ChangeTracker.Entries<EntidadeBase>()
             .SelectMany(e => e.Entity.EventosDominio)
@@ -157,6 +163,30 @@ public class ContextoAplicacao(
 
         return result;
     }
+
+    private void AdicionarRegistrosAuditoria(
+        IReadOnlyCollection<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<EntidadeAuditavel>> entidadesAlteradas)
+    {
+        if (string.IsNullOrWhiteSpace(contextoAuditoria?.OperacaoAtual))
+            return;
+
+        var registros = entidadesAlteradas.Select(entry => RegistroAuditoria.Criar(
+            entry.Entity.TenantId == Guid.Empty ? currentTenant.TenantId : entry.Entity.TenantId,
+            contextoAuditoria.UsuarioIdAtual,
+            entry.Metadata.ClrType.Name,
+            entry.Entity.Id,
+            $"{contextoAuditoria.OperacaoAtual}:{ObterAcao(entry.State)}"));
+
+        AuditLogs.AddRange(registros);
+    }
+
+    private static string ObterAcao(EntityState estado) => estado switch
+    {
+        EntityState.Added => "CRIADO",
+        EntityState.Modified => "ALTERADO",
+        EntityState.Deleted => "REMOVIDO",
+        _ => throw new ArgumentOutOfRangeException(nameof(estado), estado, null)
+    };
 }
 
 
