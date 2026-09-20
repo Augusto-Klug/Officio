@@ -6,7 +6,11 @@ public enum TipoDocumento
     ContratoSocial,
     RgSocio,
     CpfSocio,
-    CnhSocio
+    CnhSocio,
+    Identidade,
+    Cpf,
+    ComprovanteResidencia,
+    CarteiraTrabalho
 }
 
 

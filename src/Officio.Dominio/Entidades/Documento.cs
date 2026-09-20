@@ -88,6 +88,33 @@ public class Documento : EntidadeAuditavel
             Observacoes = "PDF final assinado retornado pela Autentique."
         };
     }
+
+    public static Documento CriarAdmissao(
+        Guid tenantId,
+        Guid admissaoId,
+        Guid empresaId,
+        Guid tipoDocumentoId,
+        string nomeArquivo,
+        TipoDocumento tipo,
+        string caminhoStorage,
+        string mimeType,
+        long tamanhoBytes,
+        decimal qualidadeEstimada)
+        => new()
+        {
+            TenantId = tenantId,
+            AdmissaoId = admissaoId,
+            EmpresaId = empresaId,
+            TipoDocumentoId = tipoDocumentoId,
+            NomeArquivo = nomeArquivo,
+            Tipo = tipo,
+            CaminhoStorage = caminhoStorage,
+            MimeType = mimeType,
+            TamanhoBytes = tamanhoBytes,
+            Origem = "ADMISSAO",
+            QualidadeEstimada = qualidadeEstimada,
+            Legivel = qualidadeEstimada >= 0.4m
+        };
 }
 
 

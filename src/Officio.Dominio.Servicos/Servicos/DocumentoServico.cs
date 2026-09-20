@@ -85,6 +85,8 @@ internal class DocumentoServico(
             return Resultado<ValidationResultDto>.CriarFalha(
                 "Qualidade do documento abaixo do limite minimo. Reenvie uma imagem mais nitida.");
 
+        var admissaoDocumentoId = await documentoRepositorio.ObterAdmissaoDocumentoIdAsync(documento.Id, ct);
+
         await using var stream = await servicoArmazenamento.BaixarAsync(documento.CaminhoStorage, ct);
         var resultadoOcr = await servicoOcr.AnalisarDocumentoAsync(stream, documento.Tipo, ct);
 
@@ -96,6 +98,7 @@ internal class DocumentoServico(
                 0m,
                 [],
                 "OCR indisponivel. Documento marcado para revisao manual.",
+                admissaoDocumentoId,
                 ct);
         }
 
@@ -108,6 +111,7 @@ internal class DocumentoServico(
                 resultadoOcr.ConfiancaOcr,
                 [],
                 "Dados de cadastro ausentes. Documento marcado para revisao manual.",
+                admissaoDocumentoId,
                 ct);
         }
 
@@ -120,6 +124,7 @@ internal class DocumentoServico(
                 resultadoOcr.ConfiancaOcr,
                 divergencias,
                 "Um ou mais campos esperados nao foram identificados pelo OCR. Documento marcado para revisao manual.",
+                admissaoDocumentoId,
                 ct);
         }
 
@@ -130,7 +135,8 @@ internal class DocumentoServico(
             resultadoOcr.CamposExtraidos,
             divergencias.Cast<object>().ToList(),
             valido,
-            resultadoOcr.ConfiancaOcr);
+            resultadoOcr.ConfiancaOcr,
+            admissaoDocumentoId);
 
         await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
         await documentoRepositorio.SalvarAlteracoesAsync(ct);
@@ -150,6 +156,7 @@ internal class DocumentoServico(
         decimal confiancaOcr,
         List<DivergenciaDocumento> divergencias,
         string mensagem,
+        Guid? admissaoDocumentoId,
         CancellationToken ct)
     {
         var validacao = ValidacaoDocumento.RequireManualReview(
@@ -157,7 +164,8 @@ internal class DocumentoServico(
             documento.Id,
             camposExtraidos,
             confiancaOcr,
-            mensagem);
+            mensagem,
+            admissaoDocumentoId);
         await documentoRepositorio.AdicionarValidacaoAsync(validacao, ct);
         await documentoRepositorio.SalvarAlteracoesAsync(ct);
 

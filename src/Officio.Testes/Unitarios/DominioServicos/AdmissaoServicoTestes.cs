@@ -41,6 +41,7 @@ public class AdmissaoServicoTestes
         var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(
             cliente.Id,
             CriarDados(cpf: "11789299900", dataAdmissao: new DateOnly(2026, 9, 21), funcao: "Analista")));
+        await PreencherDocumentosObrigatoriosAsync(contexto, tenantId, empresa.Id, criacao.Valor);
 
         var primeiraConclusao = await servico.ConcluirAsync(criacao.Valor);
         var segundaConclusao = await servico.ConcluirAsync(criacao.Valor);
@@ -53,6 +54,24 @@ public class AdmissaoServicoTestes
         Assert.Equal(criacao.Valor, funcionario.AdmissaoOrigemId);
         Assert.Equal("Analista", funcionario.Funcao);
         Assert.Equal(1, empresaAtualizada.QuantidadeFuncionariosAtual);
+    }
+
+    [Fact]
+    public async Task Concluir_ComDocumentoObrigatorioPendente_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (_, cliente) = await CriarClienteAsync(contexto, tenantId);
+        var servico = CriarServico(contexto, tenantId);
+        var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(
+            cliente.Id,
+            CriarDados(dataAdmissao: new DateOnly(2026, 9, 21))));
+
+        var resultado = await servico.ConcluirAsync(criacao.Valor);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("documentos obrigatorios", resultado.Erro);
+        Assert.Empty(contexto.EmpresaFuncionarios);
     }
 
     [Fact]
@@ -175,6 +194,28 @@ public class AdmissaoServicoTestes
         contexto.Clients.Add(cliente);
         await contexto.SaveChangesAsync();
         return (empresa, cliente);
+    }
+
+    private static async Task PreencherDocumentosObrigatoriosAsync(
+        ContextoAplicacao contexto,
+        Guid tenantId,
+        Guid empresaId,
+        Guid admissaoId)
+    {
+        var itens = await contexto.AdmissaoDocumentos
+            .Where(item => item.AdmissaoId == admissaoId && item.Obrigatorio)
+            .ToListAsync();
+        foreach (var item in itens)
+        {
+            var documento = Documento.CriarAdmissao(
+                tenantId, admissaoId, empresaId, item.TipoDocumentoId,
+                $"{item.Id}.pdf", Officio.Dominio.Enumeradores.TipoDocumento.Identidade,
+                $"documents/{item.Id}.pdf", "application/pdf", 100, 1m);
+            item.VincularDocumento(documento);
+            contexto.Documents.Add(documento);
+        }
+
+        await contexto.SaveChangesAsync();
     }
 
     private static IAdmissaoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)

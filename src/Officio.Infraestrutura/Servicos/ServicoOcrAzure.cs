@@ -21,6 +21,10 @@ public class ServicoOcrAzure(
             TipoDocumento.RgSocio => "prebuilt-idDocument",
             TipoDocumento.CnhSocio => "prebuilt-idDocument",
             TipoDocumento.ContratoSocial => "prebuilt-document",
+            TipoDocumento.Identidade => "prebuilt-idDocument",
+            TipoDocumento.Cpf => "prebuilt-idDocument",
+            TipoDocumento.ComprovanteResidencia => "prebuilt-document",
+            TipoDocumento.CarteiraTrabalho => "prebuilt-document",
             _ => "prebuilt-document"
         };
 

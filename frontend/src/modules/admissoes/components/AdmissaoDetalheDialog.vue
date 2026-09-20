@@ -5,10 +5,11 @@ import BaseButton from '../../../components/base/BaseButton.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { formatCurrency, formatDate } from '../../../utils/format'
 import type { AdmissaoDetalhe } from '../types/admissao'
+import AdmissaoDocumentosSection from './AdmissaoDocumentosSection.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 const props = defineProps<{ admissao: AdmissaoDetalhe | null; loading?: boolean }>()
-defineEmits<{ editar: []; concluir: []; cancelar: [] }>()
+defineEmits<{ editar: []; concluir: []; cancelar: []; atualizado: [] }>()
 
 const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.admissao?.status === 'CANCELADA')
 const severity = computed(() => {
@@ -64,6 +65,8 @@ function informar(value: string | number | null | undefined): string {
         </div>
         <p v-else class="muted">Nenhum dependente informado.</p>
       </section>
+
+      <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal" @atualizado="$emit('atualizado')" />
 
       <section v-if="admissao.observacoes" class="detail-section"><h3>Observações</h3><p>{{ admissao.observacoes }}</p></section>
     </div>

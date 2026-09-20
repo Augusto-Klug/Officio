@@ -19,5 +19,26 @@ public class AdmissaoDocumento : EntidadeBase
     private AdmissaoDocumento() { }
 
     public static AdmissaoDocumento Criar(Guid admissaoId, Guid tipoDocumentoId, bool obrigatorio, int ordem, string? rotuloExibicao = null)
-        => new() { AdmissaoId = admissaoId, TipoDocumentoId = tipoDocumentoId, Obrigatorio = obrigatorio, Ordem = ordem, RotuloExibicao = rotuloExibicao };
+        => new()
+        {
+            AdmissaoId = admissaoId,
+            TipoDocumentoId = tipoDocumentoId,
+            Obrigatorio = obrigatorio,
+            Ordem = ordem,
+            RotuloExibicao = string.IsNullOrWhiteSpace(rotuloExibicao) ? null : rotuloExibicao.Trim()
+        };
+
+    public void VincularDocumento(Documento documento)
+    {
+        Documento = documento;
+        DocumentoId = documento.Id;
+        AtualizadoEm = DateTime.UtcNow;
+    }
+
+    public void RemoverDocumento()
+    {
+        Documento = null;
+        DocumentoId = null;
+        AtualizadoEm = DateTime.UtcNow;
+    }
 }

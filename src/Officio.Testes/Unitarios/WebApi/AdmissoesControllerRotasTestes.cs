@@ -17,4 +17,18 @@ public class AdmissoesControllerRotasTestes
         var atributo = Assert.Single(metodo!.GetCustomAttributes(false).OfType<HttpMethodAttribute>());
         Assert.Equal("{id:guid}", atributo.Template);
     }
+
+    [Theory]
+    [InlineData(nameof(AdmissoesController.ListarDocumentos), "{id:guid}")]
+    [InlineData(nameof(AdmissoesController.EnviarDocumento), "{id:guid}/itens/{itemId:guid}")]
+    [InlineData(nameof(AdmissoesController.ObterUrlDocumento), "{id:guid}/itens/{itemId:guid}")]
+    [InlineData(nameof(AdmissoesController.ValidarDocumento), "{id:guid}/itens/{itemId:guid}")]
+    [InlineData(nameof(AdmissoesController.AprovarDocumento), "{id:guid}/itens/{itemId:guid}")]
+    [InlineData(nameof(AdmissoesController.RemoverDocumento), "{id:guid}/itens/{itemId:guid}")]
+    public void AcaoDocumento_UsaIdsComRestricaoGuid(string nomeMetodo, string rotaEsperada)
+    {
+        var metodo = typeof(AdmissoesController).GetMethod(nomeMetodo);
+        var atributo = Assert.Single(metodo!.GetCustomAttributes(false).OfType<HttpMethodAttribute>());
+        Assert.Equal(rotaEsperada, atributo.Template);
+    }
 }

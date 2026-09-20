@@ -14,5 +14,16 @@ public class ConfigDocumentoAdmissao : EntidadeBase
     private ConfigDocumentoAdmissao() { }
 
     public static ConfigDocumentoAdmissao Criar(Guid tipoDocumentoId, bool obrigatorio, int ordem, string? rotuloExibicao = null)
-        => new() { TipoDocumentoId = tipoDocumentoId, Obrigatorio = obrigatorio, Ordem = ordem, RotuloExibicao = rotuloExibicao };
+    {
+        if (ordem <= 0)
+            throw new ArgumentOutOfRangeException(nameof(ordem), "Ordem deve ser maior que zero.");
+
+        return new()
+        {
+            TipoDocumentoId = tipoDocumentoId,
+            Obrigatorio = obrigatorio,
+            Ordem = ordem,
+            RotuloExibicao = string.IsNullOrWhiteSpace(rotuloExibicao) ? null : rotuloExibicao.Trim()
+        };
+    }
 }

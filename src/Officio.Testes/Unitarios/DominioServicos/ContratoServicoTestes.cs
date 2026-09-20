@@ -842,6 +842,9 @@ public class ContratoServicoTestes
             UltimoCaminhoPreAssinado = path;
             return Task.FromResult(path);
         }
+
+        public Task ExcluirAsync(string path, CancellationToken ct = default)
+            => Task.CompletedTask;
     }
 
     private sealed record EnvioArmazenamento(string FileName, string Container, byte[] Conteudo);

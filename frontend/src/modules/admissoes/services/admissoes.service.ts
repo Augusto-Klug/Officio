@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoResumo, AdmissoesFiltro, CriarAdmissaoPayload, DadosAdmissaoPayload } from '../types/admissao'
+import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, CriarAdmissaoPayload, DadosAdmissaoPayload, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
 
 function optionalNumber(value: unknown): number | null {
   if (value == null) return null
@@ -77,6 +77,33 @@ export function normalizeAdmissao(value: unknown): AdmissaoDetalhe {
   }
 }
 
+function normalizeDocumento(value: unknown): AdmissaoDocumento {
+  const item = record(value)
+  return {
+    id: requiredString(field(item, 'id')),
+    tipoDocumentoId: requiredString(field(item, 'tipoDocumentoId')),
+    tipoCodigo: requiredString(field(item, 'tipoCodigo')),
+    tipoDescricao: requiredString(field(item, 'tipoDescricao')),
+    rotulo: requiredString(field(item, 'rotulo')),
+    obrigatorio: optionalBoolean(field(item, 'obrigatorio')) ?? false,
+    ordem: optionalNumber(field(item, 'ordem')) ?? 0,
+    documentoId: optionalString(field(item, 'documentoId')),
+    nomeArquivo: optionalString(field(item, 'nomeArquivo')),
+    mimeType: optionalString(field(item, 'mimeType')),
+    tamanhoBytes: optionalNumber(field(item, 'tamanhoBytes')),
+    qualidadeEstimada: optionalNumber(field(item, 'qualidadeEstimada')),
+    enviadoEm: optionalString(field(item, 'enviadoEm')),
+    statusValidacao: requiredString(field(item, 'statusValidacao')),
+    confiancaOcr: optionalNumber(field(item, 'confiancaOcr')),
+    mensagemValidacao: optionalString(field(item, 'mensagemValidacao')),
+  }
+}
+
+export function normalizeDocumentosAdmissao(value: unknown): AdmissaoDocumento[] {
+  if (!Array.isArray(value)) throw new Error('A API retornou os documentos em formato inesperado.')
+  return value.map(normalizeDocumento)
+}
+
 export async function listarAdmissoes(filtro: AdmissoesFiltro = {}, signal?: AbortSignal): Promise<AdmissaoResumo[]> {
   const { data } = await http.get<unknown>('/v1/admissoes/Listar', { params: filtro, signal })
   return normalizeAdmissoes(data)
@@ -103,4 +130,40 @@ export async function concluirAdmissao(id: string): Promise<void> {
 
 export async function cancelarAdmissao(id: string): Promise<void> {
   await http.post(`/v1/admissoes/Cancelar/${id}`)
+}
+
+export async function listarDocumentosAdmissao(id: string): Promise<AdmissaoDocumento[]> {
+  const { data } = await http.get<unknown>(`/v1/admissoes/ListarDocumentos/${id}`)
+  return normalizeDocumentosAdmissao(data)
+}
+
+export async function enviarDocumentoAdmissao(id: string, itemId: string, arquivo: File): Promise<void> {
+  const form = new FormData()
+  form.append('arquivo', arquivo)
+  await http.post(`/v1/admissoes/EnviarDocumento/${id}/itens/${itemId}`, form)
+}
+
+export async function obterUrlDocumentoAdmissao(id: string, itemId: string): Promise<UrlDocumentoAdmissao> {
+  const { data } = await http.get<unknown>(`/v1/admissoes/ObterUrlDocumento/${id}/itens/${itemId}`)
+  const item = record(data)
+  return { url: requiredString(field(item, 'url')), expiraEm: requiredString(field(item, 'expiraEm')) }
+}
+
+export async function validarDocumentoAdmissao(id: string, itemId: string): Promise<ResultadoValidacaoDocumento> {
+  const { data } = await http.post<unknown>(`/v1/admissoes/ValidarDocumento/${id}/itens/${itemId}`)
+  const item = record(data)
+  return {
+    valido: optionalBoolean(field(item, 'valido')) ?? false,
+    confiancaOcr: optionalNumber(field(item, 'confiancaOcr')) ?? 0,
+    fallbackManual: optionalBoolean(field(item, 'fallbackManual')) ?? false,
+    mensagem: optionalString(field(item, 'mensagem')),
+  }
+}
+
+export async function aprovarDocumentoAdmissao(id: string, itemId: string, observacao?: string): Promise<void> {
+  await http.post(`/v1/admissoes/AprovarDocumento/${id}/itens/${itemId}`, { observacao })
+}
+
+export async function removerDocumentoAdmissao(id: string, itemId: string): Promise<void> {
+  await http.delete(`/v1/admissoes/RemoverDocumento/${id}/itens/${itemId}`)
 }

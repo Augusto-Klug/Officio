@@ -36,6 +36,14 @@ public class AdmissaoServico(
                 status.Id,
                 requisicao.Dados.NomeFuncionario);
             AplicarDados(admissao, requisicao.Dados);
+            var configuracoesDocumento = await repositorio.ObterOuCriarConfiguracoesDocumentoPadraoAsync(ct);
+            admissao.AdicionarDocumentos(configuracoesDocumento.Select(configuracao =>
+                AdmissaoDocumento.Criar(
+                    admissao.Id,
+                    configuracao.TipoDocumentoId,
+                    configuracao.Obrigatorio,
+                    configuracao.Ordem,
+                    configuracao.RotuloExibicao)));
         }
         catch (ArgumentException exception)
         {
@@ -122,6 +130,12 @@ public class AdmissaoServico(
         var validacao = ValidarDados(dados, exigirConclusao: true);
         if (validacao is not null)
             return Resultado<bool>.CriarFalha(validacao);
+        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId is null))
+            return Resultado<bool>.CriarFalha("Envie todos os documentos obrigatorios antes de concluir a admissao.");
+        if (admissao.Documentos.Any(item =>
+                item.Documento?.Validacoes.OrderByDescending(validacaoDocumento => validacaoDocumento.CriadoEm)
+                    .FirstOrDefault()?.Status is Officio.Dominio.Enumeradores.StatusValidacao.Reprovado or Officio.Dominio.Enumeradores.StatusValidacao.RevisaoManual))
+            return Resultado<bool>.CriarFalha("Existem documentos aguardando revisao antes de concluir a admissao.");
 
         var status = await ObterStatusAsync(StatusAdmissaoCodigos.Concluida, ct);
         var funcionario = EmpresaFuncionario.Criar(
