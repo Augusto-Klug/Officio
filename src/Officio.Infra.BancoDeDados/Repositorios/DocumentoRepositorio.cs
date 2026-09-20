@@ -11,10 +11,32 @@ internal class DocumentoRepositorio(
     public async Task<Documento?> ObterPorIdAsync(Guid documentoId, CancellationToken cancellationToken = default)
         => await ObterPorIdAsync<Documento>(documentoId, cancellationToken);
 
+    public Task<Guid?> ObterAdmissaoDocumentoIdAsync(Guid documentoId, CancellationToken cancellationToken = default)
+        => Contexto.AdmissaoDocumentos
+            .Where(item => item.DocumentoId == documentoId)
+            .Select(item => (Guid?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<Dictionary<string, string>> ObterDadosCadastroAsync(
         Documento documento,
         CancellationToken cancellationToken = default)
     {
+        if (documento.AdmissaoId.HasValue)
+        {
+            var admissao = await Contexto.Admissoes
+                .FirstOrDefaultAsync(item => item.Id == documento.AdmissaoId.Value, cancellationToken);
+
+            return admissao is null
+                ? []
+                : RemoverVazios(new Dictionary<string, string?>
+                {
+                    ["nome"] = admissao.NomeFuncionario,
+                    ["cpf"] = admissao.Cpf,
+                    ["rg"] = admissao.Rg,
+                    ["data_nascimento"] = admissao.DataNascimento?.ToString("yyyy-MM-dd")
+                });
+        }
+
         if (documento.SocioId.HasValue)
         {
             var socio = await Contexto.Socios

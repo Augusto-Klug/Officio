@@ -36,6 +36,13 @@ public class ServicoArmazenamentoAzureBlob(BlobServiceClient blobServiceClient) 
         var sasUri = blobClient.GenerateSasUri(BlobSasPermissions.Read, DateTimeOffset.UtcNow.Add(expiry));
         return Task.FromResult(sasUri.ToString());
     }
+
+    public async Task ExcluirAsync(string path, CancellationToken ct = default)
+    {
+        var parts = path.Split('/', 2);
+        var containerClient = blobServiceClient.GetBlobContainerClient(parts[0]);
+        await containerClient.GetBlobClient(parts[1]).DeleteIfExistsAsync(cancellationToken: ct);
+    }
 }
 
 

@@ -317,6 +317,48 @@ public class DocumentoServicoTestes
         Assert.Equal(0m, divergencia.Similaridade);
     }
 
+    [Fact]
+    public async Task ValidarAsync_QuandoDocumentoPertenceAAdmissao_VinculaValidacaoAoChecklist()
+    {
+        var tenantId = Guid.NewGuid();
+        var empresa = Empresa.CriarConstituida("11222333000144", "Empresa Teste");
+        var status = new StatusAdmissao("RASCUNHO", "Rascunho", 1);
+        var tipo = new TipoDocumentoDominio("IDENTIDADE", "Documento de identidade", 1);
+        var admissao = Admissao.Criar(tenantId, empresa.Id, status.Id, "Ana Silva");
+        admissao.AtualizarDados(
+            "Ana Silva", "11789299900", "1234567", new DateOnly(1995, 5, 10), null, null, null,
+            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var item = AdmissaoDocumento.Criar(admissao.Id, tipo.Id, true, 1);
+        var documento = Documento.CriarAdmissao(
+            tenantId, admissao.Id, empresa.Id, tipo.Id, "identidade.pdf", TipoDocumento.Identidade,
+            "documentos/identidade.pdf", "application/pdf", 100, 1m);
+        item.VincularDocumento(documento);
+        admissao.AdicionarDocumentos([item]);
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["nome"] = "Ana Silva",
+                ["cpf"] = "11789299900",
+                ["rg"] = "1234567",
+                ["data_nascimento"] = "1995-05-10"
+            }, 0.98m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
+        contexto.StatusAdmissoes.Add(status);
+        contexto.TiposDocumento.Add(tipo);
+        contexto.Admissoes.Add(admissao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        var validacao = await contexto.DocumentValidations.SingleAsync();
+        Assert.Equal(item.Id, validacao.AdmissaoDocumentoId);
+    }
+
     private static ServiceProvider CriarProvedor(
         Guid tenantId,
         ResultadoOcr resultadoOcr,
@@ -380,6 +422,9 @@ public class DocumentoServicoTestes
 
         public Task<string> ObterUrlPreAssinadaAsync(string path, TimeSpan expiry, CancellationToken ct = default)
             => Task.FromResult(path);
+
+        public Task ExcluirAsync(string path, CancellationToken ct = default)
+            => Task.CompletedTask;
     }
 
     private sealed class StreamNaoSeekable(byte[] conteudo) : Stream

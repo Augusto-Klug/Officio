@@ -84,6 +84,12 @@ async function abrirDetalhe(item: AdmissaoResumo) {
   selected.value = await carregarDetalhe(item)
 }
 
+async function atualizarDetalhe() {
+  if (!selected.value) return
+  selected.value = await carregarDetalhe(selected.value)
+  await load()
+}
+
 async function abrirEdicao(item?: AdmissaoResumo) {
   if (item) selected.value = await carregarDetalhe(item)
   if (!selected.value) return
@@ -166,7 +172,7 @@ onBeforeUnmount(() => controller?.abort())
   </BaseCard>
 
   <AdmissaoFormDialog v-model:visible="formOpen" :clientes="clientes" :admissao="selected" :cliente-inicial-id="clienteId" :saving="saving" :error="formError" @salvar="salvar" />
-  <AdmissaoDetalheDialog v-model:visible="detailOpen" :admissao="selected" :loading="detailLoading" @editar="abrirEdicao()" @concluir="selected && confirmar(selected, 'concluir')" @cancelar="selected && confirmar(selected, 'cancelar')" />
+  <AdmissaoDetalheDialog v-model:visible="detailOpen" :admissao="selected" :loading="detailLoading" @editar="abrirEdicao()" @concluir="selected && confirmar(selected, 'concluir')" @cancelar="selected && confirmar(selected, 'cancelar')" @atualizado="atualizarDetalhe" />
 
   <Dialog v-model:visible="confirmOpen" modal :header="confirmAction === 'concluir' ? 'Concluir admissão' : 'Cancelar admissão'" class="workflow-dialog" :style="{ width: 'min(480px, 94vw)' }">
     <p v-if="confirmAction === 'concluir'" class="confirmation-copy">Ao concluir, o funcionário será vinculado à empresa e entrará na contagem de funcionários. Confirme que CPF, função e data de admissão estão preenchidos.</p>

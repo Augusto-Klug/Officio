@@ -44,6 +44,37 @@ export interface AdmissaoDetalhe extends AdmissaoResumo {
   dependentes: AdmissaoDependente[]
 }
 
+export interface AdmissaoDocumento {
+  id: string
+  tipoDocumentoId: string
+  tipoCodigo: string
+  tipoDescricao: string
+  rotulo: string
+  obrigatorio: boolean
+  ordem: number
+  documentoId: string | null
+  nomeArquivo: string | null
+  mimeType: string | null
+  tamanhoBytes: number | null
+  qualidadeEstimada: number | null
+  enviadoEm: string | null
+  statusValidacao: string
+  confiancaOcr: number | null
+  mensagemValidacao: string | null
+}
+
+export interface UrlDocumentoAdmissao {
+  url: string
+  expiraEm: string
+}
+
+export interface ResultadoValidacaoDocumento {
+  valido: boolean
+  confiancaOcr: number
+  fallbackManual: boolean
+  mensagem: string | null
+}
+
 export interface DependenteAdmissaoPayload {
   nome: string
   cpf?: string

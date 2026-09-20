@@ -218,11 +218,14 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AdmissaoId");
-
-                    b.HasIndex("DocumentoId");
+                    b.HasIndex("DocumentoId")
+                        .IsUnique()
+                        .HasFilter("[DocumentoId] IS NOT NULL");
 
                     b.HasIndex("TipoDocumentoId");
+
+                    b.HasIndex("AdmissaoId", "TipoDocumentoId")
+                        .IsUnique();
 
                     b.ToTable("AdmissaoDocumentos");
                 });
@@ -555,7 +558,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TipoDocumentoId");
+                    b.HasIndex("TipoDocumentoId")
+                        .IsUnique();
 
                     b.ToTable("ConfigDocumentosAdmissao");
                 });

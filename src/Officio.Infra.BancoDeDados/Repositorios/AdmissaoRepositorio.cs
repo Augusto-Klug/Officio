@@ -59,7 +59,91 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(admissao => admissao.Empresa)
             .Include(admissao => admissao.StatusAdmissao)
             .Include(admissao => admissao.Dependentes)
+            .Include(admissao => admissao.Documentos)
+                .ThenInclude(item => item.Documento)
+                    .ThenInclude(documento => documento!.Validacoes)
             .FirstOrDefaultAsync(admissao => admissao.Id == admissaoId, cancellationToken);
+
+    public async Task<List<ConfigDocumentoAdmissao>> ObterOuCriarConfiguracoesDocumentoPadraoAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var configuracoes = await Contexto.ConfigDocumentosAdmissao
+            .Include(item => item.TipoDocumento)
+            .Where(item => item.Ativo)
+            .OrderBy(item => item.Ordem)
+            .ToListAsync(cancellationToken);
+        if (configuracoes.Count > 0)
+            return configuracoes;
+
+        var padroes = new[]
+        {
+            new ConfiguracaoPadrao("IDENTIDADE", "Documento de identidade", "Identidade / RG", true, 1),
+            new ConfiguracaoPadrao("CPF", "Cadastro de Pessoa Fisica", "CPF", true, 2),
+            new ConfiguracaoPadrao("COMPROVANTE_RESIDENCIA", "Comprovante de residencia", "Comprovante de residência", true, 3),
+            new ConfiguracaoPadrao("CARTEIRA_TRABALHO", "Carteira de trabalho", "Carteira de trabalho", true, 4)
+        };
+
+        var codigos = padroes.Select(item => item.Codigo).ToList();
+        var tiposExistentes = await Contexto.TiposDocumento
+            .Where(item => codigos.Contains(item.Codigo))
+            .ToDictionaryAsync(item => item.Codigo, cancellationToken);
+
+        foreach (var padrao in padroes)
+        {
+            if (!tiposExistentes.TryGetValue(padrao.Codigo, out var tipo))
+            {
+                tipo = new TipoDocumentoDominio(padrao.Codigo, padrao.Descricao, padrao.Ordem);
+                Contexto.TiposDocumento.Add(tipo);
+            }
+
+            configuracoes.Add(ConfigDocumentoAdmissao.Criar(
+                tipo.Id, padrao.Obrigatorio, padrao.Ordem, padrao.Rotulo));
+        }
+
+        await Contexto.ConfigDocumentosAdmissao.AddRangeAsync(configuracoes, cancellationToken);
+        return configuracoes;
+    }
+
+    public Task<List<AdmissaoDocumento>> ListarDocumentosAsync(
+        Guid admissaoId,
+        CancellationToken cancellationToken = default)
+        => Contexto.AdmissaoDocumentos
+            .AsNoTracking()
+            .Where(item => item.AdmissaoId == admissaoId)
+            .Include(item => item.TipoDocumento)
+            .Include(item => item.Documento)
+                .ThenInclude(documento => documento!.Validacoes)
+            .OrderBy(item => item.Ordem)
+            .ToListAsync(cancellationToken);
+
+    public Task<AdmissaoDocumento?> ObterDocumentoAsync(
+        Guid admissaoId,
+        Guid admissaoDocumentoId,
+        bool rastreamento,
+        CancellationToken cancellationToken = default)
+    {
+        var consulta = Contexto.AdmissaoDocumentos
+            .Where(item => item.AdmissaoId == admissaoId && item.Id == admissaoDocumentoId)
+            .Include(item => item.Admissao)
+                .ThenInclude(admissao => admissao.StatusAdmissao)
+            .Include(item => item.TipoDocumento)
+            .Include(item => item.Documento)
+                .ThenInclude(documento => documento!.Validacoes)
+            .AsQueryable();
+
+        if (!rastreamento)
+            consulta = consulta.AsNoTracking();
+
+        return consulta.FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<ValidacaoDocumento?> ObterUltimaValidacaoParaAlteracaoAsync(
+        Guid documentoId,
+        CancellationToken cancellationToken = default)
+        => Contexto.DocumentValidations
+            .Where(item => item.DocumentId == documentoId)
+            .OrderByDescending(item => item.CriadoEm)
+            .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<StatusAdmissao> ObterOuCriarStatusAsync(
         string codigo,
@@ -97,4 +181,17 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
 
     public Task AdicionarFuncionarioAsync(EmpresaFuncionario funcionario, CancellationToken cancellationToken = default)
         => AdicionarAsync<EmpresaFuncionario>(funcionario, cancellationToken);
+
+    public Task AdicionarDocumentoAsync(Documento documento, CancellationToken cancellationToken = default)
+        => AdicionarAsync<Documento>(documento, cancellationToken);
+
+    public Task RemoverDocumentoAsync(Documento documento, CancellationToken cancellationToken = default)
+        => RemoverAsync(documento, cancellationToken);
+
+    private sealed record ConfiguracaoPadrao(
+        string Codigo,
+        string Descricao,
+        string Rotulo,
+        bool Obrigatorio,
+        int Ordem);
 }

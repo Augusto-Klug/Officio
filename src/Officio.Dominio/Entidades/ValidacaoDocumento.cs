@@ -35,12 +35,14 @@ public class ValidacaoDocumento : EntidadeAuditavel
         Dictionary<string, string> camposExtraidos,
         List<object> divergencias,
         bool valido,
-        decimal confiancaOcr)
+        decimal confiancaOcr,
+        Guid? admissaoDocumentoId = null)
     {
         var validation = new ValidacaoDocumento
         {
             TenantId = tenantId,
             DocumentId = documentId,
+            AdmissaoDocumentoId = admissaoDocumentoId,
             OcrExecucaoId = null,
             CamposExtraidos = camposExtraidos,
             ConfiancaOcr = confiancaOcr,
@@ -57,12 +59,14 @@ public class ValidacaoDocumento : EntidadeAuditavel
         Guid documentId,
         Dictionary<string, string>? camposExtraidos = null,
         decimal confiancaOcr = 0m,
-        string? observacao = null)
+        string? observacao = null,
+        Guid? admissaoDocumentoId = null)
     {
         var validation = new ValidacaoDocumento
         {
             TenantId = tenantId,
             DocumentId = documentId,
+            AdmissaoDocumentoId = admissaoDocumentoId,
             Status = StatusValidacao.RevisaoManual,
             CamposExtraidos = camposExtraidos ?? [],
             ConfiancaOcr = confiancaOcr,

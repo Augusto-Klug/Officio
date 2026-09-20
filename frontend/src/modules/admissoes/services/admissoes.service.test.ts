@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { atualizarAdmissao, cancelarAdmissao, concluirAdmissao, criarAdmissao, listarAdmissoes, normalizeAdmissao, normalizeAdmissoes, obterAdmissao } from './admissoes.service'
+import { aprovarDocumentoAdmissao, atualizarAdmissao, cancelarAdmissao, concluirAdmissao, criarAdmissao, enviarDocumentoAdmissao, listarAdmissoes, listarDocumentosAdmissao, normalizeAdmissao, normalizeAdmissoes, normalizeDocumentosAdmissao, obterAdmissao, obterUrlDocumentoAdmissao, removerDocumentoAdmissao, validarDocumentoAdmissao } from './admissoes.service'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -60,5 +60,45 @@ describe('contrato HTTP de admissões', () => {
     expect(put).toHaveBeenCalledWith('/v1/admissoes/Atualizar/adm-1', { dados })
     expect(post).toHaveBeenNthCalledWith(2, '/v1/admissoes/Concluir/adm-1')
     expect(post).toHaveBeenNthCalledWith(3, '/v1/admissoes/Cancelar/adm-2')
+  })
+  it('normaliza documentos da admissao', () => {
+    const documentos = normalizeDocumentosAdmissao([{
+      id: 'item-1', tipoDocumentoId: 'tipo-1', tipoCodigo: 'IDENTIDADE', tipoDescricao: 'Identidade',
+      rotulo: 'Documento de identidade', obrigatorio: true, ordem: 1, documentoId: null,
+      nomeArquivo: null, mimeType: null, tamanhoBytes: null, qualidadeEstimada: null, enviadoEm: null,
+      statusValidacao: 'PENDENTE_ENVIO', confiancaOcr: null, mensagemValidacao: null,
+    }])
+
+    expect(documentos[0]).toMatchObject({ id: 'item-1', obrigatorio: true, statusValidacao: 'PENDENTE_ENVIO' })
+  })
+
+  it('usa os endpoints do fluxo de documentos', async () => {
+    const documento = {
+      id: 'item-1', tipoDocumentoId: 'tipo-1', tipoCodigo: 'CPF', tipoDescricao: 'CPF', rotulo: 'CPF',
+      obrigatorio: true, ordem: 2, documentoId: null, nomeArquivo: null, mimeType: null, tamanhoBytes: null,
+      qualidadeEstimada: null, enviadoEm: null, statusValidacao: 'PENDENTE_ENVIO', confiancaOcr: null,
+      mensagemValidacao: null,
+    }
+    const get = vi.spyOn(http, 'get')
+      .mockResolvedValueOnce({ data: [documento] })
+      .mockResolvedValueOnce({ data: { url: 'https://storage/documento', expiraEm: '2026-09-19T12:00:00Z' } })
+    const post = vi.spyOn(http, 'post')
+      .mockResolvedValueOnce({ data: undefined })
+      .mockResolvedValueOnce({ data: { valido: true, confiancaOcr: 0.98, fallbackManual: false, mensagem: null } })
+      .mockResolvedValueOnce({ data: undefined })
+    const remove = vi.spyOn(http, 'delete').mockResolvedValue({ data: undefined })
+    const arquivo = new File(['pdf'], 'cpf.pdf', { type: 'application/pdf' })
+
+    await expect(listarDocumentosAdmissao('adm-1')).resolves.toHaveLength(1)
+    await enviarDocumentoAdmissao('adm-1', 'item-1', arquivo)
+    await expect(obterUrlDocumentoAdmissao('adm-1', 'item-1')).resolves.toMatchObject({ url: 'https://storage/documento' })
+    await expect(validarDocumentoAdmissao('adm-1', 'item-1')).resolves.toMatchObject({ valido: true })
+    await aprovarDocumentoAdmissao('adm-1', 'item-1', 'Conferido')
+    await removerDocumentoAdmissao('adm-1', 'item-1')
+
+    expect(post.mock.calls[0]?.[0]).toBe('/v1/admissoes/EnviarDocumento/adm-1/itens/item-1')
+    expect(post).toHaveBeenNthCalledWith(2, '/v1/admissoes/ValidarDocumento/adm-1/itens/item-1')
+    expect(post).toHaveBeenNthCalledWith(3, '/v1/admissoes/AprovarDocumento/adm-1/itens/item-1', { observacao: 'Conferido' })
+    expect(remove).toHaveBeenCalledWith('/v1/admissoes/RemoverDocumento/adm-1/itens/item-1')
   })
 })

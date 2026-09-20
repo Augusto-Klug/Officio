@@ -121,6 +121,9 @@ public class Admissao : EntidadeAuditavel
         _dependentes.AddRange(dependentes);
     }
 
+    public void AdicionarDocumentos(IEnumerable<AdmissaoDocumento> documentos)
+        => _documentos.AddRange(documentos);
+
     public void AlterarStatus(Guid statusAdmissaoId)
         => StatusAdmissaoId = statusAdmissaoId;
 

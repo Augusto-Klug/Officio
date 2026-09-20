@@ -249,6 +249,7 @@ internal static class MapeamentoModelagemOfficio
         {
             entity.HasKey(e => e.Id);
             entity.HasOne(e => e.TipoDocumento).WithMany().HasForeignKey(e => e.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.TipoDocumentoId).IsUnique();
         });
 
         builder.Entity<Admissao>(entity =>
@@ -269,6 +270,8 @@ internal static class MapeamentoModelagemOfficio
             entity.HasOne(e => e.Admissao).WithMany(e => e.Documentos).HasForeignKey(e => e.AdmissaoId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.TipoDocumento).WithMany().HasForeignKey(e => e.TipoDocumentoId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Documento).WithMany().HasForeignKey(e => e.DocumentoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.AdmissaoId, e.TipoDocumentoId }).IsUnique();
+            entity.HasIndex(e => e.DocumentoId).IsUnique();
         });
 
         builder.Entity<AdmissaoDependente>(entity =>
