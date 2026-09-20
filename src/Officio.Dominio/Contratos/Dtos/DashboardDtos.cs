@@ -6,7 +6,7 @@ public record DashboardVisaoGeralDto(
     int ContratosAtivos,
     int AdmissoesPendentes,
     int OrcamentosAguardandoRetorno,
-    decimal ReceitaMensalContratada);
+    decimal FaturamentoCompetenciaAtual);
 
 public record DashboardAlertaDto(
     string Codigo,

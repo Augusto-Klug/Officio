@@ -36,7 +36,7 @@ export function normalizarVisaoGeral(value: unknown): DashboardVisaoGeral {
     contratosAtivos: inteiroNaoNegativo(field(item, 'contratosAtivos')),
     admissoesPendentes: inteiroNaoNegativo(field(item, 'admissoesPendentes')),
     orcamentosAguardandoRetorno: inteiroNaoNegativo(field(item, 'orcamentosAguardandoRetorno')),
-    receitaMensalContratada: numeroNaoNegativo(field(item, 'receitaMensalContratada')),
+    faturamentoCompetenciaAtual: numeroNaoNegativo(field(item, 'faturamentoCompetenciaAtual')),
   }
 }
 

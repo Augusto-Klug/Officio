@@ -9,7 +9,9 @@ namespace Officio.Infra.BancoDeDados.Repositorios;
 
 internal class DashboardRepositorio(ContextoAplicacao contexto) : IDashboardRepositorio
 {
-    public async Task<DashboardVisaoGeralDto> ObterVisaoGeralAsync(CancellationToken cancellationToken = default)
+    public async Task<DashboardVisaoGeralDto> ObterVisaoGeralAsync(
+        DateOnly competencia,
+        CancellationToken cancellationToken = default)
     {
         var prospectos = await contexto.Prospects.CountAsync(
             item => item.Status == StatusProspecto.EmNegociacao || item.Status == StatusProspecto.PropostaEnviada,
@@ -21,11 +23,10 @@ internal class DashboardRepositorio(ContextoAplicacao contexto) : IDashboardRepo
                     && item.StatusAdmissao.Codigo != StatusAdmissaoCodigos.Cancelada,
             cancellationToken);
         var orcamentos = await contexto.Budgets.CountAsync(item => item.Status == StatusOrcamento.Enviado, cancellationToken);
-        var receita = await contexto.Contracts
-            .Where(item => item.Status == StatusContrato.Ativo)
-            .SumAsync(item => item.Orcamento != null && item.Orcamento.ValorMensalidade > 0
-                ? item.Orcamento.ValorMensalidade
-                : item.ValorTotal, cancellationToken);
+        var faturamentoCompetencia = await contexto.FaturamentosMensais
+            .Where(item => item.Competencia == competencia
+                           && item.StatusFaturamento.Codigo != "CANCELADO")
+            .SumAsync(item => item.ValorTotal, cancellationToken);
 
         return new(
             prospectos,
@@ -33,7 +34,7 @@ internal class DashboardRepositorio(ContextoAplicacao contexto) : IDashboardRepo
             contratos,
             admissoes,
             orcamentos,
-            receita);
+            faturamentoCompetencia);
     }
 
     public async Task<List<DashboardAlertaDto>> ListarAlertasAsync(
@@ -116,8 +117,29 @@ internal class DashboardRepositorio(ContextoAplicacao contexto) : IDashboardRepo
             .Select(item => new DashboardContratoReceitaDto(
                 item.DataInicio,
                 item.DataFim,
-                item.Orcamento != null && item.Orcamento.ValorMensalidade > 0
+                item.Orcamento != null && (item.Orcamento.ValorMensalidade > 0 || item.Orcamento.ValorPorFuncionario > 0)
                     ? item.Orcamento.ValorMensalidade
-                    : item.ValorTotal))
+                      + ((item.Cliente != null && item.Cliente.Empresa != null
+                              ? item.Cliente.Empresa.QuantidadeFuncionariosAtual + item.Cliente.Empresa.QuantidadeProLaboresAtual
+                              : item.Empresa != null
+                                  ? item.Empresa.QuantidadeFuncionariosAtual + item.Empresa.QuantidadeProLaboresAtual
+                                  : item.Prospecto.Empresa != null
+                                      ? item.Prospecto.Empresa.QuantidadeFuncionariosAtual + item.Prospecto.Empresa.QuantidadeProLaboresAtual
+                                      : 0) * item.Orcamento.ValorPorFuncionario)
+                    : item.Orcamento != null
+                        ? item.Orcamento.Itens
+                              .Where(itemOrcamento => itemOrcamento.NaturezaCobranca == NaturezaCobrancaItemOrcamento.HonorarioMensal)
+                              .Sum(itemOrcamento => itemOrcamento.Quantidade * itemOrcamento.ValorUnitario)
+                          + ((item.Cliente != null && item.Cliente.Empresa != null
+                                  ? item.Cliente.Empresa.QuantidadeFuncionariosAtual + item.Cliente.Empresa.QuantidadeProLaboresAtual
+                                  : item.Empresa != null
+                                      ? item.Empresa.QuantidadeFuncionariosAtual + item.Empresa.QuantidadeProLaboresAtual
+                                      : item.Prospecto.Empresa != null
+                                          ? item.Prospecto.Empresa.QuantidadeFuncionariosAtual + item.Prospecto.Empresa.QuantidadeProLaboresAtual
+                                          : 0)
+                              * item.Orcamento.Itens
+                                  .Where(itemOrcamento => itemOrcamento.NaturezaCobranca == NaturezaCobrancaItemOrcamento.PorFolha)
+                                  .Sum(itemOrcamento => itemOrcamento.Quantidade * itemOrcamento.ValorUnitario))
+                        : item.ValorTotal))
             .ToListAsync(cancellationToken);
 }

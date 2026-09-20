@@ -72,10 +72,10 @@ onBeforeUnmount(() => controller?.abort())
 
     <template v-else-if="visaoGeral">
       <BaseCard class="dashboard-metrics">
-        <div class="dashboard-revenue">
-          <span>Receita mensal contratada</span>
-          <strong class="numeric">{{ formatCurrency(visaoGeral.receitaMensalContratada) }}</strong>
-        </div>
+        <RouterLink to="/faturamentos" class="dashboard-revenue">
+          <span>Faturamento da competência</span>
+          <strong class="numeric">{{ formatCurrency(visaoGeral.faturamentoCompetenciaAtual) }}</strong>
+        </RouterLink>
         <RouterLink v-for="indicador in indicadores" :key="indicador.label" :to="indicador.route" class="dashboard-metric">
           <strong class="numeric">{{ indicador.value }}</strong>
           <span>{{ indicador.label }}</span>

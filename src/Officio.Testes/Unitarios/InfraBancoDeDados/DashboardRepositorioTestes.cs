@@ -22,13 +22,18 @@ public class DashboardRepositorioTestes
         }
 
         await using var contexto = CriarContexto(banco, tenantAtual);
-        var resultado = await new DashboardRepositorio(contexto).ObterVisaoGeralAsync();
+        var repositorio = new DashboardRepositorio(contexto);
+        var resultado = await repositorio.ObterVisaoGeralAsync(new DateOnly(2026, 9, 1));
+        var projecao = await repositorio.ListarContratosParaProjecaoAsync(
+            new DateTime(2026, 9, 1),
+            new DateTime(2027, 2, 28));
 
         Assert.Equal(1, resultado.ProspectosEmAberto);
         Assert.Equal(1, resultado.ClientesAtivos);
         Assert.Equal(1, resultado.ContratosAtivos);
         Assert.Equal(1, resultado.OrcamentosAguardandoRetorno);
-        Assert.Equal(500m, resultado.ReceitaMensalContratada);
+        Assert.Equal(500m, resultado.FaturamentoCompetenciaAtual);
+        Assert.Equal(500m, Assert.Single(projecao).ReceitaMensal);
     }
 
     private static void AdicionarCenarioAtivo(
@@ -49,7 +54,19 @@ public class DashboardRepositorioTestes
             TipoItemOrcamento.ItemMonetario,
             1,
             valor,
-            1));
+            1,
+            NaturezaCobrancaItemOrcamento.HonorarioMensal));
+        orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
+            tenantId,
+            orcamento.Id,
+            null,
+            "Implantacao",
+            SecaoItemOrcamento.ServicosSeparados,
+            TipoItemOrcamento.ItemMonetario,
+            1,
+            1000m,
+            2,
+            NaturezaCobrancaItemOrcamento.NaoRecorrente));
         orcamento.AlterarStatus(StatusOrcamento.Enviado);
         var contrato = Contrato.CriarDeOrcamento(
             orcamento,
@@ -60,11 +77,26 @@ public class DashboardRepositorioTestes
             null);
         contrato.VincularCliente(cliente.Id);
         contrato.MarkAsSigned(new DateTime(2026, 1, 2));
+        var statusFaturamento = contexto.StatusFaturamentos.Local
+            .FirstOrDefault(item => item.Codigo == "ABERTO")
+            ?? new StatusFaturamento("ABERTO", "Aberto");
+        var faturamento = FaturamentoMensal.Criar(
+            tenantId,
+            contrato.Id,
+            statusFaturamento.Id,
+            new DateOnly(2026, 9, 1),
+            0,
+            0,
+            valor,
+            0m);
 
         contexto.Prospects.Add(prospecto);
         contexto.Clients.Add(cliente);
         contexto.Budgets.Add(orcamento);
         contexto.Contracts.Add(contrato);
+        if (contexto.Entry(statusFaturamento).State == EntityState.Detached)
+            contexto.StatusFaturamentos.Add(statusFaturamento);
+        contexto.FaturamentosMensais.Add(faturamento);
     }
 
     private static ContextoAplicacao CriarContexto(string banco, Guid tenantId)

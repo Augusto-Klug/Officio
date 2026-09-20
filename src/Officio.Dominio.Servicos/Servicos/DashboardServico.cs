@@ -7,8 +7,12 @@ namespace Officio.Dominio.Servicos.Servicos;
 public class DashboardServico(IDashboardRepositorio repositorio, TimeProvider timeProvider) : IDashboardServico
 {
     public async Task<Resultado<DashboardVisaoGeralDto>> ObterVisaoGeralAsync(CancellationToken cancellationToken = default)
-        => Resultado<DashboardVisaoGeralDto>.CriarSucesso(
-            await repositorio.ObterVisaoGeralAsync(cancellationToken));
+    {
+        var hoje = timeProvider.GetUtcNow().UtcDateTime;
+        var competencia = new DateOnly(hoje.Year, hoje.Month, 1);
+        return Resultado<DashboardVisaoGeralDto>.CriarSucesso(
+            await repositorio.ObterVisaoGeralAsync(competencia, cancellationToken));
+    }
 
     public async Task<Resultado<List<DashboardAlertaDto>>> ListarAlertasAsync(CancellationToken cancellationToken = default)
     {

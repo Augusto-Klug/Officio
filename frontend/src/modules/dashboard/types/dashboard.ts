@@ -4,7 +4,7 @@ export interface DashboardVisaoGeral {
   contratosAtivos: number
   admissoesPendentes: number
   orcamentosAguardandoRetorno: number
-  receitaMensalContratada: number
+  faturamentoCompetenciaAtual: number
 }
 
 export type DashboardAlertaSeveridade = 'erro' | 'aviso' | 'info'

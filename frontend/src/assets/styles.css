@@ -286,8 +286,9 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .dashboard-metrics .p-card-body { padding: 0; }
 .dashboard-metrics .p-card-content { display: grid; grid-template-columns: minmax(230px, 1.35fr) repeat(5, minmax(120px, 1fr)); }
 .dashboard-revenue, .dashboard-metric { min-width: 0; min-height: 104px; padding: 20px; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
-.dashboard-revenue { background: #eef6f1; }
+.dashboard-revenue { background: #eef6f1; text-decoration: none; }
 .dashboard-revenue strong { color: #173f32; font-size: 24px; line-height: 1.15; }
+.dashboard-revenue:hover strong { color: var(--officio-brand); }
 .dashboard-revenue span, .dashboard-metric span { color: var(--officio-muted); font-size: 11px; line-height: 1.4; }
 .dashboard-metric { border-left: 1px solid var(--officio-border); text-decoration: none; }
 .dashboard-metric strong { color: #253630; font-size: 21px; line-height: 1.15; }
