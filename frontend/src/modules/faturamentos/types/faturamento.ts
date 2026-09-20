@@ -30,6 +30,13 @@ export interface ResultadoRecalculoFaturamento {
   valorTotal: number
 }
 
+export interface ResultadoFechamentoFaturamento {
+  competencia: string
+  fechados: number
+  ignorados: number
+  valorTotal: number
+}
+
 export interface ResumoFaturamentoCompetencia {
   competencia: string
   totalRegistros: number

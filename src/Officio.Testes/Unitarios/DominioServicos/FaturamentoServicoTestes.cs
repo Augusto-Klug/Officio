@@ -160,6 +160,34 @@ public class FaturamentoServicoTestes
         Assert.Equal(500m, resumo.Valor.ValorTotalAtivo);
     }
 
+    [Fact]
+    public async Task FecharCompetenciaAsync_FechaAbertosEPermaneceIdempotente()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 700m, 3, 1, 15m);
+        await contexto.SaveChangesAsync();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var competencia = new DateOnly(2026, 9, 1);
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        var primeiro = await servico.FecharCompetenciaAsync(
+            new GerarFaturamentoCompetenciaRequisicao(competencia));
+        contexto.ChangeTracker.Clear();
+        var segundo = await servico.FecharCompetenciaAsync(
+            new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        Assert.True(primeiro.Sucesso, primeiro.Erro);
+        Assert.Equal(1, primeiro.Valor!.Fechados);
+        Assert.Equal(0, primeiro.Valor.Ignorados);
+        Assert.Equal(760m, primeiro.Valor.ValorTotal);
+        Assert.Equal(0, segundo.Valor!.Fechados);
+        Assert.Equal(1, segundo.Valor.Ignorados);
+        contexto.ChangeTracker.Clear();
+        var faturamento = await contexto.FaturamentosMensais.Include(item => item.StatusFaturamento).SingleAsync();
+        Assert.Equal("FECHADO", faturamento.StatusFaturamento.Codigo);
+    }
+
     private static void AdicionarContratoAtivo(
         ContextoAplicacao contexto,
         Guid tenantId,

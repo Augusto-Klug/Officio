@@ -58,6 +58,14 @@ internal class FaturamentoRepositorio(ContextoAplicacao contexto) : IFaturamento
             .Where(item => item.Competencia == competencia)
             .ToListAsync(ct);
 
+    public Task<List<FaturamentoMensal>> ListarParaFechamentoAsync(
+        DateOnly competencia,
+        CancellationToken ct = default)
+        => contexto.FaturamentosMensais
+            .Include(item => item.StatusFaturamento)
+            .Where(item => item.Competencia == competencia)
+            .ToListAsync(ct);
+
     public Task<FaturamentoMensal?> ObterPorIdAsync(Guid id, CancellationToken ct = default)
         => contexto.FaturamentosMensais.Include(item => item.StatusFaturamento).FirstOrDefaultAsync(item => item.Id == id, ct);
 

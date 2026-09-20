@@ -27,6 +27,12 @@ public record ResultadoRecalculoFaturamentoDto(
     int Ignorados,
     decimal ValorTotal);
 
+public record ResultadoFechamentoFaturamentoDto(
+    DateOnly Competencia,
+    int Fechados,
+    int Ignorados,
+    decimal ValorTotal);
+
 public record ResumoFaturamentoCompetenciaDto(
     DateOnly Competencia,
     int TotalRegistros,

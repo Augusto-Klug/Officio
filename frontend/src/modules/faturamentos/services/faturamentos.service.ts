@@ -1,6 +1,6 @@
 import { field, record, requiredString } from '../../../api/contracts'
 import { http } from '../../../api/http'
-import type { FaturamentoMensal, ResultadoGeracaoFaturamento, ResultadoRecalculoFaturamento, ResumoFaturamentoCompetencia, StatusFaturamento } from '../types/faturamento'
+import type { FaturamentoMensal, ResultadoFechamentoFaturamento, ResultadoGeracaoFaturamento, ResultadoRecalculoFaturamento, ResumoFaturamentoCompetencia, StatusFaturamento } from '../types/faturamento'
 
 function numero(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error('A API retornou um valor de faturamento inválido.')
@@ -65,6 +65,17 @@ export async function recalcularCompetencia(competencia: string): Promise<Result
   return {
     competencia: requiredString(field(item, 'competencia')),
     recalculados: inteiro(field(item, 'recalculados')),
+    ignorados: inteiro(field(item, 'ignorados')),
+    valorTotal: numero(field(item, 'valorTotal')),
+  }
+}
+
+export async function fecharCompetencia(competencia: string): Promise<ResultadoFechamentoFaturamento> {
+  const { data } = await http.post<unknown>('/v1/faturamentos/FecharCompetencia', { competencia: `${competencia}-01` })
+  const item = record(data)
+  return {
+    competencia: requiredString(field(item, 'competencia')),
+    fechados: inteiro(field(item, 'fechados')),
     ignorados: inteiro(field(item, 'ignorados')),
     valorTotal: numero(field(item, 'valorTotal')),
   }
