@@ -9,6 +9,7 @@ export const router = createRouter({
     { path: '/ativar-conta', name: 'ativar-conta', component: () => import('../views/auth/AtivarContaView.vue'), meta: { title: 'Ativar conta' } },
     { path: '/esqueci-senha', name: 'esqueci-senha', component: () => import('../views/auth/EsqueciSenhaView.vue'), meta: { title: 'Recuperar senha' } },
     { path: '/redefinir-senha', name: 'redefinir-senha', component: () => import('../views/auth/RedefinirSenhaView.vue'), meta: { title: 'Redefinir senha' } },
+    { path: '/ficha-admissao/:token', name: 'ficha-admissao', component: () => import('../modules/admissoes/views/FichaAdmissaoView.vue'), meta: { title: 'Ficha de admissão' } },
     {
       path: '/', component: () => import('../components/layout/AppLayout.vue'), meta: { requiresAuth: true },
       children: [

@@ -45,6 +45,24 @@ public class IntermediarioEmpresaTestes
     }
 
     [Fact]
+    public async Task InvokeAsync_FichaAdmissaoPublicaPassaSemTenant()
+    {
+        var chamado = false;
+        var contexto = new DefaultHttpContext();
+        contexto.Request.Path = "/api/v1/admissoes-publicas/Obter/token";
+        var intermediario = new IntermediarioEmpresa(_ =>
+        {
+            chamado = true;
+            return Task.CompletedTask;
+        });
+
+        await intermediario.InvokeAsync(contexto, new ServicoEmpresaAtual(), new VerificadorEmpresaFake());
+
+        Assert.True(chamado);
+        Assert.Equal(StatusCodes.Status200OK, contexto.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task InvokeAsync_RotaProtegidaSemTenantRetorna401()
     {
         var chamado = false;

@@ -8,6 +8,7 @@ public class IntermediarioEmpresa(RequestDelegate next)
     private static readonly string[] RotasPublicas =
     [
         "/api/v1/autenticacao",
+        "/api/v1/admissoes-publicas",
         "/api/v1/contratos/webhook/autentique"
     ];
 

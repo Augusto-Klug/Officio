@@ -164,6 +164,39 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .document-upload { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 7px 10px; border: 1px solid var(--officio-border); border-radius: 6px; color: var(--officio-text); background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
 .document-upload:hover { border-color: var(--officio-brand); color: var(--officio-brand); }
 .document-upload:focus-within { outline: 2px solid var(--officio-brand); outline-offset: 2px; }
+.document-upload.disabled { opacity: .55; cursor: not-allowed; pointer-events: none; }
+.admission-link-dialog { display: grid; gap: 12px; }
+.admission-link-dialog p, .admission-link-dialog small { margin: 0; color: var(--officio-muted); font-size: 13px; }
+.admission-link-value { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.public-admission-page { min-height: 100dvh; background: #f5f7f6; padding: 28px clamp(16px, 4vw, 56px) 56px; }
+.public-admission-header { max-width: 1040px; margin: 0 auto 40px; display: flex; align-items: baseline; justify-content: space-between; color: var(--officio-muted); font-size: 13px; }
+.public-admission-header .brand { color: var(--officio-sidebar); }
+.public-admission-form { max-width: 1040px; margin: 0 auto; display: grid; gap: 28px; }
+.public-admission-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.public-admission-title h1 { margin-bottom: 5px; }
+.public-admission-title p { margin: 0; color: var(--officio-muted); }
+.public-admission-form fieldset { display: grid; gap: 0; margin: 0; padding: 0; border: 0; }
+.public-admission-form .form-grid.three-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.public-admission-form .form-grid.five-columns { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.public-admission-form .field-span-2 { grid-column: span 2; }
+.public-form-section { padding: 26px 0 30px; border-top: 1px solid var(--officio-border); }
+.public-form-section h2 { margin-bottom: 18px; font-size: 16px; }
+.public-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.public-section-heading h2 { margin: 0; }
+.public-dependent-list, .public-document-list { display: grid; gap: 10px; }
+.public-dependent-row { display: grid; grid-template-columns: minmax(180px, 1.3fr) repeat(3, minmax(130px, .8fr)) auto auto 40px; gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--officio-border); border-radius: 6px; background: var(--officio-surface); }
+.public-document-row { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--officio-border); }
+.public-document-row > div:first-child { display: flex; flex-direction: column; gap: 4px; }
+.public-document-row strong { font-size: 13px; }
+.public-document-row span { color: var(--officio-muted); font-size: 11px; }
+.public-form-actions { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; background: rgba(245, 247, 246, .96); border-top: 1px solid var(--officio-border); }
+.public-form-actions > span { color: var(--officio-muted); font-size: 12px; }
+.public-form-actions > div { display: flex; gap: 8px; }
+.public-admission-complete, .public-admission-state { display: flex; align-items: center; gap: 16px; padding: 20px 0; }
+.public-admission-complete > i, .public-admission-state > i { color: var(--officio-brand); font-size: 28px; }
+.public-admission-complete h2, .public-admission-complete p { margin: 0; }
+.public-admission-complete p { margin-top: 4px; color: var(--officio-muted); font-size: 13px; }
+.public-admission-state { max-width: 560px; min-height: 50vh; margin: auto; flex-direction: column; justify-content: center; text-align: center; }
 .budget-detail { display: grid; gap: 24px; }
 .budget-summary .budget-total { color: #20352d; font-size: 18px; font-weight: 650; }
 .budget-items-table-wrap { overflow-x: auto; border: 1px solid var(--officio-border); border-radius: 6px; }
@@ -254,12 +287,21 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
   .list-heading { padding: 20px 16px; }
   .pagination-footer { padding: 12px; flex-wrap: wrap; }
   .prospects-table .p-datatable-table-container, .work-table .p-datatable-table-container { overflow-x: auto; }
-  .form-grid.two-columns, .admission-form .form-grid.three-columns, .admission-form .form-grid.four-columns, .budget-item-row, .dependent-row { grid-template-columns: 1fr; }
+  .form-grid.two-columns, .admission-form .form-grid.three-columns, .admission-form .form-grid.four-columns, .public-admission-form .form-grid.three-columns, .public-admission-form .form-grid.five-columns, .budget-item-row, .dependent-row { grid-template-columns: 1fr; }
   .admission-form .field-span-2 { grid-column: auto; }
+  .public-admission-form .field-span-2 { grid-column: auto; }
   .dependent-row .check-field { min-height: 36px; }
   .detail-grid, .detail-list { grid-template-columns: 1fr; }
   .document-row { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .document-actions { grid-column: 2 / -1; justify-content: flex-start; flex-wrap: wrap; }
+  .public-admission-page { padding: 22px 16px 36px; }
+  .public-admission-header { margin-bottom: 28px; }
+  .public-admission-title, .public-form-actions { align-items: flex-start; flex-direction: column; }
+  .public-dependent-row { grid-template-columns: 1fr; }
+  .public-dependent-row > .base-button { justify-self: end; }
+  .public-document-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .public-document-row .document-actions { grid-column: 1 / -1; }
+  .public-form-actions > div { width: 100%; flex-wrap: wrap; }
   .access-summary { grid-template-columns: 1fr; }
   .access-summary > div { flex-direction: row; align-items: baseline; justify-content: space-between; padding: 13px 16px; }
   .access-summary > div + div { border-left: 0; border-top: 1px solid var(--officio-border); }

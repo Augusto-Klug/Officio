@@ -18,7 +18,7 @@ import { listarClientes } from '../../clientes/services/clientes.service'
 import type { Cliente } from '../../clientes/types/cliente'
 import AdmissaoDetalheDialog from '../components/AdmissaoDetalheDialog.vue'
 import AdmissaoFormDialog from '../components/AdmissaoFormDialog.vue'
-import { atualizarAdmissao, cancelarAdmissao, concluirAdmissao, criarAdmissao, listarAdmissoes, obterAdmissao } from '../services/admissoes.service'
+import { atualizarAdmissao, cancelarAdmissao, concluirAdmissao, criarAdmissao, gerarLinkFichaAdmissao, listarAdmissoes, obterAdmissao, revogarLinkFichaAdmissao } from '../services/admissoes.service'
 import { statusAdmissaoOptions, type AdmissaoDetalhe, type AdmissaoResumo, type DadosAdmissaoPayload } from '../types/admissao'
 
 const route = useRoute()
@@ -41,6 +41,10 @@ const saving = ref(false)
 const actionId = ref('')
 const formError = ref('')
 const confirmAction = ref<'concluir' | 'cancelar'>('concluir')
+const linkOpen = ref(false)
+const linkFicha = ref('')
+const linkExpiraEm = ref('')
+const linkLoading = ref(false)
 let controller: AbortController | undefined
 
 const clienteOptions = computed(() => [{ id: '', razaoSocial: 'Todos os clientes' } as Cliente, ...clientes.value])
@@ -88,6 +92,41 @@ async function atualizarDetalhe() {
   if (!selected.value) return
   selected.value = await carregarDetalhe(selected.value)
   await load()
+}
+
+async function gerarLink() {
+  if (!selected.value) return
+  linkLoading.value = true
+  error.value = ''
+  try {
+    const resultado = await gerarLinkFichaAdmissao(selected.value.id)
+    linkFicha.value = `${window.location.origin}/ficha-admissao/${resultado.token}`
+    linkExpiraEm.value = resultado.expiraEm
+    linkOpen.value = true
+    await atualizarDetalhe()
+  } catch (cause) { error.value = normalizeError(cause).message }
+  finally { linkLoading.value = false }
+}
+
+async function copiarLink() {
+  try {
+    await navigator.clipboard.writeText(linkFicha.value)
+    success.value = 'Link da ficha copiado.'
+  } catch {
+    error.value = 'Não foi possível copiar automaticamente. Selecione o link e copie manualmente.'
+  }
+}
+
+async function revogarLink() {
+  if (!selected.value) return
+  linkLoading.value = true
+  try {
+    await revogarLinkFichaAdmissao(selected.value.id)
+    linkOpen.value = false
+    success.value = 'Link da ficha revogado.'
+    await atualizarDetalhe()
+  } catch (cause) { error.value = normalizeError(cause).message }
+  finally { linkLoading.value = false }
 }
 
 async function abrirEdicao(item?: AdmissaoResumo) {
@@ -172,7 +211,16 @@ onBeforeUnmount(() => controller?.abort())
   </BaseCard>
 
   <AdmissaoFormDialog v-model:visible="formOpen" :clientes="clientes" :admissao="selected" :cliente-inicial-id="clienteId" :saving="saving" :error="formError" @salvar="salvar" />
-  <AdmissaoDetalheDialog v-model:visible="detailOpen" :admissao="selected" :loading="detailLoading" @editar="abrirEdicao()" @concluir="selected && confirmar(selected, 'concluir')" @cancelar="selected && confirmar(selected, 'cancelar')" @atualizado="atualizarDetalhe" />
+  <AdmissaoDetalheDialog v-model:visible="detailOpen" :admissao="selected" :loading="detailLoading" @editar="abrirEdicao()" @concluir="selected && confirmar(selected, 'concluir')" @cancelar="selected && confirmar(selected, 'cancelar')" @atualizado="atualizarDetalhe" @gerar-link="gerarLink" />
+
+  <Dialog v-model:visible="linkOpen" modal header="Ficha digital de admissão" class="workflow-dialog" :style="{ width: 'min(620px, 94vw)' }">
+    <div class="admission-link-dialog">
+      <p>Compartilhe este link somente com o funcionário. Um novo link invalida o anterior.</p>
+      <div class="admission-link-value"><InputText :model-value="linkFicha" readonly /><BaseButton icon="pi pi-copy" title="Copiar link" aria-label="Copiar link" @click="copiarLink" /></div>
+      <small>Expira em {{ formatDate(linkExpiraEm) }}</small>
+    </div>
+    <template #footer><BaseButton label="Revogar link" icon="pi pi-ban" variant="text" :loading="linkLoading" @click="revogarLink" /><BaseButton label="Fechar" variant="secondary" @click="linkOpen = false" /></template>
+  </Dialog>
 
   <Dialog v-model:visible="confirmOpen" modal :header="confirmAction === 'concluir' ? 'Concluir admissão' : 'Cancelar admissão'" class="workflow-dialog" :style="{ width: 'min(480px, 94vw)' }">
     <p v-if="confirmAction === 'concluir'" class="confirmation-copy">Ao concluir, o funcionário será vinculado à empresa e entrará na contagem de funcionários. Confirme que CPF, função e data de admissão estão preenchidos.</p>

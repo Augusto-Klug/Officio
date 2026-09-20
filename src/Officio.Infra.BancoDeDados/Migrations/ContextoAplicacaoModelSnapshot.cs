@@ -124,7 +124,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TokenAcessoHash")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime?>("TokenExpiraEm")
                         .HasColumnType("datetime2");
@@ -141,6 +142,10 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("PessoaId");
 
                     b.HasIndex("StatusAdmissaoId");
+
+                    b.HasIndex("TokenAcessoHash")
+                        .IsUnique()
+                        .HasFilter("[TokenAcessoHash] IS NOT NULL");
 
                     b.ToTable("Admissoes");
                 });

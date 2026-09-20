@@ -9,7 +9,7 @@ import AdmissaoDocumentosSection from './AdmissaoDocumentosSection.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 const props = defineProps<{ admissao: AdmissaoDetalhe | null; loading?: boolean }>()
-defineEmits<{ editar: []; concluir: []; cancelar: []; atualizado: [] }>()
+defineEmits<{ editar: []; concluir: []; cancelar: []; atualizado: []; gerarLink: [] }>()
 
 const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.admissao?.status === 'CANCELADA')
 const severity = computed(() => {
@@ -73,6 +73,7 @@ function informar(value: string | number | null | undefined): string {
     <template #footer>
       <BaseButton label="Fechar" variant="text" @click="visible = false" />
       <BaseButton v-if="admissao && !terminal" label="Cancelar admissão" icon="pi pi-ban" variant="secondary" @click="$emit('cancelar')" />
+      <BaseButton v-if="admissao && !terminal" label="Ficha digital" icon="pi pi-link" variant="secondary" @click="$emit('gerarLink')" />
       <BaseButton v-if="admissao && !terminal" label="Editar" icon="pi pi-pencil" variant="secondary" @click="$emit('editar')" />
       <BaseButton v-if="admissao && !terminal" label="Concluir" icon="pi pi-check" @click="$emit('concluir')" />
     </template>
