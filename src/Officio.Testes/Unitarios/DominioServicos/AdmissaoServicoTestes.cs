@@ -75,6 +75,26 @@ public class AdmissaoServicoTestes
     }
 
     [Fact]
+    public async Task Concluir_ComDocumentoObrigatorioSemValidacao_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (empresa, cliente) = await CriarClienteAsync(contexto, tenantId);
+        var servico = CriarServico(contexto, tenantId);
+        var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(
+            cliente.Id,
+            CriarDados(dataAdmissao: new DateOnly(2026, 9, 21))));
+        await PreencherDocumentosObrigatoriosAsync(
+            contexto, tenantId, empresa.Id, criacao.Valor, aprovar: false);
+
+        var resultado = await servico.ConcluirAsync(criacao.Valor);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("Valide e aprove", resultado.Erro);
+        Assert.Empty(contexto.EmpresaFuncionarios);
+    }
+
+    [Fact]
     public async Task Atualizar_SubstituiDependentesExistentes()
     {
         var tenantId = Guid.NewGuid();
@@ -200,7 +220,8 @@ public class AdmissaoServicoTestes
         ContextoAplicacao contexto,
         Guid tenantId,
         Guid empresaId,
-        Guid admissaoId)
+        Guid admissaoId,
+        bool aprovar = true)
     {
         var itens = await contexto.AdmissaoDocumentos
             .Where(item => item.AdmissaoId == admissaoId && item.Obrigatorio)
@@ -213,6 +234,9 @@ public class AdmissaoServicoTestes
                 $"documents/{item.Id}.pdf", "application/pdf", 100, 1m);
             item.VincularDocumento(documento);
             contexto.Documents.Add(documento);
+            if (aprovar)
+                contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
+                    tenantId, documento.Id, [], [], true, 1m, item.Id));
         }
 
         await contexto.SaveChangesAsync();

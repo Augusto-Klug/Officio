@@ -123,6 +123,7 @@ public class FichaAdmissaoServicoTestes
             .SingleAsync();
         Assert.NotNull(admissao.PreenchimentoFuncionarioConcluidoEm);
         Assert.Equal(StatusAdmissaoCodigos.EmValidacao, admissao.StatusAdmissao.Codigo);
+        Assert.Equal(1, cenario.DocumentoServico.ValidacoesEmLote);
         Assert.False((await cenario.Servico.AtualizarAsync(link.Valor.Token,
             new("Outro nome", null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, []))).Sucesso);
@@ -149,8 +150,9 @@ public class FichaAdmissaoServicoTestes
             null, "47999999999", null, null, null, null, null, null, new DateOnly(2026, 10, 1),
             3500m, null, "Analista", 90, false, null, null, []);
         var criacao = await admissaoServico.CriarManualAsync(new(cliente.Id, dados));
-        var servico = new FichaAdmissaoServico(repositorio, new DocumentoAdmissaoServicoFake(), empresaAtual);
-        return new(contexto, servico, empresaAtual, tenantId, criacao.Valor);
+        var documentoServico = new DocumentoAdmissaoServicoFake();
+        var servico = new FichaAdmissaoServico(repositorio, documentoServico, empresaAtual);
+        return new(contexto, servico, documentoServico, empresaAtual, tenantId, criacao.Valor);
     }
 
     private static async Task PreencherDocumentosObrigatoriosAsync(ContextoAplicacao contexto, Cenario cenario)
@@ -173,16 +175,24 @@ public class FichaAdmissaoServicoTestes
     private sealed record Cenario(
         ContextoAplicacao Contexto,
         FichaAdmissaoServico Servico,
+        DocumentoAdmissaoServicoFake DocumentoServico,
         ServicoEmpresaAtual EmpresaAtual,
         Guid TenantId,
         Guid AdmissaoId);
 
     private sealed class DocumentoAdmissaoServicoFake : IAdmissaoDocumentoServico
     {
+        public int ValidacoesEmLote { get; private set; }
+
         public Task<Resultado<List<AdmissaoDocumentoDto>>> ListarAsync(Guid admissaoId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Resultado<ResultadoDocumentoAdmissaoDto>> EnviarAsync(EnviarDocumentoAdmissaoRequisicao requisicao, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Resultado<ResultadoUrlDocumentoAdmissaoDto>> ObterUrlAsync(Guid admissaoId, Guid admissaoDocumentoId, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Resultado<ValidationResultDto>> ValidarAsync(Guid admissaoId, Guid admissaoDocumentoId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Resultado<ResumoValidacaoDocumentosAdmissaoDto>> ValidarPendentesAsync(Guid admissaoId, CancellationToken ct = default)
+        {
+            ValidacoesEmLote++;
+            return Task.FromResult(Resultado<ResumoValidacaoDocumentosAdmissaoDto>.CriarSucesso(new(0, 0, 0, 0)));
+        }
         public Task<Resultado<bool>> AprovarManualmenteAsync(AprovarDocumentoAdmissaoRequisicao requisicao, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Resultado<bool>> RemoverAsync(Guid admissaoId, Guid admissaoDocumentoId, CancellationToken ct = default) => throw new NotSupportedException();
     }
