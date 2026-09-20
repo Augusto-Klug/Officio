@@ -2,9 +2,21 @@ namespace Officio.WebApi.Extensoes;
 
 public static class ExtensoesSwagger
 {
+    public static IServiceCollection AdicionarOpenApiOfficio(this IServiceCollection services)
+    {
+        services.AddOpenApi(options =>
+        {
+            options.AddDocumentTransformer<OpenApi.TransformadorDocumentoOfficio>();
+            options.AddDocumentTransformer<OpenApi.TransformadorAutenticacaoOpenApi>();
+            options.AddOperationTransformer<OpenApi.TransformadorOperacaoAutorizacao>();
+        });
+
+        return services;
+    }
+
     public static WebApplication UsarSwaggerOfficio(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment())
+        if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
             return app;
 
         app.MapOpenApi();
@@ -19,24 +31,10 @@ public static class ExtensoesSwagger
               <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
             </head>
             <body>
-              <div style="padding: 12px 16px; font-family: sans-serif; border-bottom: 1px solid #ddd;">
-                <button onclick="setJwt()">Definir JWT</button>
-                <button onclick="clearJwt()">Limpar JWT</button>
-                <span style="margin-left: 12px;">O token fica apenas no localStorage deste navegador.</span>
-              </div>
               <div id="swagger-ui"></div>
               <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
               <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
               <script>
-                function setJwt() {
-                  const token = prompt("Cole o JWT sem o prefixo Bearer:");
-                  if (token) localStorage.setItem("officio.jwt", token.trim());
-                }
-
-                function clearJwt() {
-                  localStorage.removeItem("officio.jwt");
-                }
-
                 SwaggerUIBundle({
                   url: "/openapi/v1.json",
                   dom_id: "#swagger-ui",
@@ -45,11 +43,10 @@ public static class ExtensoesSwagger
                     SwaggerUIStandalonePreset
                   ],
                   layout: "StandaloneLayout",
-                  requestInterceptor: function(request) {
-                    const token = localStorage.getItem("officio.jwt");
-                    if (token) request.headers.Authorization = "Bearer " + token;
-                    return request;
-                  }
+                  persistAuthorization: true,
+                  displayRequestDuration: true,
+                  filter: true,
+                  tryItOutEnabled: true
                 });
               </script>
             </body>
