@@ -10,8 +10,8 @@ describe('dashboard.service', () => {
       contratosAtivos: 4,
       admissoesPendentes: 5,
       orcamentosAguardandoRetorno: 6,
-      receitaMensalContratada: 1500.5,
-    }).receitaMensalContratada).toBe(1500.5)
+      faturamentoCompetenciaAtual: 1500.5,
+    }).faturamentoCompetenciaAtual).toBe(1500.5)
   })
 
   it('rejeita payloads inconsistentes', () => {
@@ -22,7 +22,7 @@ describe('dashboard.service', () => {
 
   it('carrega os tres recortes em paralelo', async () => {
     vi.spyOn(http, 'get')
-      .mockResolvedValueOnce({ data: { prospectosEmAberto: 0, clientesAtivos: 0, contratosAtivos: 0, admissoesPendentes: 0, orcamentosAguardandoRetorno: 0, receitaMensalContratada: 0 } } as never)
+      .mockResolvedValueOnce({ data: { prospectosEmAberto: 0, clientesAtivos: 0, contratosAtivos: 0, admissoesPendentes: 0, orcamentosAguardandoRetorno: 0, faturamentoCompetenciaAtual: 0 } } as never)
       .mockResolvedValueOnce({ data: [] } as never)
       .mockResolvedValueOnce({ data: [] } as never)
 

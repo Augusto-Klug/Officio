@@ -4,7 +4,7 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IDashboardRepositorio
 {
-    Task<DashboardVisaoGeralDto> ObterVisaoGeralAsync(CancellationToken cancellationToken = default);
+    Task<DashboardVisaoGeralDto> ObterVisaoGeralAsync(DateOnly competencia, CancellationToken cancellationToken = default);
     Task<List<DashboardAlertaDto>> ListarAlertasAsync(
         DateTime inicioContratos,
         DateTime limiteContratos,

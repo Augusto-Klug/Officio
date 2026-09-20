@@ -23,6 +23,17 @@ public class DashboardServicoTestes
     }
 
     [Fact]
+    public async Task ObterVisaoGeralAsync_UsaCompetenciaAtual()
+    {
+        var repositorio = new DashboardRepositorioFake();
+        var servico = new DashboardServico(repositorio, new TimeProviderFixo(Agora));
+
+        await servico.ObterVisaoGeralAsync();
+
+        Assert.Equal(new DateOnly(2026, 9, 1), repositorio.CompetenciaVisaoGeral);
+    }
+
+    [Fact]
     public async Task ObterProjecaoReceitaAsync_CriaSeisMesesERespeitaVigencia()
     {
         var repositorio = new DashboardRepositorioFake
@@ -55,10 +66,16 @@ public class DashboardServicoTestes
         public DateTime LimiteProspectos { get; private set; }
         public int LimiteAlertas { get; private set; }
         public DateTime InicioProjecao { get; private set; }
+        public DateOnly CompetenciaVisaoGeral { get; private set; }
         public List<DashboardContratoReceitaDto> Contratos { get; init; } = [];
 
-        public Task<DashboardVisaoGeralDto> ObterVisaoGeralAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(new DashboardVisaoGeralDto(0, 0, 0, 0, 0, 0));
+        public Task<DashboardVisaoGeralDto> ObterVisaoGeralAsync(
+            DateOnly competencia,
+            CancellationToken cancellationToken = default)
+        {
+            CompetenciaVisaoGeral = competencia;
+            return Task.FromResult(new DashboardVisaoGeralDto(0, 0, 0, 0, 0, 0));
+        }
 
         public Task<List<DashboardAlertaDto>> ListarAlertasAsync(
             DateTime inicioContratos,
