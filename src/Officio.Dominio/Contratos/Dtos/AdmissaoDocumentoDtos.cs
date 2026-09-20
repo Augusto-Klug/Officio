@@ -16,7 +16,9 @@ public record AdmissaoDocumentoDto(
     DateTime? EnviadoEm,
     string StatusValidacao,
     decimal? ConfiancaOcr,
-    string? MensagemValidacao);
+    string? MensagemValidacao,
+    Dictionary<string, string> CamposExtraidos,
+    List<DivergenciaDto> Divergencias);
 
 public record ResumoValidacaoDocumentosAdmissaoDto(
     int Processados,

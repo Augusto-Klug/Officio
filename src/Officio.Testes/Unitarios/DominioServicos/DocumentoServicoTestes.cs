@@ -137,6 +137,14 @@ public class DocumentoServicoTestes
         var divergencia = Assert.Single(resultado.Valor.Divergencias);
         Assert.Equal("razao_social", divergencia.Campo);
         Assert.Equal("Empresa Certa Ltda", divergencia.ValorCadastro);
+
+        contexto.ChangeTracker.Clear();
+        var execucao = await contexto.OcrExecucoes.Include(item => item.Campos).SingleAsync();
+        var validacao = await contexto.DocumentValidations.Include(item => item.Divergencias).SingleAsync();
+        Assert.Equal("CONCLUIDO", execucao.StatusProcessamento);
+        Assert.Equal(2, execucao.Campos.Count);
+        Assert.Equal(execucao.Id, validacao.OcrExecucaoId);
+        Assert.Single(validacao.Divergencias);
     }
 
     [Fact]
@@ -248,6 +256,9 @@ public class DocumentoServicoTestes
         contexto.ChangeTracker.Clear();
         var validacao = await contexto.DocumentValidations.SingleAsync();
         Assert.Equal(tenantId, validacao.TenantId);
+        var execucao = await contexto.OcrExecucoes.SingleAsync();
+        Assert.Equal("FALHA", execucao.StatusProcessamento);
+        Assert.Equal(execucao.Id, validacao.OcrExecucaoId);
     }
 
     [Fact]

@@ -67,9 +67,14 @@ describe('contrato HTTP de admissões', () => {
       rotulo: 'Documento de identidade', obrigatorio: true, ordem: 1, documentoId: null,
       nomeArquivo: null, mimeType: null, tamanhoBytes: null, qualidadeEstimada: null, enviadoEm: null,
       statusValidacao: 'PENDENTE_ENVIO', confiancaOcr: null, mensagemValidacao: null,
+      camposExtraidos: { cpf: '12345678901' },
+      divergencias: [{ campo: 'cpf', valorDocumento: '12345678901', valorCadastro: '10987654321', similaridade: 0.4 }],
     }])
 
-    expect(documentos[0]).toMatchObject({ id: 'item-1', obrigatorio: true, statusValidacao: 'PENDENTE_ENVIO' })
+    expect(documentos[0]).toMatchObject({
+      id: 'item-1', obrigatorio: true, statusValidacao: 'PENDENTE_ENVIO',
+      camposExtraidos: { cpf: '12345678901' }, divergencias: [{ campo: 'cpf', similaridade: 0.4 }],
+    })
   })
 
   it('usa os endpoints do fluxo de documentos', async () => {
@@ -84,7 +89,7 @@ describe('contrato HTTP de admissões', () => {
       .mockResolvedValueOnce({ data: { url: 'https://storage/documento', expiraEm: '2026-09-19T12:00:00Z' } })
     const post = vi.spyOn(http, 'post')
       .mockResolvedValueOnce({ data: undefined })
-      .mockResolvedValueOnce({ data: { valido: true, confiancaOcr: 0.98, fallbackManual: false, mensagem: null } })
+      .mockResolvedValueOnce({ data: { valido: true, confiancaOcr: 0.98, fallbackManual: false, mensagem: null, divergencias: [] } })
       .mockResolvedValueOnce({ data: undefined })
     const remove = vi.spyOn(http, 'delete').mockResolvedValue({ data: undefined })
     const arquivo = new File(['pdf'], 'cpf.pdf', { type: 'application/pdf' })

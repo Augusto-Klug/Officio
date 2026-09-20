@@ -61,6 +61,15 @@ export interface AdmissaoDocumento {
   statusValidacao: string
   confiancaOcr: number | null
   mensagemValidacao: string | null
+  camposExtraidos: Record<string, string>
+  divergencias: DivergenciaDocumento[]
+}
+
+export interface DivergenciaDocumento {
+  campo: string
+  valorDocumento: string
+  valorCadastro: string
+  similaridade: number
 }
 
 export interface UrlDocumentoAdmissao {
@@ -73,6 +82,7 @@ export interface ResultadoValidacaoDocumento {
   confiancaOcr: number
   fallbackManual: boolean
   mensagem: string | null
+  divergencias: DivergenciaDocumento[]
 }
 
 export interface LinkFichaAdmissao {

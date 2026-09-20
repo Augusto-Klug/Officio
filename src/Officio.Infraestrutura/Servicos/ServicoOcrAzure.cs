@@ -39,17 +39,32 @@ public class ServicoOcrAzure(
 
             var result = operation.Value;
 
-            var fields = result.Documents
-                .FirstOrDefault()?.Fields
-                .ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => kvp.Value.Content ?? string.Empty)
-                ?? [];
+            var camposBrutos = result.Documents
+                .SelectMany(documento => documento.Fields)
+                .Select(campo => new CampoOcrBruto(
+                    campo.Key,
+                    campo.Value.Content ?? string.Empty,
+                    Convert.ToDecimal(campo.Value.Confidence ?? 0f)))
+                .Concat(result.KeyValuePairs
+                    .Where(par => par.Value is not null)
+                    .Select(par => new CampoOcrBruto(
+                        par.Key.Content,
+                        par.Value!.Content,
+                        (decimal)par.Confidence)))
+                .ToList();
 
-            var confidence = result.Documents
-                .FirstOrDefault()?.Confidence ?? 0;
+            var fields = NormalizadorCamposOcr.Normalizar(type, camposBrutos);
+            var confidence = result.Documents.Count > 0
+                ? result.Documents.Average(documento => documento.Confidence)
+                : result.KeyValuePairs.Count > 0
+                    ? result.KeyValuePairs.Average(par => par.Confidence)
+                    : 0;
 
-            return ResultadoOcr.CriarSucesso(fields, (decimal)confidence);
+            return ResultadoOcr.CriarSucesso(
+                fields.Valores,
+                (decimal)confidence,
+                modelId,
+                fields.Confiancas);
         }
         catch (Exception ex)
         {
