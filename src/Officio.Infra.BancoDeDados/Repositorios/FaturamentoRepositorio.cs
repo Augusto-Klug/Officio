@@ -46,6 +46,18 @@ internal class FaturamentoRepositorio(ContextoAplicacao contexto) : IFaturamento
         return consulta.OrderByDescending(item => item.Competencia).ThenBy(item => item.Contrato.Numero).ToListAsync(ct);
     }
 
+    public Task<List<FaturamentoMensal>> ListarParaRecalculoAsync(
+        DateOnly competencia,
+        CancellationToken ct = default)
+        => contexto.FaturamentosMensais
+            .Include(item => item.StatusFaturamento)
+            .Include(item => item.Contrato).ThenInclude(item => item.Orcamento).ThenInclude(item => item!.Itens)
+            .Include(item => item.Contrato).ThenInclude(item => item.Cliente).ThenInclude(item => item!.Empresa)
+            .Include(item => item.Contrato).ThenInclude(item => item.Empresa)
+            .Include(item => item.Contrato).ThenInclude(item => item.Prospecto).ThenInclude(item => item.Empresa)
+            .Where(item => item.Competencia == competencia)
+            .ToListAsync(ct);
+
     public Task<FaturamentoMensal?> ObterPorIdAsync(Guid id, CancellationToken ct = default)
         => contexto.FaturamentosMensais.Include(item => item.StatusFaturamento).FirstOrDefaultAsync(item => item.Id == id, ct);
 

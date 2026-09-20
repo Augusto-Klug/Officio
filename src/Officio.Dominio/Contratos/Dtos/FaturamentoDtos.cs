@@ -20,3 +20,20 @@ public record ResultadoGeracaoFaturamentoDto(
     int Gerados,
     int Ignorados,
     decimal ValorTotal);
+
+public record ResultadoRecalculoFaturamentoDto(
+    DateOnly Competencia,
+    int Recalculados,
+    int Ignorados,
+    decimal ValorTotal);
+
+public record ResumoFaturamentoCompetenciaDto(
+    DateOnly Competencia,
+    int TotalRegistros,
+    int Abertos,
+    int Fechados,
+    int Cancelados,
+    int QuantidadeFolhas,
+    decimal ValorAberto,
+    decimal ValorFechado,
+    decimal ValorTotalAtivo);

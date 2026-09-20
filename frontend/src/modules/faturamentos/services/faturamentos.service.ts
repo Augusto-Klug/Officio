@@ -1,6 +1,6 @@
 import { field, record, requiredString } from '../../../api/contracts'
 import { http } from '../../../api/http'
-import type { FaturamentoMensal, ResultadoGeracaoFaturamento, StatusFaturamento } from '../types/faturamento'
+import type { FaturamentoMensal, ResultadoGeracaoFaturamento, ResultadoRecalculoFaturamento, ResumoFaturamentoCompetencia, StatusFaturamento } from '../types/faturamento'
 
 function numero(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error('A API retornou um valor de faturamento inválido.')
@@ -56,6 +56,39 @@ export async function gerarCompetencia(competencia: string): Promise<ResultadoGe
     gerados: inteiro(field(item, 'gerados')),
     ignorados: inteiro(field(item, 'ignorados')),
     valorTotal: numero(field(item, 'valorTotal')),
+  }
+}
+
+export async function recalcularCompetencia(competencia: string): Promise<ResultadoRecalculoFaturamento> {
+  const { data } = await http.post<unknown>('/v1/faturamentos/RecalcularCompetencia', { competencia: `${competencia}-01` })
+  const item = record(data)
+  return {
+    competencia: requiredString(field(item, 'competencia')),
+    recalculados: inteiro(field(item, 'recalculados')),
+    ignorados: inteiro(field(item, 'ignorados')),
+    valorTotal: numero(field(item, 'valorTotal')),
+  }
+}
+
+export async function obterResumoFaturamento(
+  competencia: string,
+  signal?: AbortSignal,
+): Promise<ResumoFaturamentoCompetencia> {
+  const { data } = await http.get<unknown>('/v1/faturamentos/Resumo', {
+    params: { competencia: `${competencia}-01` },
+    signal,
+  })
+  const item = record(data)
+  return {
+    competencia: requiredString(field(item, 'competencia')),
+    totalRegistros: inteiro(field(item, 'totalRegistros')),
+    abertos: inteiro(field(item, 'abertos')),
+    fechados: inteiro(field(item, 'fechados')),
+    cancelados: inteiro(field(item, 'cancelados')),
+    quantidadeFolhas: inteiro(field(item, 'quantidadeFolhas')),
+    valorAberto: numero(field(item, 'valorAberto')),
+    valorFechado: numero(field(item, 'valorFechado')),
+    valorTotalAtivo: numero(field(item, 'valorTotalAtivo')),
   }
 }
 
