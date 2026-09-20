@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Faturamentos.Comandos.Cancelar;
 using Officio.Dominio.Mediador.Funcionalidades.Faturamentos.Comandos.Fechar;
+using Officio.Dominio.Mediador.Funcionalidades.Faturamentos.Comandos.FecharCompetencia;
 using Officio.Dominio.Mediador.Funcionalidades.Faturamentos.Comandos.GerarCompetencia;
 using Officio.Dominio.Mediador.Funcionalidades.Faturamentos.Comandos.RecalcularCompetencia;
 using Officio.Dominio.Mediador.Funcionalidades.Faturamentos.Consultas.Listar;
@@ -55,6 +56,17 @@ public class FaturamentosController(IMediator mediator) : ControllerBase
     {
         var resultado = await mediator.Send(
             new ObterResumoFaturamentoConsulta(competencia),
+            cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> FecharCompetencia(
+        [FromBody] GerarFaturamentoCompetenciaViewModel viewModel,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(
+            new FecharFaturamentoCompetenciaComando(viewModel.Competencia),
             cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
     }

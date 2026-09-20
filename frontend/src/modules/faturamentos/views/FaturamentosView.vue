@@ -11,7 +11,7 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCurrency } from '../../../utils/format'
-import { cancelarFaturamento, fecharFaturamento, gerarCompetencia, listarFaturamentos, obterResumoFaturamento, recalcularCompetencia } from '../services/faturamentos.service'
+import { cancelarFaturamento, fecharCompetencia, fecharFaturamento, gerarCompetencia, listarFaturamentos, obterResumoFaturamento, recalcularCompetencia } from '../services/faturamentos.service'
 import type { FaturamentoMensal, ResumoFaturamentoCompetencia } from '../types/faturamento'
 
 const hoje = new Date()
@@ -80,6 +80,20 @@ async function recalcular() {
   finally { actionId.value = '' }
 }
 
+async function fecharCompetenciaAtual() {
+  if (!competencia.value || resumo.value.abertos === 0) return
+  const confirmacao = `Fechar ${resumo.value.abertos} faturamento(s), no total de ${formatCurrency(resumo.value.valorAberto)}? Faturamentos fechados não podem ser recalculados ou cancelados.`
+  if (!window.confirm(confirmacao)) return
+  actionId.value = 'fechar-competencia'
+  error.value = ''
+  try {
+    const resultado = await fecharCompetencia(competencia.value)
+    success.value = `${resultado.fechados} faturamento(s) fechado(s), totalizando ${formatCurrency(resultado.valorTotal)}.`
+    await carregar()
+  } catch (cause) { error.value = normalizeError(cause).message }
+  finally { actionId.value = '' }
+}
+
 async function gerar() {
   if (!competencia.value || !window.confirm(`Gerar o faturamento de ${competenciaLabel(competencia.value)}?`)) return
   actionId.value = 'gerar'
@@ -115,6 +129,7 @@ onBeforeUnmount(() => controller?.abort())
   <PageHeader title="Faturamento mensal" description="Calcule e consolide os honorários contratados por competência.">
     <div class="header-actions">
       <BaseButton label="Recalcular abertos" icon="pi pi-refresh" variant="secondary" :loading="actionId === 'recalcular'" :disabled="loading || resumo.abertos === 0 || !!actionId" @click="recalcular" />
+      <BaseButton label="Fechar abertos" icon="pi pi-lock" variant="secondary" :loading="actionId === 'fechar-competencia'" :disabled="loading || resumo.abertos === 0 || !!actionId" @click="fecharCompetenciaAtual" />
       <BaseButton label="Gerar competência" icon="pi pi-calculator" :loading="actionId === 'gerar'" :disabled="!!actionId && actionId !== 'gerar'" @click="gerar" />
     </div>
   </PageHeader>

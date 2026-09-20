@@ -8,6 +8,7 @@ public interface IFaturamentoRepositorio
     Task<HashSet<Guid>> ListarContratosJaCalculadosAsync(DateOnly competencia, CancellationToken ct = default);
     Task<List<FaturamentoMensal>> ListarAsync(DateOnly? competencia, string? status, CancellationToken ct = default);
     Task<List<FaturamentoMensal>> ListarParaRecalculoAsync(DateOnly competencia, CancellationToken ct = default);
+    Task<List<FaturamentoMensal>> ListarParaFechamentoAsync(DateOnly competencia, CancellationToken ct = default);
     Task<FaturamentoMensal?> ObterPorIdAsync(Guid id, CancellationToken ct = default);
     Task<StatusFaturamento> ObterOuCriarStatusAsync(string codigo, string descricao, CancellationToken ct = default);
     Task AdicionarAsync(FaturamentoMensal faturamento, CancellationToken ct = default);

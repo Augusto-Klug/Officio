@@ -70,6 +70,26 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
             abertos.Sum(item => item.ValorTotal)));
     }
 
+    public async Task<Resultado<ResultadoFechamentoFaturamentoDto>> FecharCompetenciaAsync(
+        GerarFaturamentoCompetenciaRequisicao requisicao,
+        CancellationToken ct = default)
+    {
+        var competencia = NormalizarCompetencia(requisicao.Competencia);
+        var faturamentos = await repositorio.ListarParaFechamentoAsync(competencia, ct);
+        var abertos = faturamentos.Where(item => item.StatusFaturamento.Codigo == "ABERTO").ToList();
+        var statusFechado = await repositorio.ObterOuCriarStatusAsync("FECHADO", "Fechado", ct);
+
+        foreach (var faturamento in abertos)
+            faturamento.Fechar(statusFechado.Id);
+
+        await repositorio.SalvarAlteracoesAsync(ct);
+        return Resultado<ResultadoFechamentoFaturamentoDto>.CriarSucesso(new(
+            competencia,
+            abertos.Count,
+            faturamentos.Count - abertos.Count,
+            abertos.Sum(item => item.ValorTotal)));
+    }
+
     public async Task<Resultado<List<FaturamentoMensalDto>>> ListarAsync(
         DateOnly? competencia,
         string? status,
