@@ -33,6 +33,12 @@ Sidebar oculta abaixo de 760 px e substituída por Drawer com foco gerenciado pe
 
 ## Movimento
 
+## Cadastro de prospecto
+
+Formulário em uma única superfície, com dados do prospecto, sócios opcionais e ações ao final. Duas colunas no desktop e uma no mobile; sócios agrupados por fieldset com legenda. Reutiliza os controles base e o PageContainer do layout. Campos obrigatórios identificados, erros associados aos inputs e foco no primeiro inválido. Adicionar sócio foca seu nome; remover devolve o foco à ação de adicionar. Envio bloqueia nova submissão, erro preserva dados e sucesso retorna à listagem sem filtros, com confirmação.
+
+## Movimento
+
 Rejeitados: transição de rota (alta frequência), entrada de linhas (dados em leitura), animação de filtros/paginação (interações frequentes e por teclado). Controles e Drawer respondem imediatamente.
 
 Apenas o indicador de espera usa rotação CSS de transform, linear, 1 s por volta enquanto há uma solicitação; finalidade: indicar trabalho em andamento. Prefers-reduced-motion remove a rotação, mantendo ícone e texto. Não há biblioteca adicional de animação.

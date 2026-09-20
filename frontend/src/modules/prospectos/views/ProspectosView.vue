@@ -16,6 +16,9 @@ import { listarProspectos } from '../services/prospectos.service'
 import { statusOptions, type ProspectosPagina } from '../types/prospecto'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatDate } from '../../../utils/format'
+import { consumirConfirmacaoCadastro } from '../state/confirmacao'
+
+const cadastroConfirmado = ref(consumirConfirmacaoCadastro())
 
 const route = useRoute()
 const router = useRouter()
@@ -83,8 +86,10 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
 
 <template>
   <PageHeader title="Prospectos" description="Acompanhe as oportunidades comerciais do seu escritório.">
-    <div class="new-prospect"><BaseButton label="Novo prospecto" icon="pi pi-plus" disabled aria-describedby="new-prospect-hint" /><small id="new-prospect-hint">Cadastro disponível em uma próxima etapa.</small></div>
+    <BaseButton label="Novo prospecto" icon="pi pi-plus" @click="router.push({ name: 'novo-prospecto' })" />
   </PageHeader>
+
+  <Message v-if="cadastroConfirmado" severity="success" :closable="true" role="status" class="creation-confirmation" @close="cadastroConfirmado = false">Prospecto cadastrado com sucesso.</Message>
 
   <BaseCard class="prospects-card">
     <form class="filters" role="search" aria-label="Filtrar prospectos" @submit.prevent="applyFilters">
@@ -113,3 +118,7 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
   </BaseCard>
   <p class="list-footnote">20 prospectos por página</p>
 </template>
+
+<style scoped>
+.creation-confirmation { margin-bottom: var(--space-6); }
+</style>

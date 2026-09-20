@@ -1,6 +1,11 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
 import type { ProspectosFiltro, ProspectosPagina } from '../types/prospecto'
+import type { CriarProspecto } from '../types/criar-prospecto'
+
+export async function criarProspecto(payload: CriarProspecto): Promise<void> {
+  await http.post('/v1/prospectos/Criar', payload)
+}
 
 function integer(value: unknown, minimum: number): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum) throw new Error('A API retornou uma paginação inválida.')

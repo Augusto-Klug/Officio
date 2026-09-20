@@ -11,6 +11,7 @@ export const router = createRouter({
       children: [
         { path: '', redirect: '/prospectos' },
         { path: 'prospectos', name: 'prospectos', component: () => import('../modules/prospectos/views/ProspectosView.vue'), meta: { title: 'Prospectos' } },
+        { path: 'prospectos/novo', name: 'novo-prospecto', component: () => import('../modules/prospectos/views/NovoProspectoView.vue'), meta: { title: 'Novo prospecto' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/prospectos' },
@@ -30,6 +31,5 @@ onUnauthorized(() => {
 })
 
 export function safeRedirect(value: unknown): string {
-  // Nesta entrega, a única rota interna de retorno é a listagem.
-  return typeof value === 'string' && /^\/prospectos(?:\?|$)/.test(value) ? value : '/prospectos'
+  return typeof value === 'string' && /^\/prospectos(?:\/novo)?(?:\?|$)/.test(value) ? value : '/prospectos'
 }
