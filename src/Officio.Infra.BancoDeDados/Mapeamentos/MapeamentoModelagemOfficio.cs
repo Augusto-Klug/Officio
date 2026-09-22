@@ -7,11 +7,71 @@ internal static class MapeamentoModelagemOfficio
 {
     public static void Configurar(ModelBuilder builder)
     {
+        ConfigurarNomesTabelas(builder);
         ConfigurarDominios(builder);
         ConfigurarComercial(builder);
         ConfigurarOrcamentoContratoAssinatura(builder);
         ConfigurarAcessoDocumentosAdmissao(builder);
         ConfigurarOcrValidacaoFaturamento(builder);
+    }
+
+    private static void ConfigurarNomesTabelas(ModelBuilder builder)
+    {
+        builder.Entity<Admissao>().ToTable("Admissoes");
+        builder.Entity<AdmissaoDependente>().ToTable("DependentesAdmissao");
+        builder.Entity<AdmissaoDocumento>().ToTable("DocumentosAdmissao");
+        builder.Entity<Assinatura>().ToTable("Assinaturas");
+        builder.Entity<AssinaturaEvento>().ToTable("EventosAssinatura");
+        builder.Entity<AssinaturaSignatario>().ToTable("SignatariosAssinatura");
+        builder.Entity<AssinaturaSolicitacao>().ToTable("SolicitacoesAssinatura");
+        builder.Entity<Cliente>().ToTable("Clientes");
+        builder.Entity<ConfigDocumentoAdmissao>().ToTable("ConfiguracoesDocumentoAdmissao");
+        builder.Entity<Contrato>().ToTable("Contratos");
+        builder.Entity<ContratoVersao>().ToTable("VersoesContrato");
+        builder.Entity<ConviteUsuario>().ToTable("ConvitesUsuarios");
+        builder.Entity<Documento>().ToTable("Documentos");
+        builder.Entity<Empresa>().ToTable("Empresas");
+        builder.Entity<EmpresaFuncionario>().ToTable("FuncionariosEmpresa");
+        builder.Entity<EmpresaPessoa>().ToTable("PessoasEmpresa");
+        builder.Entity<Endereco>().ToTable("Enderecos");
+        builder.Entity<FaturamentoMensal>().ToTable("FaturamentosMensais");
+        builder.Entity<FormularioAbertura>().ToTable("FormulariosAbertura");
+        builder.Entity<FormularioAberturaAtividade>().ToTable("AtividadesFormularioAbertura");
+        builder.Entity<ItemCatalogoOrcamento>().ToTable("ItensCatalogoOrcamento");
+        builder.Entity<ItemOrcamento>().ToTable("ItensOrcamento");
+        builder.Entity<ModeloContrato>().ToTable("ModelosContrato");
+        builder.Entity<Municipio>().ToTable("Municipios");
+        builder.Entity<Notificacao>().ToTable("Notificacoes");
+        builder.Entity<OcrCampoExtraido>().ToTable("CamposExtraidosOcr");
+        builder.Entity<OcrExecucao>().ToTable("ExecucoesOcr");
+        builder.Entity<Orcamento>().ToTable("Orcamentos");
+        builder.Entity<OrcamentoItem>().ToTable("ItensVersaoOrcamento");
+        builder.Entity<OrcamentoVersao>().ToTable("VersoesOrcamento");
+        builder.Entity<PerfilPermissao>().ToTable("PermissoesPerfil");
+        builder.Entity<PerfilUsuario>().ToTable("PerfisUsuario");
+        builder.Entity<Permissao>().ToTable("Permissoes");
+        builder.Entity<Pessoa>().ToTable("Pessoas");
+        builder.Entity<Prospecto>().ToTable("Prospectos");
+        builder.Entity<ProspectoPessoa>().ToTable("PessoasProspecto");
+        builder.Entity<RegistroAuditoria>().ToTable("RegistrosAuditoria");
+        builder.Entity<SecaoOrcamento>().ToTable("SecoesOrcamento");
+        builder.Entity<Socio>().ToTable("Socios");
+        builder.Entity<StatusAdmissao>().ToTable("StatusAdmissao");
+        builder.Entity<StatusAssinatura>().ToTable("StatusAssinatura");
+        builder.Entity<StatusCliente>().ToTable("StatusCliente");
+        builder.Entity<StatusContratoDominio>().ToTable("StatusContrato");
+        builder.Entity<StatusFaturamento>().ToTable("StatusFaturamento");
+        builder.Entity<StatusFormulario>().ToTable("StatusFormulario");
+        builder.Entity<StatusOrcamentoDominio>().ToTable("StatusOrcamento");
+        builder.Entity<StatusProspect>().ToTable("StatusProspecto");
+        builder.Entity<StatusValidacaoDocumento>().ToTable("StatusValidacaoDocumento");
+        builder.Entity<TipoDocumentoDominio>().ToTable("TiposDocumento");
+        builder.Entity<TipoRelacao>().ToTable("TiposRelacao");
+        builder.Entity<TokenRedefinicaoSenha>().ToTable("TokensRedefinicaoSenha");
+        builder.Entity<Usuario>().ToTable("Usuarios");
+        builder.Entity<UsuarioEmpresa>().ToTable("UsuariosEmpresa");
+        builder.Entity<ValidacaoDocumento>().ToTable("ValidacoesDocumento");
+        builder.Entity<ValidacaoDivergencia>().ToTable("DivergenciasValidacao");
     }
 
     private static void ConfigurarDominios(ModelBuilder builder)
@@ -80,8 +140,6 @@ internal static class MapeamentoModelagemOfficio
 
         builder.Entity<Empresa>(entity =>
         {
-            // Empresas clientes: preserva o nome fisico legado sem alterar o schema.
-            entity.ToTable("Tenants");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Cnpj).HasMaxLength(14).IsRequired();
             entity.Property(e => e.RazaoSocial).HasMaxLength(300).IsRequired();

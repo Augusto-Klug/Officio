@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Officio.Dominio.Entidades;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.WebApi.Desenvolvimento;
 using System.Data;
@@ -36,6 +37,10 @@ public static class ExtensoesBancoDesenvolvimento
 
     private static async Task<bool> TabelaUsuariosExisteAsync(ContextoAplicacao contexto)
     {
+        var entidadeUsuario = contexto.Model.FindEntityType(typeof(Usuario));
+        var tabelaUsuarios = entidadeUsuario?.GetTableName()
+            ?? throw new InvalidOperationException("A entidade Usuario nao possui tabela configurada.");
+        var schema = entidadeUsuario.GetSchema() ?? "dbo";
         var conexao = contexto.Database.GetDbConnection();
         var abrirConexao = conexao.State != ConnectionState.Open;
 
@@ -45,7 +50,7 @@ public static class ExtensoesBancoDesenvolvimento
         try
         {
             await using var comando = conexao.CreateCommand();
-            comando.CommandText = "SELECT CASE WHEN OBJECT_ID(N'[dbo].[Users]', N'U') IS NULL THEN 0 ELSE 1 END";
+            comando.CommandText = $"SELECT CASE WHEN OBJECT_ID(N'[{schema}].[{tabelaUsuarios}]', N'U') IS NULL THEN 0 ELSE 1 END";
 
             var resultado = await comando.ExecuteScalarAsync();
             return Convert.ToInt32(resultado) == 1;

@@ -57,6 +57,18 @@ public class Empresa : EntidadeBase
         };
     }
 
+    public static Empresa CriarDoProspecto(Prospecto prospecto)
+    {
+        if (string.IsNullOrWhiteSpace(prospecto.Cnpj))
+            throw new ArgumentException("Prospecto deve possuir CNPJ para constituir a empresa.", nameof(prospecto));
+
+        return CriarConstituida(
+            prospecto.Cnpj,
+            prospecto.RazaoSocial,
+            prospecto.NomeFantasia,
+            email: prospecto.Email);
+    }
+
     public void AtualizarQuantidadesOperacionais(int quantidadeFuncionariosAtual, int quantidadeProLaboresAtual)
     {
         QuantidadeFuncionariosAtual = quantidadeFuncionariosAtual;
