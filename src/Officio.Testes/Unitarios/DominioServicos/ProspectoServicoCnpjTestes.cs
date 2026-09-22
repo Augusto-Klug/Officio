@@ -13,6 +13,62 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 
 public class ProspectoServicoCnpjTestes
 {
+    [Fact]
+    public async Task ConverterParaClienteAsync_ComCnpj_CriaEmpresaEVinculaCliente()
+    {
+        var tenant = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenant);
+        await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            empresaAtual, new PublicadorEventosFake());
+        var prospecto = Prospecto.Create(tenant, "Empresa para admissao", "99093538000155", null);
+        db.Prospects.Add(prospecto);
+        await db.SaveChangesAsync();
+
+        var servicos = new ServiceCollection();
+        servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
+        servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
+        servicos.AdicionarServicos(new ConfigurationBuilder().Build());
+        await using var provedor = servicos.BuildServiceProvider();
+        var servico = provedor.GetRequiredService<IProspectoServico>();
+
+        var resultado = await servico.ConverterParaClienteAsync(prospecto.Id);
+
+        Assert.True(resultado.Sucesso);
+        var cliente = Assert.Single(db.Clients);
+        var empresa = Assert.Single(db.Empresas);
+        Assert.Equal(empresa.Id, cliente.EmpresaId);
+        Assert.Equal(prospecto.Cnpj, empresa.Cnpj);
+    }
+
+    [Fact]
+    public async Task ConverterParaClienteAsync_SemCnpj_RetornaFalhaSemCriarCliente()
+    {
+        var tenant = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenant);
+        await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            empresaAtual, new PublicadorEventosFake());
+        var prospecto = Prospecto.Create(tenant, "Empresa em abertura", null, null);
+        db.Prospects.Add(prospecto);
+        await db.SaveChangesAsync();
+
+        var servicos = new ServiceCollection();
+        servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
+        servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
+        servicos.AdicionarServicos(new ConfigurationBuilder().Build());
+        await using var provedor = servicos.BuildServiceProvider();
+        var servico = provedor.GetRequiredService<IProspectoServico>();
+
+        var resultado = await servico.ConverterParaClienteAsync(prospecto.Id);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Empty(db.Clients);
+        Assert.Empty(db.Empresas);
+    }
+
     [Theory]
     [InlineData("99093538000155")]
     [InlineData("99.093.538/0001-55")]

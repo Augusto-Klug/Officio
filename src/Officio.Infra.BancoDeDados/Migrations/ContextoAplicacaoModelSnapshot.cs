@@ -147,7 +147,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .IsUnique()
                         .HasFilter("[TokenAcessoHash] IS NOT NULL");
 
-                    b.ToTable("Admissoes");
+                    b.ToTable("Admissoes", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.AdmissaoDependente", b =>
@@ -188,7 +188,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("AdmissaoId");
 
-                    b.ToTable("AdmissaoDependentes");
+                    b.ToTable("DependentesAdmissao", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.AdmissaoDocumento", b =>
@@ -232,7 +232,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("AdmissaoId", "TipoDocumentoId")
                         .IsUnique();
 
-                    b.ToTable("AdmissaoDocumentos");
+                    b.ToTable("DocumentosAdmissao", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Assinatura", b =>
@@ -284,7 +284,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("ContractId");
 
-                    b.ToTable("Signatures");
+                    b.ToTable("Assinaturas", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.AssinaturaEvento", b =>
@@ -327,7 +327,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("AssinaturaSolicitacaoId");
 
-                    b.ToTable("AssinaturaEventos");
+                    b.ToTable("EventosAssinatura", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.AssinaturaSignatario", b =>
@@ -381,7 +381,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("PessoaId");
 
-                    b.ToTable("AssinaturaSignatarios");
+                    b.ToTable("SignatariosAssinatura", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.AssinaturaSolicitacao", b =>
@@ -426,7 +426,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("StatusAssinaturaId");
 
-                    b.ToTable("AssinaturaSolicitacoes");
+                    b.ToTable("SolicitacoesAssinatura", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Cliente", b =>
@@ -537,7 +537,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .IsUnique()
                         .HasFilter("[SciCodigo] IS NOT NULL");
 
-                    b.ToTable("Clients");
+                    b.ToTable("Clientes", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ConfigDocumentoAdmissao", b =>
@@ -566,7 +566,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("TipoDocumentoId")
                         .IsUnique();
 
-                    b.ToTable("ConfigDocumentosAdmissao");
+                    b.ToTable("ConfiguracoesDocumentoAdmissao", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Contrato", b =>
@@ -666,7 +666,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("TenantId", "Numero")
                         .IsUnique();
 
-                    b.ToTable("Contracts");
+                    b.ToTable("Contratos", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ContratoVersao", b =>
@@ -712,7 +712,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("TenantId", "ContratoId", "NumeroVersao")
                         .IsUnique();
 
-                    b.ToTable("ContratoVersoes");
+                    b.ToTable("VersoesContrato", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ConviteUsuario", b =>
@@ -769,7 +769,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TenantId", "Email");
 
-                    b.ToTable("UserInvitations", (string)null);
+                    b.ToTable("ConvitesUsuarios", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Documento", b =>
@@ -858,7 +858,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TipoDocumentoId");
 
-                    b.ToTable("Documents");
+                    b.ToTable("Documentos", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Empresa", b =>
@@ -931,7 +931,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("EnderecoId");
 
-                    b.ToTable("Tenants", (string)null);
+                    b.ToTable("Empresas", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.EmpresaFuncionario", b =>
@@ -987,7 +987,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("PessoaId");
 
-                    b.ToTable("EmpresaFuncionarios");
+                    b.ToTable("FuncionariosEmpresa", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.EmpresaPessoa", b =>
@@ -1036,7 +1036,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("EmpresaId", "PessoaId", "TipoRelacaoId")
                         .IsUnique();
 
-                    b.ToTable("EmpresaPessoas");
+                    b.ToTable("PessoasEmpresa", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Endereco", b =>
@@ -1079,7 +1079,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("MunicipioId");
 
-                    b.ToTable("Enderecos");
+                    b.ToTable("Enderecos", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.FaturamentoMensal", b =>
@@ -1142,7 +1142,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("TenantId", "ContratoId", "Competencia")
                         .IsUnique();
 
-                    b.ToTable("FaturamentosMensais");
+                    b.ToTable("FaturamentosMensais", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.FormularioAbertura", b =>
@@ -1252,7 +1252,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("StatusFormularioId");
 
-                    b.ToTable("FormulariosAbertura");
+                    b.ToTable("FormulariosAbertura", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.FormularioAberturaAtividade", b =>
@@ -1292,7 +1292,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("FormularioAberturaId");
 
-                    b.ToTable("FormularioAberturaAtividades");
+                    b.ToTable("AtividadesFormularioAbertura", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ItemCatalogoOrcamento", b =>
@@ -1344,7 +1344,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TenantId", "Ativo", "Secao");
 
-                    b.ToTable("BudgetCatalogItems");
+                    b.ToTable("ItensCatalogoOrcamento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ItemOrcamento", b =>
@@ -1406,7 +1406,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TenantId", "OrcamentoId", "Ordem");
 
-                    b.ToTable("BudgetItems");
+                    b.ToTable("ItensOrcamento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ModeloContrato", b =>
@@ -1443,7 +1443,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("ModelosContrato");
+                    b.ToTable("ModelosContrato", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Municipio", b =>
@@ -1475,7 +1475,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("CodigoIbge")
                         .IsUnique();
 
-                    b.ToTable("Municipios");
+                    b.ToTable("Municipios", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Notificacao", b =>
@@ -1528,7 +1528,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .IsUnique()
                         .HasFilter("[ReferenciaId] IS NOT NULL");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notificacoes", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.OcrCampoExtraido", b =>
@@ -1561,7 +1561,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("OcrExecucaoId");
 
-                    b.ToTable("OcrCamposExtraidos");
+                    b.ToTable("CamposExtraidosOcr", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.OcrExecucao", b =>
@@ -1608,7 +1608,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("DocumentoId");
 
-                    b.ToTable("OcrExecucoes");
+                    b.ToTable("ExecucoesOcr", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Orcamento", b =>
@@ -1693,7 +1693,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TenantId", "ProspectId");
 
-                    b.ToTable("Budgets");
+                    b.ToTable("Orcamentos", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.OrcamentoItem", b =>
@@ -1753,7 +1753,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TenantId", "OrcamentoVersaoId", "Ordem");
 
-                    b.ToTable("OrcamentoItens");
+                    b.ToTable("ItensVersaoOrcamento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.OrcamentoVersao", b =>
@@ -1831,7 +1831,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("TenantId", "OrcamentoId", "NumeroVersao")
                         .IsUnique();
 
-                    b.ToTable("OrcamentoVersoes");
+                    b.ToTable("VersoesOrcamento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.PerfilPermissao", b =>
@@ -1853,7 +1853,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("PerfilUsuarioId", "PermissaoId")
                         .IsUnique();
 
-                    b.ToTable("PerfilPermissoes");
+                    b.ToTable("PermissoesPerfil", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.PerfilUsuario", b =>
@@ -1883,7 +1883,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("PerfisUsuario");
+                    b.ToTable("PerfisUsuario", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Permissao", b =>
@@ -1913,7 +1913,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("Permissoes");
+                    b.ToTable("Permissoes", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Pessoa", b =>
@@ -1983,7 +1983,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("EnderecoId");
 
-                    b.ToTable("Pessoas");
+                    b.ToTable("Pessoas", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Prospecto", b =>
@@ -2121,7 +2121,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .IsUnique()
                         .HasFilter("[Cnpj] IS NOT NULL");
 
-                    b.ToTable("Prospects");
+                    b.ToTable("Prospectos", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ProspectoPessoa", b =>
@@ -2157,7 +2157,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("ProspectId", "PessoaId", "TipoRelacaoId")
                         .IsUnique();
 
-                    b.ToTable("ProspectoPessoas");
+                    b.ToTable("PessoasProspecto", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.RegistroAuditoria", b =>
@@ -2188,7 +2188,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuditLogs");
+                    b.ToTable("RegistrosAuditoria", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.SecaoOrcamento", b =>
@@ -2218,7 +2218,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("SecoesOrcamento");
+                    b.ToTable("SecoesOrcamento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Socio", b =>
@@ -2261,7 +2261,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("ProspectId");
 
-                    b.ToTable("Socios");
+                    b.ToTable("Socios", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusAdmissao", b =>
@@ -2291,7 +2291,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusAdmissoes");
+                    b.ToTable("StatusAdmissao", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusAssinatura", b =>
@@ -2321,7 +2321,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusAssinaturas");
+                    b.ToTable("StatusAssinatura", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusCliente", b =>
@@ -2351,7 +2351,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusClientes");
+                    b.ToTable("StatusCliente", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusContratoDominio", b =>
@@ -2381,7 +2381,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusContratosDominio");
+                    b.ToTable("StatusContrato", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusFaturamento", b =>
@@ -2411,7 +2411,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusFaturamentos");
+                    b.ToTable("StatusFaturamento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusFormulario", b =>
@@ -2441,7 +2441,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusFormularios");
+                    b.ToTable("StatusFormulario", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusOrcamentoDominio", b =>
@@ -2471,7 +2471,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusOrcamentosDominio");
+                    b.ToTable("StatusOrcamento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusProspect", b =>
@@ -2501,7 +2501,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusProspects");
+                    b.ToTable("StatusProspecto", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.StatusValidacaoDocumento", b =>
@@ -2531,7 +2531,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("StatusValidacoesDocumento");
+                    b.ToTable("StatusValidacaoDocumento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.TipoDocumentoDominio", b =>
@@ -2561,7 +2561,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("TiposDocumento");
+                    b.ToTable("TiposDocumento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.TipoRelacao", b =>
@@ -2596,7 +2596,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
-                    b.ToTable("TiposRelacao");
+                    b.ToTable("TiposRelacao", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.TokenRedefinicaoSenha", b =>
@@ -2641,7 +2641,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("UsuarioId");
 
-                    b.ToTable("PasswordResetTokens", (string)null);
+                    b.ToTable("TokensRedefinicaoSenha", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Usuario", b =>
@@ -2690,7 +2690,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Usuarios", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.UsuarioEmpresa", b =>
@@ -2718,7 +2718,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("UsuarioId", "EmpresaId")
                         .IsUnique();
 
-                    b.ToTable("UsuarioEmpresas");
+                    b.ToTable("UsuariosEmpresa", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ValidacaoDivergencia", b =>
@@ -2758,7 +2758,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("ValidacaoDocumentoId");
 
-                    b.ToTable("ValidacaoDivergencias");
+                    b.ToTable("DivergenciasValidacao", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ValidacaoDocumento", b =>
@@ -2828,7 +2828,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("StatusValidacaoDocumentoId");
 
-                    b.ToTable("DocumentValidations");
+                    b.ToTable("ValidacoesDocumento", (string)null);
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Admissao", b =>

@@ -68,6 +68,24 @@ internal class ProspectoServico(
         if (prospecto.Status == StatusProspecto.Convertido)
             return Resultado<Guid>.CriarFalha("Prospecto jÃ¡ foi convertido.");
 
+        if (prospecto.EmpresaId is null)
+        {
+            if (string.IsNullOrWhiteSpace(prospecto.Cnpj))
+            {
+                return Resultado<Guid>.CriarFalha(
+                    "Informe o CNPJ e constitua a empresa antes de converter o prospecto em cliente.");
+            }
+
+            var empresa = await prospectoRepositorio.ObterEmpresaPorCnpjAsync(prospecto.Cnpj, ct);
+            if (empresa is null)
+            {
+                empresa = Empresa.CriarDoProspecto(prospecto);
+                await prospectoRepositorio.AdicionarAsync(empresa, ct);
+            }
+
+            prospecto.VincularEmpresa(empresa.Id);
+        }
+
         var cliente = prospecto.ConverterParaCliente();
         await prospectoRepositorio.AdicionarAsync(cliente, ct);
 

@@ -25,6 +25,7 @@ public static class InstalarDependenciasServicos
         servicos.TryAddScoped<IEstimadorQualidadeDocumento, EstimadorQualidadeDocumento>();
         servicos.TryAddScoped<IDashboardServico, DashboardServico>();
         servicos.TryAddScoped<IFaturamentoServico, FaturamentoServico>();
+        servicos.TryAddScoped<IFormularioAberturaServico, FormularioAberturaServico>();
         servicos.TryAddSingleton(TimeProvider.System);
 
         return servicos;

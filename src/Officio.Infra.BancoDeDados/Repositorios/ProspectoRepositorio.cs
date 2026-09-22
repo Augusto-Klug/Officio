@@ -29,6 +29,9 @@ internal class ProspectoRepositorio(
             cliente => cliente.ProspectOrigemId == prospectoId,
             cancellationToken);
 
+    public Task<Empresa?> ObterEmpresaPorCnpjAsync(string cnpj, CancellationToken cancellationToken = default)
+        => Contexto.Empresas.FirstOrDefaultAsync(empresa => empresa.Cnpj == cnpj, cancellationToken);
+
     public IQueryable<Prospecto> MontarConsulta(bool rastreamento = true)
         => MontarConsulta<Prospecto>(rastreamento);
 
@@ -54,6 +57,9 @@ internal class ProspectoRepositorio(
 
     public async Task AdicionarAsync(Cliente cliente, CancellationToken cancellationToken = default)
         => await AdicionarAsync<Cliente>(cliente, cancellationToken);
+
+    public async Task AdicionarAsync(Empresa empresa, CancellationToken cancellationToken = default)
+        => await AdicionarAsync<Empresa>(empresa, cancellationToken);
 
     public async Task AdicionarSocioAsync(Socio socio, CancellationToken cancellationToken = default)
         => await AdicionarAsync<Socio>(socio, cancellationToken);
