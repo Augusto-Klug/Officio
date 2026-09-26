@@ -54,17 +54,17 @@ internal class DocumentoRepositorio(
         if (documento.ClientId.HasValue)
         {
             var cliente = await Contexto.Clients
+                .Include(c => c.Empresa)
                 .FirstOrDefaultAsync(c => c.Id == documento.ClientId.Value, cancellationToken);
 
             return cliente is null
                 ? []
                 : RemoverVazios(new Dictionary<string, string?>
                 {
-                    ["razao_social"] = cliente.RazaoSocial,
-                    ["nome_fantasia"] = cliente.NomeFantasia,
-                    ["cnpj"] = cliente.Cnpj,
-                    ["cpf"] = cliente.Cpf,
-                    ["email"] = cliente.Email
+                    ["razao_social"] = cliente.Empresa.RazaoSocial,
+                    ["nome_fantasia"] = cliente.Empresa.NomeFantasia,
+                    ["cnpj"] = cliente.Empresa.Cnpj,
+                    ["email"] = cliente.Empresa.Email
                 });
         }
 

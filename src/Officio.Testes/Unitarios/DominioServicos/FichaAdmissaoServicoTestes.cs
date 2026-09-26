@@ -137,7 +137,7 @@ public class FichaAdmissaoServicoTestes
         var options = new DbContextOptionsBuilder<ContextoAplicacao>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
         var contexto = new ContextoAplicacao(options, empresaAtual, new PublicadorEventosFake());
-        var empresa = Empresa.CriarConstituida("11222333000144", "Empresa Teste");
+        var empresa = Empresa.CriarConstituida(tenantId, "11222333000144", "Empresa Teste");
         var cliente = Cliente.CriarParaEmpresa(tenantId, empresa.Id);
         contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Comum;
 using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Notificacoes.Comandos.MarcarComoLida;
@@ -34,6 +35,31 @@ public class NotificacaoHandlersTestes
 
         var notificacao = Assert.Single(resultado.Valor!);
         Assert.Equal("Minha notificacao", notificacao.Titulo);
+    }
+
+    [Fact]
+    public async Task Listar_MarcaDatasRecuperadasDoBancoComoUtc()
+    {
+        var tenantId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var notificacao = Notificacao.Create(tenantId, usuarioId, "TIPO", "Notificacao");
+        var criadoEmSemFuso = DateTime.SpecifyKind(
+            new DateTime(2026, 9, 19, 14, 30, 0),
+            DateTimeKind.Unspecified);
+        typeof(EntidadeAuditavel)
+            .GetProperty(nameof(EntidadeAuditavel.CriadoEm))!
+            .SetValue(notificacao, criadoEmSemFuso);
+        await using var contexto = CriarContexto(tenantId);
+        contexto.Notifications.Add(notificacao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await new ListarNotificacoesHandler(CriarServico(contexto, usuarioId)).Handle(
+            new ListarNotificacoesConsulta(null),
+            CancellationToken.None);
+
+        var dto = Assert.Single(resultado.Valor!);
+        Assert.Equal(DateTimeKind.Utc, dto.CriadoEm.Kind);
+        Assert.Equal(criadoEmSemFuso.Ticks, dto.CriadoEm.Ticks);
     }
 
     [Fact]

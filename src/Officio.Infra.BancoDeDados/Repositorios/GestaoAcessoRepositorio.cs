@@ -8,14 +8,14 @@ namespace Officio.Infra.BancoDeDados.Repositorios;
 
 public class GestaoAcessoRepositorio(ContextoAplicacao contexto) : IGestaoAcessoRepositorio
 {
-    public Task<bool> EmpresaExistePorCnpjAsync(string cnpj, CancellationToken ct = default)
-        => contexto.Empresas.AnyAsync(empresa => empresa.Cnpj == cnpj, ct);
+    public Task<bool> ParceiroExistePorCnpjAsync(string cnpj, CancellationToken ct = default)
+        => contexto.Parceiros.AnyAsync(parceiro => parceiro.Cnpj == cnpj, ct);
 
-    public Task<List<Empresa>> ListarEmpresasAsync(CancellationToken ct = default)
-        => contexto.Empresas.AsNoTracking().OrderBy(empresa => empresa.RazaoSocial).ToListAsync(ct);
+    public Task<List<Parceiro>> ListarParceirosAsync(CancellationToken ct = default)
+        => contexto.Parceiros.AsNoTracking().OrderBy(parceiro => parceiro.RazaoSocial).ToListAsync(ct);
 
-    public Task<Empresa?> ObterEmpresaAsync(Guid empresaId, CancellationToken ct = default)
-        => contexto.Empresas.FirstOrDefaultAsync(empresa => empresa.Id == empresaId, ct);
+    public Task<Parceiro?> ObterParceiroAsync(Guid parceiroId, CancellationToken ct = default)
+        => contexto.Parceiros.FirstOrDefaultAsync(parceiro => parceiro.Id == parceiroId, ct);
 
     public Task<int> ContarUsuariosAsync(Guid tenantId, CancellationToken ct = default)
         => contexto.Users.IgnoreQueryFilters().CountAsync(usuario => usuario.TenantId == tenantId, ct);

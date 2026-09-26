@@ -2,6 +2,7 @@ using Azure.AI.FormRecognizer.DocumentAnalysis;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Officio.Dominio.Interfaces;
 using Officio.Infraestrutura.Integracoes;
 using Officio.Infraestrutura.Integracoes.Autentique;
@@ -59,6 +60,20 @@ public static class InstalarDependenciasInfraestrutura
         services.AddScoped<IServicoAssinatura, ServicoAutentique>();
 
         services.AddScoped<IServicoEmail, ServicoEmail>();
+
+        services.RemoveAll<IConsultaMunicipioIbge>();
+        services.AddHttpClient<IConsultaMunicipioIbge, ConsultaMunicipioIbge>(client =>
+        {
+            client.BaseAddress = new Uri("https://servicodados.ibge.gov.br/");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+
+        services.RemoveAll<IConsultaCep>();
+        services.AddHttpClient<IConsultaCep, ConsultaCepViaCep>(client =>
+        {
+            client.BaseAddress = new Uri("https://viacep.com.br/");
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
 
         return services;
     }

@@ -128,18 +128,18 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         var tokenPlataforma = await LoginAsync(cliente, "plataforma@officio.test", "Senha@123");
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenPlataforma);
 
-        var criacao = await cliente.PostAsJsonAsync("/api/v1/admin/empresas", new
+        var criacao = await cliente.PostAsJsonAsync("/api/v1/admin/parceiros", new
         {
             cnpj = "11.222.333/0001-44",
             razaoSocial = "Empresa Integracao Ltda",
             nomeFantasia = "Empresa Integracao",
-            emailEmpresa = "contato@empresa.test",
+            emailParceiro = "contato@empresa.test",
             nomeAdministrador = "Administrador Tenant",
             emailAdministrador = "admin@empresa.test"
         });
 
         Assert.Equal(HttpStatusCode.Created, criacao.StatusCode);
-        var empresaId = Guid.Parse((await criacao.Content.ReadFromJsonAsync<JsonObject>())!["empresaId"]!.GetValue<string>());
+        var parceiroId = Guid.Parse((await criacao.Content.ReadFromJsonAsync<JsonObject>())!["parceiroId"]!.GetValue<string>());
         var emailConvite = Assert.Single(factory.ServicoEmail.Emails);
         var tokenConvite = ExtrairToken(emailConvite.Corpo);
 
@@ -161,11 +161,12 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
 
         using var scope = factory.Services.CreateScope();
         var contexto = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
-        var empresa = await contexto.Empresas.IgnoreQueryFilters().SingleAsync(item => item.Id == empresaId);
-        var auditorias = await contexto.AuditLogs.Where(item => item.TenantId == empresaId).ToListAsync();
+        var parceiro = await contexto.Parceiros.SingleAsync(item => item.Id == parceiroId);
+        var auditorias = await contexto.AuditLogs.Where(item => item.TenantId == parceiroId).ToListAsync();
 
-        Assert.Equal("11222333000144", empresa.Cnpj);
-        Assert.Contains(auditorias, item => item.Acao == "CriarEmpresaAdministradorComando:CRIADO");
+        Assert.Equal("11222333000144", parceiro.Cnpj);
+        Assert.Empty(await contexto.Empresas.IgnoreQueryFilters().ToListAsync());
+        Assert.Contains(auditorias, item => item.Acao == "CriarParceiroAdministradorComando:CRIADO");
         Assert.Contains(auditorias, item => item.Acao == "AceitarConviteComando:CRIADO");
     }
 

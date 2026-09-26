@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { enviarContratoParaAssinatura, gerarPdfContrato, normalizeContratos, obterPdfAssinado } from './contratos.service'
+import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, normalizeContratos, normalizeEmpresasContrato, obterPdfAssinado } from './contratos.service'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -23,6 +23,23 @@ describe('contrato HTTP de contratos', () => {
     const pascal = Object.fromEntries(Object.entries(contract).map(([key, value]) => [key[0]!.toUpperCase() + key.slice(1), value]))
     expect(normalizeContratos([pascal])[0]?.numero).toBe('CTR-2026-0001')
     expect(() => normalizeContratos([{ ...contract, pdfGerado: 'sim' }])).toThrow('indicador inválido')
+  })
+
+  it('envia o filtro de empresa e normaliza as opcoes disponiveis', async () => {
+    const get = vi.spyOn(http, 'get')
+      .mockResolvedValueOnce({ data: [contract] })
+      .mockResolvedValueOnce({ data: [{ id: 'emp-1', razaoSocial: 'Empresa Teste', cnpj: '11222333000144' }] })
+
+    await expect(listarContratos('emp-1')).resolves.toHaveLength(1)
+    await expect(listarEmpresasContrato()).resolves.toEqual([
+      { id: 'emp-1', razaoSocial: 'Empresa Teste', cnpj: '11222333000144' },
+    ])
+    expect(get).toHaveBeenNthCalledWith(1, '/v1/contratos/Listar', {
+      params: { empresaId: 'emp-1' },
+      signal: undefined,
+    })
+    expect(get).toHaveBeenNthCalledWith(2, '/v1/contratos/ListarEmpresas', { signal: undefined })
+    expect(() => normalizeEmpresasContrato({})).toThrow('formato inesperado')
   })
 
   it('normaliza envio digital e fallback manual', async () => {

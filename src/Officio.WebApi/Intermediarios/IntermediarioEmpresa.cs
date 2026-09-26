@@ -60,10 +60,10 @@ public class IntermediarioEmpresa(RequestDelegate next)
                 return;
             }
 
-            if (!await verificadorAcesso.EmpresaAtivaAsync(tenantId, context.RequestAborted))
+            if (!await verificadorAcesso.ParceiroAtivoAsync(tenantId, context.RequestAborted))
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "Empresa inativa." });
+                await context.Response.WriteAsJsonAsync(new { error = "Parceiro inativo." });
                 return;
             }
         }
@@ -71,7 +71,7 @@ public class IntermediarioEmpresa(RequestDelegate next)
                  !RotasPublicas.Any(rota => context.Request.Path.StartsWithSegments(rota)))
         {
             context.Response.StatusCode = 401;
-            await context.Response.WriteAsJsonAsync(new { error = "Empresa não identificado." });
+            await context.Response.WriteAsJsonAsync(new { error = "Parceiro não identificado." });
             return;
         }
 

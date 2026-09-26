@@ -30,7 +30,6 @@ internal static class MapeamentoModelagemOfficio
         builder.Entity<ContratoVersao>().ToTable("VersoesContrato");
         builder.Entity<ConviteUsuario>().ToTable("ConvitesUsuarios");
         builder.Entity<Documento>().ToTable("Documentos");
-        builder.Entity<Empresa>().ToTable("Empresas");
         builder.Entity<EmpresaFuncionario>().ToTable("FuncionariosEmpresa");
         builder.Entity<EmpresaPessoa>().ToTable("PessoasEmpresa");
         builder.Entity<Endereco>().ToTable("Enderecos");
@@ -107,14 +106,34 @@ internal static class MapeamentoModelagemOfficio
 
     private static void ConfigurarComercial(ModelBuilder builder)
     {
+        builder.Entity<Estado>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CodigoIbge).HasMaxLength(2).IsRequired();
+            entity.Property(e => e.Sigla).HasMaxLength(2).IsRequired();
+            entity.Property(e => e.Nome).HasMaxLength(100).IsRequired();
+            entity.HasIndex(e => e.CodigoIbge).IsUnique();
+            entity.HasIndex(e => e.Sigla).IsUnique();
+        });
+
         builder.Entity<Municipio>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.CodigoIbge).HasMaxLength(7).IsRequired();
             entity.Property(e => e.Nome).HasMaxLength(200).IsRequired();
-            entity.Property(e => e.Uf).HasMaxLength(2).IsRequired();
             entity.HasIndex(e => e.CodigoIbge).IsUnique();
+            entity.HasIndex(e => new { e.EstadoId, e.Nome });
+            entity.HasOne(e => e.Estado)
+                .WithMany(e => e.Municipios)
+                .HasForeignKey(e => e.EstadoId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
+
+        builder.Entity<Prospecto>()
+            .HasOne(e => e.Municipio)
+            .WithMany()
+            .HasForeignKey(e => e.MunicipioId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<Endereco>(entity =>
         {
@@ -136,18 +155,6 @@ internal static class MapeamentoModelagemOfficio
             entity.Property(e => e.Telefone).HasMaxLength(30);
             entity.HasOne(e => e.Endereco).WithMany().HasForeignKey(e => e.EnderecoId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.Cpf).IsUnique().HasFilter("[Cpf] IS NOT NULL");
-        });
-
-        builder.Entity<Empresa>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Cnpj).HasMaxLength(14).IsRequired();
-            entity.Property(e => e.RazaoSocial).HasMaxLength(300).IsRequired();
-            entity.Property(e => e.Nome).HasMaxLength(300).IsRequired();
-            entity.Property(e => e.NomeFantasia).HasMaxLength(300);
-            entity.Property(e => e.Email).HasMaxLength(250);
-            entity.HasOne(e => e.Endereco).WithMany().HasForeignKey(e => e.EnderecoId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasIndex(e => e.Cnpj).IsUnique().HasFilter("[Cnpj] <> ''");
         });
 
         builder.Entity<ProspectoPessoa>(entity =>
@@ -197,12 +204,13 @@ internal static class MapeamentoModelagemOfficio
             entity.HasOne(e => e.UsuarioResponsavel).WithMany().HasForeignKey(e => e.UsuarioResponsavelId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.StatusProspect).WithMany().HasForeignKey(e => e.StatusProspectId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.TipoProspect).HasMaxLength(40);
+            entity.Property(e => e.Complemento).HasMaxLength(150);
         });
 
         builder.Entity<Cliente>(entity =>
         {
-            entity.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.StatusCliente).WithMany().HasForeignKey(e => e.StatusClienteId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict).IsRequired();
+            entity.HasOne(e => e.StatusCliente).WithMany().HasForeignKey(e => e.StatusClienteId).OnDelete(DeleteBehavior.Restrict).IsRequired();
             entity.HasOne(e => e.ProspectOrigem).WithMany().HasForeignKey(e => e.ProspectOrigemId).OnDelete(DeleteBehavior.Restrict);
         });
     }
@@ -238,7 +246,7 @@ internal static class MapeamentoModelagemOfficio
 
         builder.Entity<Contrato>(entity =>
         {
-            entity.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict).IsRequired();
             entity.HasOne(e => e.OrcamentoVersaoAceita).WithMany().HasForeignKey(e => e.OrcamentoVersaoAceitaId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.ModeloContrato).WithMany().HasForeignKey(e => e.ModeloContratoId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.StatusContratoDominio).WithMany().HasForeignKey(e => e.StatusContratoId).OnDelete(DeleteBehavior.Restrict);

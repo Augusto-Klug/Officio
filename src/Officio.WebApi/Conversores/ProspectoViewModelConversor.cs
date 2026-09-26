@@ -17,7 +17,29 @@ internal class ProspectoViewModelConversor : IProspectoViewModelConversor
                 Converter(viewModel.RegimeTributario),
                 viewModel.Socios?
                     .Select(s => new CriarSocioRequisicao(s.Nome, s.Cpf, s.Participacao))
-                    .ToList()));
+                    .ToList(),
+                NomeFantasia: viewModel.NomeFantasia,
+                Cpf: viewModel.Cpf,
+                PorteEmpresa: viewModel.PorteEmpresa,
+                CnaePrincipal: viewModel.CnaePrincipal,
+                DataAbertura: viewModel.DataAbertura,
+                Email: viewModel.Email,
+                Telefone: viewModel.Telefone,
+                Whatsapp: viewModel.Whatsapp,
+                NomeContato: viewModel.NomeContato,
+                Cep: viewModel.Cep,
+                Logradouro: viewModel.Logradouro,
+                Numero: viewModel.Numero,
+                Complemento: viewModel.Complemento,
+                Bairro: viewModel.Bairro,
+                Cidade: viewModel.Cidade,
+                Uf: viewModel.Uf,
+                MunicipioCodigoIbge: viewModel.MunicipioCodigoIbge,
+                Origem: viewModel.Origem,
+                ResponsavelId: viewModel.ResponsavelId,
+                InscricaoEstadual: viewModel.InscricaoEstadual,
+                InscricaoMunicipal: viewModel.InscricaoMunicipal,
+                TipoEmpresa: viewModel.TipoEmpresa));
 
     public ObterProspectosConsulta ParaConsulta(
         int pagina,

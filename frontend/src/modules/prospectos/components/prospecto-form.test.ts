@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatarCnpj, formatarCpf, limparPayload, novoProspecto, validarProspecto } from './prospecto-form'
+import { formatarCep, formatarCnpj, formatarCpf, limparPayload, novoProspecto, validarProspecto } from './prospecto-form'
 
 describe('formulário de prospecto', () => {
   it('aplica máscaras sem aceitar caracteres excedentes', () => {
     expect(formatarCnpj('12345678000190abc')).toBe('12.345.678/0001-90')
     expect(formatarCpf('12345678909')).toBe('123.456.789-09')
+    expect(formatarCep('89010000')).toBe('89010-000')
   })
 
   it('valida os campos coerentes com o contrato do backend', () => {
@@ -32,7 +33,7 @@ describe('formulário de prospecto', () => {
     const payload = novoProspecto()
     payload.razaoSocial = '  Empresa  '
     payload.cnpj = '   '
-    expect(limparPayload(payload)).toEqual({ razaoSocial: 'Empresa', cnpj: null, regimeTributario: null, socios: [] })
+    expect(limparPayload(payload)).toMatchObject({ razaoSocial: 'Empresa', cnpj: null, regimeTributario: null, socios: [] })
   })
 
   it('remove máscaras dos documentos antes de enviar ao backend', () => {
@@ -43,6 +44,39 @@ describe('formulário de prospecto', () => {
     expect(limparPayload(payload)).toMatchObject({
       cnpj: '12345678000190',
       socios: [{ nome: 'Ana', cpf: '12345678909', participacao: 100 }],
+    })
+  })
+
+  it('exige UF e município quando o endereço for iniciado', () => {
+    const payload = novoProspecto()
+    payload.razaoSocial = 'Empresa'
+    payload.cep = '89010000'
+
+    expect(validarProspecto(payload)).toMatchObject({
+      uf: expect.any(String),
+      municipioCodigoIbge: expect.any(String),
+    })
+  })
+
+  it('impede o cadastro quando a consulta confirmar que o CEP nao existe', () => {
+    const payload = novoProspecto()
+    payload.razaoSocial = 'Empresa'
+    payload.cep = '00000000'
+
+    expect(validarProspecto(payload, true).cep).toBe(
+      'CEP inválido. Informe um CEP válido para continuar o cadastro.',
+    )
+  })
+
+  it('preserva complemento e código IBGE no payload normalizado', () => {
+    const payload = novoProspecto()
+    payload.razaoSocial = 'Empresa'
+    payload.complemento = ' Sala 12 '
+    payload.municipioCodigoIbge = '4202404'
+
+    expect(limparPayload(payload)).toMatchObject({
+      complemento: 'Sala 12',
+      municipioCodigoIbge: '4202404',
     })
   })
 })

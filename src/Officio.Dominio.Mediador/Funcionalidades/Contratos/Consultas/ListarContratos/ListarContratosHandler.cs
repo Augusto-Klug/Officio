@@ -11,5 +11,5 @@ public class ListarContratosHandler(IContratoServico contratoServico)
     public async Task<Resultado<List<ContratoDto>>> Handle(
         ListarContratosConsulta request,
         CancellationToken ct)
-        => await contratoServico.ListarAsync(ct);
+        => await contratoServico.ListarAsync(request.EmpresaId, ct);
 }

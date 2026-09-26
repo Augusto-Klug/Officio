@@ -6,7 +6,9 @@ using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
-public class ClienteServico(IClienteRepositorio clienteRepositorio) : IClienteServico
+public class ClienteServico(
+    IClienteRepositorio clienteRepositorio,
+    IServicoEnderecoComercial servicoEnderecoComercial) : IClienteServico
 {
     public async Task<Resultado<List<ClienteDto>>> ListarAsync(
         string? busca = null,
@@ -38,22 +40,34 @@ public class ClienteServico(IClienteRepositorio clienteRepositorio) : IClienteSe
 
         try
         {
-            cliente.AtualizarDados(
+            cliente.Empresa.AtualizarDadosCadastrais(
                 requisicao.RazaoSocial,
                 requisicao.NomeFantasia,
                 requisicao.Cnpj,
-                requisicao.Cpf,
-                requisicao.RegimeTributario,
                 requisicao.Email,
                 requisicao.Telefone,
                 requisicao.Whatsapp,
-                requisicao.Cep,
-                requisicao.Logradouro,
-                requisicao.Numero,
-                requisicao.Bairro,
-                requisicao.Cidade,
-                requisicao.Uf,
-                requisicao.Observacoes);
+                requisicao.RegimeTributario?.ToString());
+
+            var endereco = await servicoEnderecoComercial.CriarAsync(
+                new EnderecoComercialRequisicao(
+                    requisicao.Cep,
+                    requisicao.Logradouro,
+                    requisicao.Numero,
+                    null,
+                    requisicao.Bairro,
+                    requisicao.Cidade,
+                    requisicao.Uf),
+                ct);
+
+            if (!endereco.Sucesso)
+                return Resultado<Guid>.CriarFalha(endereco.Erro ?? "Nao foi possivel atualizar o endereco.");
+
+            if (endereco.Valor is not null)
+            {
+                cliente.Empresa.VincularEndereco(endereco.Valor.Id);
+                cliente.VincularEndereco(endereco.Valor.Id);
+            }
         }
         catch (ArgumentException exception)
         {
@@ -90,22 +104,22 @@ public class ClienteServico(IClienteRepositorio clienteRepositorio) : IClienteSe
     private static ClienteDto Mapear(Cliente cliente)
         => new(
             cliente.Id,
-            cliente.RazaoSocial,
-            cliente.NomeFantasia,
-            cliente.Cnpj,
-            cliente.Cpf,
-            cliente.RegimeTributario?.ToString(),
+            cliente.Empresa.RazaoSocial,
+            cliente.Empresa.NomeFantasia,
+            cliente.Empresa.Cnpj,
+            null,
+            cliente.Empresa.RegimeTributario,
             cliente.SciCodigo,
             cliente.Ativo,
-            cliente.Email,
-            cliente.Telefone,
-            cliente.Whatsapp,
-            cliente.Cep,
-            cliente.Logradouro,
-            cliente.Numero,
-            cliente.Bairro,
-            cliente.Cidade,
-            cliente.Uf,
+            cliente.Empresa.Email,
+            cliente.Empresa.Telefone,
+            cliente.Empresa.Whatsapp,
+            ObterCep(cliente),
+            ObterLogradouro(cliente),
+            ObterNumero(cliente),
+            ObterBairro(cliente),
+            ObterCidade(cliente),
+            ObterUf(cliente),
             cliente.Observacoes,
             cliente.ProspectOrigemId,
             cliente.Socios.Count,
@@ -115,22 +129,22 @@ public class ClienteServico(IClienteRepositorio clienteRepositorio) : IClienteSe
     private static ClienteDetalheDto MapearDetalhe(Cliente cliente)
         => new(
             cliente.Id,
-            cliente.RazaoSocial,
-            cliente.NomeFantasia,
-            cliente.Cnpj,
-            cliente.Cpf,
-            cliente.RegimeTributario?.ToString(),
+            cliente.Empresa.RazaoSocial,
+            cliente.Empresa.NomeFantasia,
+            cliente.Empresa.Cnpj,
+            null,
+            cliente.Empresa.RegimeTributario,
             cliente.SciCodigo,
             cliente.Ativo,
-            cliente.Email,
-            cliente.Telefone,
-            cliente.Whatsapp,
-            cliente.Cep,
-            cliente.Logradouro,
-            cliente.Numero,
-            cliente.Bairro,
-            cliente.Cidade,
-            cliente.Uf,
+            cliente.Empresa.Email,
+            cliente.Empresa.Telefone,
+            cliente.Empresa.Whatsapp,
+            ObterCep(cliente),
+            ObterLogradouro(cliente),
+            ObterNumero(cliente),
+            ObterBairro(cliente),
+            ObterCidade(cliente),
+            ObterUf(cliente),
             cliente.Observacoes,
             cliente.ProspectOrigemId,
             cliente.InicioRelacionamentoEm,
@@ -154,4 +168,22 @@ public class ClienteServico(IClienteRepositorio clienteRepositorio) : IClienteSe
                     documento.Legivel,
                     documento.QualidadeEstimada))
                 .ToList());
+
+    private static string? ObterCep(Cliente cliente)
+        => cliente.Empresa.Endereco?.Cep ?? cliente.Cep;
+
+    private static string? ObterLogradouro(Cliente cliente)
+        => cliente.Empresa.Endereco?.Logradouro ?? cliente.Logradouro;
+
+    private static string? ObterNumero(Cliente cliente)
+        => cliente.Empresa.Endereco?.Numero ?? cliente.Numero;
+
+    private static string? ObterBairro(Cliente cliente)
+        => cliente.Empresa.Endereco?.Bairro ?? cliente.Bairro;
+
+    private static string? ObterCidade(Cliente cliente)
+        => cliente.Empresa.Endereco?.Municipio.Nome ?? cliente.Cidade;
+
+    private static string? ObterUf(Cliente cliente)
+        => cliente.Empresa.Endereco?.Municipio.Estado.Sigla ?? cliente.Uf;
 }

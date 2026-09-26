@@ -17,6 +17,7 @@ import { listarProspectos } from '../services/prospectos.service'
 import { statusOptions, type ProspectosPagina } from '../types/prospecto'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatDate } from '../../../utils/format'
+import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,13 +33,13 @@ let controller: AbortController | undefined
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0
 
-async function load() {
+async function load(options: { background?: boolean; reportErrors?: boolean } = {}) {
+  const { background = false, reportErrors = true } = options
   const request = ++generation
   controller?.abort()
   controller = new AbortController()
-  loading.value = true
-  error.value = ''
-  result.value = null
+  if (!background) loading.value = true
+  if (reportErrors) error.value = ''
   try {
     const data = await listarProspectos({
       pagina: pagina.value, tamanhoPagina: 20,
@@ -53,10 +54,17 @@ async function load() {
       return
     }
     result.value = data
+    error.value = ''
   } catch (cause) {
-    if (request === generation && !axios.isCancel(cause)) error.value = normalizeError(cause).message
-  } finally { if (request === generation) loading.value = false }
+    if (request === generation && reportErrors && !axios.isCancel(cause)) error.value = normalizeError(cause).message
+  } finally { if (request === generation && !background) loading.value = false }
 }
+
+async function refreshData(reason: PageRefreshReason) {
+  await load({ background: true, reportErrors: reason === 'manual' })
+}
+
+const { refreshing, refreshNow } = usePageRefresh(refreshData, { busy: loading })
 function applyFilters() {
   clearTimeout(timer)
   void router.replace({ query: { ...route.query, pagina: undefined, busca: busca.value.trim() || undefined, status: status.value || undefined } })
@@ -76,7 +84,7 @@ function scheduleSearch() {
 }
 function prospectoCriado() {
   cadastroOpen.value = false
-  void router.replace({ query: {} }).then(load)
+  void router.replace({ query: {} }).then(() => load())
 }
 function abrirOrcamentos(id: string, nome: string) {
   void router.push({ name: 'orcamentos-prospecto', params: { prospectoId: id }, query: { nome } })
@@ -92,6 +100,7 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
 
 <template>
   <PageHeader title="Prospectos" description="Acompanhe as oportunidades comerciais do seu escritório.">
+    <BaseButton label="Atualizar" icon="pi pi-refresh" variant="secondary" :loading="refreshing" @click="refreshNow" />
     <BaseButton label="Novo prospecto" icon="pi pi-plus" @click="cadastroOpen = true" />
   </PageHeader>
 
@@ -104,7 +113,7 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
 
     <div class="list-heading"><h2>Lista de prospectos</h2><span role="status" aria-live="polite">{{ loading ? 'Carregando…' : result ? `${result.totalRegistros.toLocaleString('pt-BR')} ${result.totalRegistros === 1 ? 'prospecto' : 'prospectos'}` : 'Consulta indisponível' }}</span></div>
 
-    <div v-if="error" class="list-state"><Message severity="error" :closable="false" role="alert">{{ error }}</Message><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="load" /></div>
+    <div v-if="error" class="list-state"><Message severity="error" :closable="false" role="alert">{{ error }}</Message><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="() => load()" /></div>
     <div v-else-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" aria-hidden="true" /><p role="status">Carregando prospectos…</p></div>
     <template v-else-if="result">
       <DataTable :value="result.dados" data-key="id" class="prospects-table" :table-props="{ 'aria-label': 'Lista de prospectos' }">

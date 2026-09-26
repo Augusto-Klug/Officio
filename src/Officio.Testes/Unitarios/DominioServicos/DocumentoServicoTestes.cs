@@ -114,7 +114,7 @@ public class DocumentoServicoTestes
     public async Task ValidarAsync_QuandoDocumentoDivergeDoCadastro_RegistraDivergencia()
     {
         var tenantId = Guid.NewGuid();
-        var cliente = Cliente.CreateFromProspect(Prospecto.Create(tenantId, "Empresa Certa Ltda", "11222333000144", null));
+        var (empresa, cliente) = CriarEmpresaECliente(tenantId, "Empresa Certa Ltda", "11222333000144");
         var documento = Documento.Create(tenantId, "cartao-cnpj.pdf", TipoDocumento.CartaoCnpj, "doc.pdf", 0.85m, clientId: cliente.Id);
 
         await using var provedor = CriarProvedor(tenantId,
@@ -124,6 +124,7 @@ public class DocumentoServicoTestes
                 ["cnpj"] = "11222333000144"
             }, 0.95m));
         var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
         contexto.Documents.Add(documento);
         await contexto.SaveChangesAsync();
@@ -211,7 +212,7 @@ public class DocumentoServicoTestes
     public async Task ValidarAsync_QuandoSimilaridadeAcimaDoLimite_Aprova()
     {
         var tenantId = Guid.NewGuid();
-        var cliente = Cliente.CreateFromProspect(Prospecto.Create(tenantId, "Empresa Certa Ltda", "11222333000144", null));
+        var (empresa, cliente) = CriarEmpresaECliente(tenantId, "Empresa Certa Ltda", "11222333000144");
         var documento = Documento.Create(tenantId, "cartao-cnpj.pdf", TipoDocumento.CartaoCnpj, "doc.pdf", 0.85m, clientId: cliente.Id);
 
         await using var provedor = CriarProvedor(tenantId,
@@ -221,6 +222,7 @@ public class DocumentoServicoTestes
                 ["cnpj"] = "11222333000144"
             }, 0.95m));
         var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
         contexto.Documents.Add(documento);
         await contexto.SaveChangesAsync();
@@ -296,8 +298,7 @@ public class DocumentoServicoTestes
     public async Task ValidarAsync_QuandoCampoEsperadoNaoExisteNoOcr_SegueParaRevisaoManual()
     {
         var tenantId = Guid.NewGuid();
-        var cliente = Cliente.CreateFromProspect(
-            Prospecto.Create(tenantId, "Empresa Certa Ltda", "11222333000144", null));
+        var (empresa, cliente) = CriarEmpresaECliente(tenantId, "Empresa Certa Ltda", "11222333000144");
         var documento = Documento.Create(
             tenantId,
             "cartao-cnpj.pdf",
@@ -313,6 +314,7 @@ public class DocumentoServicoTestes
                 ["cnpj"] = "11222333000144"
             }, 0.95m));
         var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
         contexto.Documents.Add(documento);
         await contexto.SaveChangesAsync();
@@ -332,7 +334,7 @@ public class DocumentoServicoTestes
     public async Task ValidarAsync_QuandoDocumentoPertenceAAdmissao_VinculaValidacaoAoChecklist()
     {
         var tenantId = Guid.NewGuid();
-        var empresa = Empresa.CriarConstituida("11222333000144", "Empresa Teste");
+        var empresa = Empresa.CriarConstituida(tenantId, "11222333000144", "Empresa Teste");
         var status = new StatusAdmissao("RASCUNHO", "Rascunho", 1);
         var tipo = new TipoDocumentoDominio("IDENTIDADE", "Documento de identidade", 1);
         var admissao = Admissao.Criar(tenantId, empresa.Id, status.Id, "Ana Silva");
@@ -394,6 +396,17 @@ public class DocumentoServicoTestes
             new EstimadorQualidadeDocumentoFake(qualidadeDocumento, consumirArquivoNaEstimativa));
 
         return servicos.BuildServiceProvider();
+    }
+
+    private static (Empresa Empresa, Cliente Cliente) CriarEmpresaECliente(
+        Guid tenantId,
+        string razaoSocial,
+        string cnpj)
+    {
+        var prospecto = Prospecto.Create(tenantId, razaoSocial, cnpj, null);
+        var empresa = Empresa.CriarDoProspecto(prospecto);
+        prospecto.VincularEmpresa(empresa.Id);
+        return (empresa, Cliente.CreateFromProspect(prospecto));
     }
 
     private sealed class ServicoOcrFake(ResultadoOcr resultado) : IServicoOcr

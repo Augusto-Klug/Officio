@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Clientes.Comandos.AtualizarCliente;
 using Officio.Dominio.Mediador.Funcionalidades.Clientes.Comandos.VincularCodigoSci;
 using Officio.Dominio.Mediador.Funcionalidades.Clientes.Consultas.ListarClientes;
@@ -23,15 +25,18 @@ public class ClienteHandlersTestes
 
         await using (var contextoEstrangeiro = CriarContexto(tenantEstrangeiroId, nomeBanco))
         {
-            contextoEstrangeiro.Clients.Add(CriarCliente(tenantEstrangeiroId, "Cliente Estrangeiro"));
+            var (clienteEstrangeiro, empresaEstrangeira) = CriarCliente(tenantEstrangeiroId, "Cliente Estrangeiro");
+            contextoEstrangeiro.Empresas.Add(empresaEstrangeira);
+            contextoEstrangeiro.Clients.Add(clienteEstrangeiro);
             await contextoEstrangeiro.SaveChangesAsync();
         }
 
         await using var contexto = CriarContexto(tenantId, nomeBanco);
-        var cliente = CriarCliente(tenantId, "Cliente Local");
+        var (cliente, empresa) = CriarCliente(tenantId, "Cliente Local");
+        contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
         await contexto.SaveChangesAsync();
-        var handler = new ListarClientesHandler(new ClienteServico(new ClienteRepositorio(contexto)));
+        var handler = new ListarClientesHandler(CriarServico(contexto));
 
         var resultado = await handler.Handle(new ListarClientesConsulta(null, null), CancellationToken.None);
 
@@ -45,7 +50,7 @@ public class ClienteHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var cliente = CriarCliente(tenantId, "Cliente Completo");
+        var (cliente, empresa) = CriarCliente(tenantId, "Cliente Completo");
         var socio = Socio.Create(tenantId, "Maria Socia", "12345678900", 50m, clientId: cliente.Id);
         var contrato = Contrato.CreateFromBudget(
             Orcamento.Criar(tenantId, Guid.NewGuid(), "Orcamento", 10, null),
@@ -55,12 +60,13 @@ public class ClienteHandlersTestes
             true,
             null);
         var documento = Documento.Create(tenantId, "cartao-cnpj.pdf", TipoDocumento.CartaoCnpj, "doc.pdf", 0.9m, clientId: cliente.Id);
+        contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
         contexto.Socios.Add(socio);
         contexto.Contracts.Add(contrato);
         contexto.Documents.Add(documento);
         await contexto.SaveChangesAsync();
-        var handler = new ObterClientePorIdHandler(new ClienteServico(new ClienteRepositorio(contexto)));
+        var handler = new ObterClientePorIdHandler(CriarServico(contexto));
 
         var resultado = await handler.Handle(new ObterClientePorIdConsulta(cliente.Id), CancellationToken.None);
 
@@ -76,10 +82,11 @@ public class ClienteHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var cliente = CriarCliente(tenantId, "Cliente Antigo");
+        var (cliente, empresa) = CriarCliente(tenantId, "Cliente Antigo");
+        contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
         await contexto.SaveChangesAsync();
-        var handler = new AtualizarClienteHandler(new ClienteServico(new ClienteRepositorio(contexto)));
+        var handler = new AtualizarClienteHandler(CriarServico(contexto));
 
         var resultado = await handler.Handle(new AtualizarClienteComando(
             cliente.Id,
@@ -100,9 +107,9 @@ public class ClienteHandlersTestes
             "Observacao"), CancellationToken.None);
 
         Assert.True(resultado.Sucesso);
-        Assert.Equal("Cliente Novo", cliente.RazaoSocial);
-        Assert.Equal("SC", cliente.Uf);
-        Assert.Equal(RegimeTributario.SimplesNacional, cliente.RegimeTributario);
+        Assert.Equal("Cliente Novo", empresa.RazaoSocial);
+        Assert.Equal("47999998888", empresa.Whatsapp);
+        Assert.Equal(RegimeTributario.SimplesNacional.ToString(), empresa.RegimeTributario);
     }
 
     [Fact]
@@ -110,10 +117,11 @@ public class ClienteHandlersTestes
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
-        var cliente = CriarCliente(tenantId, "Cliente SCI");
+        var (cliente, empresa) = CriarCliente(tenantId, "Cliente SCI");
+        contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
         await contexto.SaveChangesAsync();
-        var handler = new VincularCodigoSciHandler(new ClienteServico(new ClienteRepositorio(contexto)));
+        var handler = new VincularCodigoSciHandler(CriarServico(contexto));
 
         var resultado = await handler.Handle(new VincularCodigoSciComando(cliente.Id, "SCI-123"), CancellationToken.None);
 
@@ -121,10 +129,12 @@ public class ClienteHandlersTestes
         Assert.Equal("SCI-123", cliente.SciCodigo);
     }
 
-    private static Cliente CriarCliente(Guid tenantId, string razaoSocial)
+    private static (Cliente Cliente, Empresa Empresa) CriarCliente(Guid tenantId, string razaoSocial)
     {
         var prospecto = Prospecto.Create(tenantId, razaoSocial, "11222333000144", null);
-        return Cliente.CreateFromProspect(prospecto);
+        var empresa = Empresa.CriarDoProspecto(prospecto);
+        prospecto.VincularEmpresa(empresa.Id);
+        return (Cliente.CreateFromProspect(prospecto), empresa);
     }
 
     private static ContextoAplicacao CriarContexto(Guid tenantId, string? nomeBanco = null)
@@ -136,10 +146,26 @@ public class ClienteHandlersTestes
         return new ContextoAplicacao(options, CriarEmpresaAtual(tenantId), new PublicadorEventosFake());
     }
 
+    private static ClienteServico CriarServico(ContextoAplicacao contexto)
+        => new(new ClienteRepositorio(contexto), new ServicoEnderecoComercialFake());
+
     private static ServicoEmpresaAtual CriarEmpresaAtual(Guid tenantId)
     {
         var empresaAtual = new ServicoEmpresaAtual();
         empresaAtual.SetTenant(tenantId);
         return empresaAtual;
+    }
+
+    private sealed class ServicoEnderecoComercialFake : IServicoEnderecoComercial
+    {
+        public Task<Resultado<Endereco?>> CriarAsync(
+            EnderecoComercialRequisicao requisicao,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Resultado<Endereco?>.CriarSucesso(null!));
+
+        public Task<Resultado<Endereco?>> CriarDoProspectoAsync(
+            Prospecto prospecto,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Resultado<Endereco?>.CriarSucesso(null!));
     }
 }

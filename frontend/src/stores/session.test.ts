@@ -36,5 +36,5 @@ it('distingue PlatformAdmin de Admin sem promover perfis por aproximacao', async
     usuario: { id: '1', nome: 'Plataforma', email: 'platform@example.test', perfil: 'PlatformAdmin' } })
   expect(current.hasRole('PlatformAdmin')).toBe(true)
   expect(current.hasRole('Admin')).toBe(false)
-  expect(current.defaultAuthenticatedRoute()).toBe('/admin/empresas')
+  expect(current.defaultAuthenticatedRoute()).toBe('/admin/parceiros')
 })

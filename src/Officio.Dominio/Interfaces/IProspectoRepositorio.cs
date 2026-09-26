@@ -9,12 +9,23 @@ public interface IProspectoRepositorio
     Task<Prospecto?> ObterComSociosAsync(Guid prospectoId, CancellationToken cancellationToken = default);
     Task<Cliente?> ObterClientePorProspectoAsync(Guid prospectoId, CancellationToken cancellationToken = default);
     Task<Empresa?> ObterEmpresaPorCnpjAsync(string cnpj, CancellationToken cancellationToken = default);
+    Task<Municipio?> ObterMunicipioPorCodigoIbgeAsync(string codigoIbge, CancellationToken cancellationToken = default);
+    Task<Municipio?> ObterMunicipioPorIdAsync(Guid municipioId, CancellationToken cancellationToken = default);
+    Task<Estado?> ObterEstadoPorUfAsync(string uf, CancellationToken cancellationToken = default);
+    Task<StatusCliente> ObterOuCriarStatusClienteAsync(
+        string codigo,
+        string descricao,
+        int ordem,
+        CancellationToken cancellationToken = default);
     IQueryable<Prospecto> MontarConsulta(bool rastreamento = true);
     Task<int> ContarAsync(IQueryable<Prospecto> consulta, CancellationToken cancellationToken = default);
     List<ProspectoResumo> ObterPagina(IQueryable<Prospecto> consulta, int pagina, int tamanhoPagina);
     Task AdicionarAsync(Prospecto prospecto, CancellationToken cancellationToken = default);
     Task AdicionarAsync(Cliente cliente, CancellationToken cancellationToken = default);
     Task AdicionarAsync(Empresa empresa, CancellationToken cancellationToken = default);
+    Task AdicionarAsync(Estado estado, CancellationToken cancellationToken = default);
+    Task AdicionarAsync(Municipio municipio, CancellationToken cancellationToken = default);
+    Task AdicionarAsync(Endereco endereco, CancellationToken cancellationToken = default);
     Task AdicionarSocioAsync(Socio socio, CancellationToken cancellationToken = default);
     Task SalvarAlteracoesAsync(CancellationToken cancellationToken = default);
 }

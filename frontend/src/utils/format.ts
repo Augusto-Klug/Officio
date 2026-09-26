@@ -1,4 +1,9 @@
 const dateFormat = new Intl.DateTimeFormat('pt-BR')
+const saoPauloDateTimeFormat = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+  timeZone: 'America/Sao_Paulo',
+})
 const currencyFormat = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 export function formatDate(value: string | null): string {
   if (!value || Number.isNaN(Date.parse(value))) return 'Não informado'
@@ -12,4 +17,10 @@ export function formatCnpj(value: string | null): string {
 }
 export function formatCurrency(value: number): string {
   return currencyFormat.format(value)
+}
+
+export function formatSaoPauloDateTime(value: string): string {
+  if (!value || Number.isNaN(Date.parse(value))) return 'Não informado'
+  const possuiFuso = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+  return saoPauloDateTimeFormat.format(new Date(possuiFuso ? value : `${value}Z`))
 }

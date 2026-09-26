@@ -14,13 +14,13 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 public class GestaoAcessoServicoTestes
 {
     [Fact]
-    public async Task OnboardingEAceite_CriaEmpresaAdminVinculoETokenDeUsoUnico()
+    public async Task OnboardingEAceite_CriaParceiroEAdminComTokenDeUsoUnico()
     {
         await using var contexto = CriarContexto(Guid.Empty);
         var email = new EmailFake();
         var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), email);
 
-        var onboarding = await servico.CriarEmpresaAdministradorAsync(new(
+        var onboarding = await servico.CriarParceiroAdministradorAsync(new(
             "11.222.333/0001-44",
             "Empresa Teste Ltda",
             "Empresa Teste",
@@ -36,10 +36,12 @@ public class GestaoAcessoServicoTestes
         Assert.True(aceite.Sucesso);
         Assert.False(segundoAceite.Sucesso);
         var usuario = Assert.Single(await contexto.Users.IgnoreQueryFilters().ToListAsync());
-        Assert.Equal(onboarding.Valor!.EmpresaId, usuario.TenantId);
+        Assert.Equal(onboarding.Valor!.ParceiroId, usuario.TenantId);
         Assert.Equal("Admin", usuario.Role);
         Assert.Equal("maria@empresa.test", usuario.Email);
-        Assert.Single(await contexto.UsuarioEmpresas.ToListAsync());
+        Assert.Single(await contexto.Parceiros.ToListAsync());
+        Assert.Empty(await contexto.Empresas.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await contexto.UsuarioEmpresas.ToListAsync());
     }
 
     [Fact]
@@ -71,7 +73,6 @@ public class GestaoAcessoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         var admin = Usuario.Create(tenantId, "Admin", "admin@test.local", "hash", "Admin");
         contexto.Users.Add(admin);
-        contexto.UsuarioEmpresas.Add(UsuarioEmpresa.Criar(admin.Id, tenantId));
         await contexto.SaveChangesAsync();
         var servico = CriarServico(contexto, empresaAtual, new UsuarioAtualFake(Guid.NewGuid()), new EmailFake());
 
@@ -109,23 +110,23 @@ public class GestaoAcessoServicoTestes
     }
 
     [Fact]
-    public async Task AdministracaoPlataforma_ListaESuspendeEmpresaEReenviaConvite()
+    public async Task AdministracaoPlataforma_ListaESuspendeParceiroEReenviaConvite()
     {
         await using var contexto = CriarContexto(Guid.Empty);
         var email = new EmailFake();
         var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), email);
-        var onboarding = await servico.CriarEmpresaAdministradorAsync(new(
+        var onboarding = await servico.CriarParceiroAdministradorAsync(new(
             "11222333000144", "Empresa Teste Ltda", null, null, "Maria Admin", "maria@empresa.test"));
 
-        var lista = await servico.ListarEmpresasAsync();
-        var empresa = Assert.Single(lista.Valor!);
-        Assert.Equal(onboarding.Valor!.EmpresaId, empresa.Id);
-        Assert.Equal("maria@empresa.test", empresa.AdministradorEmail);
-        Assert.True(empresa.Ativa);
+        var lista = await servico.ListarParceirosAsync();
+        var parceiro = Assert.Single(lista.Valor!);
+        Assert.Equal(onboarding.Valor!.ParceiroId, parceiro.Id);
+        Assert.Equal("maria@empresa.test", parceiro.AdministradorEmail);
+        Assert.True(parceiro.Ativo);
 
-        Assert.True((await servico.AlterarStatusEmpresaAsync(empresa.Id, false)).Sucesso);
-        Assert.False((await contexto.Empresas.FindAsync(empresa.Id))!.Ativo);
-        Assert.True((await servico.ReenviarConviteAdministradorAsync(empresa.Id)).Sucesso);
+        Assert.True((await servico.AlterarStatusParceiroAsync(parceiro.Id, false)).Sucesso);
+        Assert.False((await contexto.Parceiros.FindAsync(parceiro.Id))!.Ativo);
+        Assert.True((await servico.ReenviarConviteAdministradorAsync(parceiro.Id)).Sucesso);
         Assert.Equal(2, email.Quantidade);
     }
 

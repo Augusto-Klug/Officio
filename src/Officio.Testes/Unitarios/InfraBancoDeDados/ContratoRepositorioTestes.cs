@@ -47,6 +47,46 @@ public class ContratoRepositorioTestes
         Assert.Equal(orcamento.Id, resultado.Orcamento!.Id);
     }
 
+    [Fact]
+    public async Task ListarAsync_FiltraEmpresaECarregaOpcoesComPdfAssinadoEmLote()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var empresaA = Empresa.CriarConstituida(tenantId, "11222333000144", "Empresa A");
+        var empresaB = Empresa.CriarConstituida(tenantId, "99888777000166", "Empresa B");
+        var conjuntoA = CriarContratoAceito(tenantId);
+        var conjuntoB = CriarContratoAceito(tenantId);
+        conjuntoA.Prospecto.VincularEmpresa(empresaA.Id);
+        conjuntoA.Contrato.VincularEmpresa(empresaA.Id);
+        conjuntoB.Prospecto.VincularEmpresa(empresaB.Id);
+        conjuntoB.Contrato.VincularEmpresa(empresaB.Id);
+        contexto.Empresas.AddRange(empresaA, empresaB);
+        contexto.Prospects.AddRange(conjuntoA.Prospecto, conjuntoB.Prospecto);
+        contexto.Budgets.AddRange(conjuntoA.Orcamento, conjuntoB.Orcamento);
+        contexto.Contracts.AddRange(conjuntoA.Contrato, conjuntoB.Contrato);
+        contexto.Documents.Add(Documento.CriarContratoAssinado(
+            tenantId,
+            conjuntoA.Contrato.Id,
+            empresaA.Id,
+            null,
+            conjuntoA.Prospecto.Id,
+            "contrato-assinado.pdf",
+            "contratos/assinado.pdf",
+            123));
+        await contexto.SaveChangesAsync();
+        contexto.ChangeTracker.Clear();
+        var repositorio = new ContratoRepositorio(contexto);
+
+        var contratos = await repositorio.ListarAsync(empresaA.Id);
+        var empresas = await repositorio.ListarEmpresasComContratoAsync();
+        var idsComPdf = await repositorio.ListarIdsComDocumentoAssinadoAsync(
+            [conjuntoA.Contrato.Id, conjuntoB.Contrato.Id]);
+
+        Assert.Equal(conjuntoA.Contrato.Id, Assert.Single(contratos).Id);
+        Assert.Equal(["Empresa A", "Empresa B"], empresas.Select(empresa => empresa.RazaoSocial));
+        Assert.Equal(conjuntoA.Contrato.Id, Assert.Single(idsComPdf));
+    }
+
     private static (Prospecto Prospecto, Orcamento Orcamento, Contrato Contrato) CriarContratoAceito(Guid tenantId)
     {
         var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.ConverterParaCliente;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ObterProspectos;
 using Officio.ViewModels.Prospectos;
@@ -38,9 +39,17 @@ public class ProspectosController(
     {
         var resultado = await mediator.Send(prospectoViewModelConversor.ParaComando(viewModel), cancellationToken);
 
-        return resultado.Sucesso
-            ? CreatedAtAction(nameof(Listar), new { id = resultado.Valor!.Id }, resultado.Valor)
-            : BadRequest(resultado.Erro);
+        if (resultado.Sucesso)
+            return CreatedAtAction(nameof(Listar), new { id = resultado.Valor!.Id }, resultado.Valor);
+
+        return resultado.Erro switch
+        {
+            LocalidadeErros.CepInvalido or LocalidadeErros.MunicipioDivergenteDoCep
+                => UnprocessableEntity(resultado.Erro),
+            LocalidadeErros.ConsultaCepIndisponivel
+                => StatusCode(StatusCodes.Status503ServiceUnavailable, resultado.Erro),
+            _ => BadRequest(resultado.Erro)
+        };
     }
 
     [HttpPost("{id:guid}")]

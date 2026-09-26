@@ -10,7 +10,12 @@ public interface IContratoServico
         ConverterOrcamentoContratoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<Resultado<List<ContratoDto>>> ListarAsync(CancellationToken ct = default);
+    Task<Resultado<List<ContratoDto>>> ListarAsync(
+        Guid? empresaId = null,
+        CancellationToken ct = default);
+
+    Task<Resultado<List<EmpresaContratoFiltroDto>>> ListarEmpresasAsync(
+        CancellationToken ct = default);
 
     Task<Resultado<ContratoDto>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default);
 

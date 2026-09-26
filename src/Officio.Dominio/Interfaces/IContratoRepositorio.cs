@@ -6,7 +6,11 @@ public interface IContratoRepositorio
 {
     Task AdicionarAsync(Contrato contrato, CancellationToken cancellationToken = default);
     Task<Contrato?> ObterPorOrcamentoAsync(Guid orcamentoId, CancellationToken cancellationToken = default);
-    Task<List<Contrato>> ListarAsync(CancellationToken cancellationToken = default);
+    Task<List<Contrato>> ListarAsync(Guid? empresaId = null, CancellationToken cancellationToken = default);
+    Task<List<Empresa>> ListarEmpresasComContratoAsync(CancellationToken cancellationToken = default);
+    Task<HashSet<Guid>> ListarIdsComDocumentoAssinadoAsync(
+        IReadOnlyCollection<Guid> contratoIds,
+        CancellationToken cancellationToken = default);
     Task<Contrato?> ObterDetalheAsync(Guid contratoId, CancellationToken cancellationToken = default);
     Task<Contrato?> ObterParaGeracaoPdfAsync(Guid contratoId, CancellationToken cancellationToken = default);
     Task<Contrato?> ObterParaAssinaturaAsync(Guid contratoId, CancellationToken cancellationToken = default);
@@ -15,6 +19,11 @@ public interface IContratoRepositorio
         string idExterno,
         CancellationToken cancellationToken = default);
     Task<StatusAssinatura> ObterOuCriarStatusAssinaturaAsync(
+        string codigo,
+        string descricao,
+        int ordem,
+        CancellationToken cancellationToken = default);
+    Task<StatusCliente> ObterOuCriarStatusClienteAsync(
         string codigo,
         string descricao,
         int ordem,

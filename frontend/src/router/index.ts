@@ -22,7 +22,7 @@ export const router = createRouter({
         { path: 'contratos', name: 'contratos', component: () => import('../modules/contratos/views/ContratosView.vue'), meta: { title: 'Contratos' } },
         { path: 'faturamentos', name: 'faturamentos', component: () => import('../modules/faturamentos/views/FaturamentosView.vue'), meta: { title: 'Faturamento mensal' } },
         { path: 'acessos', name: 'acessos', component: () => import('../modules/acessos/views/AcessosView.vue'), meta: { title: 'Usuários e acessos', roles: ['Admin'] } },
-        { path: 'admin/empresas', name: 'admin-empresas', component: () => import('../modules/administracao/views/EmpresasView.vue'), meta: { title: 'Empresas', roles: ['PlatformAdmin'] } },
+        { path: 'admin/parceiros', name: 'admin-parceiros', component: () => import('../modules/administracao/views/ParceirosView.vue'), meta: { title: 'Parceiros', roles: ['PlatformAdmin'] } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: () => defaultAuthenticatedRoute() },
@@ -45,8 +45,8 @@ onUnauthorized(() => {
 
 export function safeRedirect(value: unknown): string {
   // Restringe o retorno pós-login às áreas autenticadas conhecidas.
-  if (typeof value !== 'string' || !/^\/(?:dashboard|prospectos|clientes|admissoes|contratos|faturamentos|acessos|admin\/empresas)(?:\/|\?|$)/.test(value)) return defaultAuthenticatedRoute()
-  if (value.startsWith('/admin/empresas') && !hasRole('PlatformAdmin')) return defaultAuthenticatedRoute()
+  if (typeof value !== 'string' || !/^\/(?:dashboard|prospectos|clientes|admissoes|contratos|faturamentos|acessos|admin\/parceiros)(?:\/|\?|$)/.test(value)) return defaultAuthenticatedRoute()
+  if (value.startsWith('/admin/') && !hasRole('PlatformAdmin')) return defaultAuthenticatedRoute()
   if (value.startsWith('/acessos') && !hasRole('Admin')) return defaultAuthenticatedRoute()
   return value
 }

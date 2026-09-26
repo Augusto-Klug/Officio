@@ -4,4 +4,4 @@ using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
 
-public record ListarContratosConsulta : IRequest<Resultado<List<ContratoDto>>>;
+public record ListarContratosConsulta(Guid? EmpresaId = null) : IRequest<Resultado<List<ContratoDto>>>;

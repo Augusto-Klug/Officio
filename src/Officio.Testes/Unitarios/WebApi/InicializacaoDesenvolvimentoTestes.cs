@@ -30,6 +30,8 @@ public class InicializacaoDesenvolvimentoTestes
             ["Database:EnsureCreatedOnStartup"] = prepararSchema.ToString(),
             ["BootstrapUser:Enabled"] = habilitarBootstrap.ToString(),
             ["BootstrapUser:TenantId"] = tenant.ToString(),
+            ["BootstrapUser:TenantNome"] = "Parceiro de teste",
+            ["BootstrapUser:TenantCnpj"] = "00999888000177",
             ["BootstrapUser:Nome"] = "Administrador",
             ["BootstrapUser:Email"] = "admin@test.local",
             ["BootstrapUser:Password"] = "senha-apenas-para-testes",
