@@ -89,24 +89,23 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
     {
         using var scope = Services.CreateScope();
         var contexto = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
-        var empresa = Empresa.CriarConstituida(
+        var parceiro = Parceiro.Criar(
             cnpj,
             $"Escritorio {cnpj}",
             $"Escritorio {cnpj}",
             email: $"contato-{cnpj}@escritorio.test");
         var usuario = Usuario.Create(
-            empresa.Id,
+            parceiro.Id,
             "Administrador Integracao",
             email,
             string.Empty,
             PerfisAcesso.Admin);
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, senha));
 
-        contexto.Empresas.Add(empresa);
+        contexto.Parceiros.Add(parceiro);
         contexto.Users.Add(usuario);
-        contexto.UsuarioEmpresas.Add(UsuarioEmpresa.Criar(usuario.Id, empresa.Id));
         await contexto.SaveChangesAsync();
 
-        return empresa.Id;
+        return parceiro.Id;
     }
 }

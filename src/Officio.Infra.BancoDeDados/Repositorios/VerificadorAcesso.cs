@@ -11,9 +11,8 @@ public class VerificadorAcesso(ContextoAplicacao contexto) : IVerificadorAcesso
             usuario => usuario.Id == usuarioId && usuario.Ativo,
             ct);
 
-    public async Task<bool> EmpresaAtivaAsync(Guid empresaId, CancellationToken ct = default)
-        // Mantem compatibilidade com usuarios de desenvolvimento anteriores ao cadastro formal de tenants.
-        => !await contexto.Empresas.AnyAsync(
-            empresa => empresa.Id == empresaId && !empresa.Ativo,
+    public Task<bool> ParceiroAtivoAsync(Guid parceiroId, CancellationToken ct = default)
+        => contexto.Parceiros.AnyAsync(
+            parceiro => parceiro.Id == parceiroId && parceiro.Ativo,
             ct);
 }

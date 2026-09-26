@@ -5,8 +5,9 @@ namespace Officio.Dominio.Entidades;
 
 public class Cliente : EntidadeAuditavel
 {
-    public Guid? EmpresaId { get; private set; }
-    public Guid? StatusClienteId { get; private set; }
+    public Guid EmpresaId { get; private set; }
+    public Guid? EnderecoId { get; private set; }
+    public Guid StatusClienteId { get; private set; }
     public string RazaoSocial { get; private set; } = default!;
     public string? NomeFantasia { get; private set; }
     public string? Cnpj { get; private set; }
@@ -30,7 +31,8 @@ public class Cliente : EntidadeAuditavel
 
     // Navigation
     public Empresa Empresa { get; private set; } = default!;
-    public StatusCliente? StatusCliente { get; private set; }
+    public Endereco? Endereco { get; private set; }
+    public StatusCliente StatusCliente { get; private set; } = default!;
     public Prospecto? ProspectOrigem { get; private set; }
     public ICollection<Socio> Socios { get; private set; } = [];
     public ICollection<Contrato> Contratos { get; private set; } = [];
@@ -38,12 +40,13 @@ public class Cliente : EntidadeAuditavel
 
     private Cliente() { }
 
-    public static Cliente CreateFromProspect(Prospecto prospect)
+    public static Cliente CreateFromProspect(Prospecto prospect, Guid statusClienteId = default)
     {
         return new Cliente
         {
             TenantId = prospect.TenantId,
-            EmpresaId = prospect.EmpresaId,
+            EmpresaId = prospect.EmpresaId.GetValueOrDefault(),
+            StatusClienteId = statusClienteId,
             RazaoSocial = prospect.RazaoSocial,
             NomeFantasia = prospect.NomeFantasia,
             Cnpj = prospect.Cnpj,
@@ -63,7 +66,7 @@ public class Cliente : EntidadeAuditavel
         };
     }
 
-    public static Cliente CriarParaEmpresa(Guid tenantId, Guid empresaId, Guid? prospectOrigemId = null, Guid? statusClienteId = null)
+    public static Cliente CriarParaEmpresa(Guid tenantId, Guid empresaId, Guid? prospectOrigemId = null, Guid statusClienteId = default)
         => new()
         {
             TenantId = tenantId,
@@ -120,6 +123,9 @@ public class Cliente : EntidadeAuditavel
 
         SciCodigo = sciCodigo.Trim();
     }
+
+    public void VincularEndereco(Guid? enderecoId)
+        => EnderecoId = enderecoId;
 
     private static string? Normalizar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

@@ -8,6 +8,9 @@ public class CriarProspectoViewModel
     public string? NomeFantasia { get; set; }
     public string? Cnpj { get; set; }
     public string? Cpf { get; set; }
+    public string? InscricaoEstadual { get; set; }
+    public string? InscricaoMunicipal { get; set; }
+    public string? TipoEmpresa { get; set; }
     public RegimeTributarioViewModel? RegimeTributario { get; set; }
     public string? PorteEmpresa { get; set; }
     public string? CnaePrincipal { get; set; }
@@ -19,9 +22,11 @@ public class CriarProspectoViewModel
     public string? Cep { get; set; }
     public string? Logradouro { get; set; }
     public string? Numero { get; set; }
+    public string? Complemento { get; set; }
     public string? Bairro { get; set; }
     public string? Cidade { get; set; }
     public string? Uf { get; set; }
+    public string? MunicipioCodigoIbge { get; set; }
     public string? Origem { get; set; }
     public Guid? ResponsavelId { get; set; }
     public List<CriarSocioViewModel>? Socios { get; set; }

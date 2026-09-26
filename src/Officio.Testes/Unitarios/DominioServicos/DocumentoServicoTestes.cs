@@ -332,7 +332,7 @@ public class DocumentoServicoTestes
     public async Task ValidarAsync_QuandoDocumentoPertenceAAdmissao_VinculaValidacaoAoChecklist()
     {
         var tenantId = Guid.NewGuid();
-        var empresa = Empresa.CriarConstituida("11222333000144", "Empresa Teste");
+        var empresa = Empresa.CriarConstituida(tenantId, "11222333000144", "Empresa Teste");
         var status = new StatusAdmissao("RASCUNHO", "Rascunho", 1);
         var tipo = new TipoDocumentoDominio("IDENTIDADE", "Documento de identidade", 1);
         var admissao = Admissao.Criar(tenantId, empresa.Id, status.Id, "Ana Silva");

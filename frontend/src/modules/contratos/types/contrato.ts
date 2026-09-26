@@ -17,6 +17,12 @@ export interface Contrato {
   assinadoEm: string | null
 }
 
+export interface EmpresaContratoFiltro {
+  id: string
+  razaoSocial: string
+  cnpj: string | null
+}
+
 export interface SignatarioPayload {
   nome: string
   email: string

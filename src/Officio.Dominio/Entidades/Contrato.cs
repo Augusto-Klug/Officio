@@ -7,7 +7,7 @@ namespace Officio.Dominio.Entidades;
 public class Contrato : EntidadeAuditavel
 {
     public string Numero { get; private set; } = default!;
-    public Guid? EmpresaId { get; private set; }
+    public Guid EmpresaId { get; private set; }
     public Guid? OrcamentoVersaoAceitaId { get; private set; }
     public Guid? ModeloContratoId { get; private set; }
     public Guid? StatusContratoId { get; private set; }
@@ -67,12 +67,11 @@ public class Contrato : EntidadeAuditavel
     {
         if (orcamento.ProspectId != prospecto.Id)
             throw new InvalidOperationException("Prospecto nao pertence ao orcamento informado.");
-
         return new Contrato
         {
             TenantId = orcamento.TenantId,
             ProspectId = prospecto.Id,
-            EmpresaId = prospecto.EmpresaId,
+            EmpresaId = prospecto.EmpresaId.GetValueOrDefault(),
             ClientId = null,
             BudgetId = orcamento.Id,
             ValorTotal = orcamento.ValorTotal,
@@ -100,6 +99,17 @@ public class Contrato : EntidadeAuditavel
             throw new InvalidOperationException("Contrato ja esta vinculado a outro cliente.");
 
         ClientId = clientId;
+    }
+
+    public void VincularEmpresa(Guid empresaId)
+    {
+        if (empresaId == Guid.Empty)
+            throw new ArgumentException("Empresa e obrigatoria.", nameof(empresaId));
+
+        if (EmpresaId != Guid.Empty && EmpresaId != empresaId)
+            throw new InvalidOperationException("Contrato ja esta vinculado a outra empresa.");
+
+        EmpresaId = empresaId;
     }
 
     public void MarkAsSigned(DateTime? assinadoEm = null)

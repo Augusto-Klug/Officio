@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { Contrato, EnviarAssinaturaPayload, EnvioAssinaturaResultado } from '../types/contrato'
+import type { Contrato, EmpresaContratoFiltro, EnviarAssinaturaPayload, EnvioAssinaturaResultado } from '../types/contrato'
 
 function booleanValue(value: unknown): boolean {
   if (typeof value !== 'boolean') throw new Error('A API retornou um indicador inválido.')
@@ -39,9 +39,29 @@ export function normalizeContratos(value: unknown): Contrato[] {
   return value.map(normalizeContrato)
 }
 
-export async function listarContratos(signal?: AbortSignal): Promise<Contrato[]> {
-  const { data } = await http.get<unknown>('/v1/contratos/Listar', { signal })
+export function normalizeEmpresasContrato(value: unknown): EmpresaContratoFiltro[] {
+  if (!Array.isArray(value)) throw new Error('A API retornou as empresas em formato inesperado.')
+  return value.map((value) => {
+    const item = record(value)
+    return {
+      id: requiredString(field(item, 'id')),
+      razaoSocial: requiredString(field(item, 'razaoSocial')),
+      cnpj: optionalString(field(item, 'cnpj')),
+    }
+  })
+}
+
+export async function listarContratos(empresaId?: string, signal?: AbortSignal): Promise<Contrato[]> {
+  const { data } = await http.get<unknown>('/v1/contratos/Listar', {
+    params: empresaId ? { empresaId } : undefined,
+    signal,
+  })
   return normalizeContratos(data)
+}
+
+export async function listarEmpresasContrato(signal?: AbortSignal): Promise<EmpresaContratoFiltro[]> {
+  const { data } = await http.get<unknown>('/v1/contratos/ListarEmpresas', { signal })
+  return normalizeEmpresasContrato(data)
 }
 
 export async function gerarPdfContrato(id: string): Promise<{ pdfUrl: string }> {

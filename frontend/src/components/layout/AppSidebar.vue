@@ -5,7 +5,7 @@ const platformAdmin = hasRole('PlatformAdmin')
 </script>
 <template>
   <div class="sidebar-content">
-    <RouterLink :to="platformAdmin ? '/admin/empresas' : '/dashboard'" class="brand" aria-label="Officio" @click="$emit('navigate')">
+    <RouterLink :to="platformAdmin ? '/admin/parceiros' : '/dashboard'" class="brand" aria-label="Officio" @click="$emit('navigate')">
       <img src="/favicon.svg" width="36" height="36" alt="" /><span translate="no">officio<span class="brand-dot">.</span></span>
     </RouterLink>
     <div class="workspace-label">{{ platformAdmin ? 'Administração da plataforma' : 'Gestão do escritório' }}</div>
@@ -27,7 +27,7 @@ const platformAdmin = hasRole('PlatformAdmin')
       </template>
       <template v-if="platformAdmin">
         <p class="nav-section">PLATAFORMA</p>
-        <RouterLink to="/admin/empresas" class="nav-item" @click="$emit('navigate')"><i class="pi pi-sitemap" aria-hidden="true" />Empresas</RouterLink>
+        <RouterLink to="/admin/parceiros" class="nav-item" @click="$emit('navigate')"><i class="pi pi-sitemap" aria-hidden="true" />Parceiros</RouterLink>
       </template>
     </nav>
     <div class="sidebar-footer"><span class="sidebar-mark" aria-hidden="true">O</span><div>Officio<small>Gestão contábil</small></div></div>

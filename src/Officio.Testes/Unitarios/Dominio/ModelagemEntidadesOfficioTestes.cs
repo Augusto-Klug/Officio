@@ -34,12 +34,23 @@ public class ModelagemEntidadesOfficioTestes
     [Fact]
     public void EmpresaConstituida_GuardaCnpjRazaoSocialEQuantidadesOperacionais()
     {
-        var empresa = Empresa.CriarConstituida("11222333000144", "Officio Cliente Ltda", "Officio", 3, 2);
+        var parceiroId = Guid.NewGuid();
+        var empresa = Empresa.CriarConstituida(parceiroId, "11222333000144", "Officio Cliente Ltda", "Officio", 3, 2);
 
         Assert.Equal("11222333000144", empresa.Cnpj);
         Assert.Equal("Officio Cliente Ltda", empresa.RazaoSocial);
         Assert.Equal(3, empresa.QuantidadeFuncionariosAtual);
         Assert.Equal(2, empresa.QuantidadeProLaboresAtual);
+        Assert.Equal(parceiroId, empresa.TenantId);
+    }
+
+    [Fact]
+    public void Parceiro_ExigeCnpjComQuatorzeDigitosENormalizaPontuacao()
+    {
+        var parceiro = Parceiro.Criar("02.757.241/0001-05", "Parisotto Contabilidade Ltda");
+
+        Assert.Equal("02757241000105", parceiro.Cnpj);
+        Assert.Throws<ArgumentException>(() => Parceiro.Criar("0275724100010", "Parceiro invalido"));
     }
 
     [Fact]

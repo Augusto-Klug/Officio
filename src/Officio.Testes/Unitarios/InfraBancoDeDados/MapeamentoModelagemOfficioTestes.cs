@@ -14,8 +14,13 @@ public class MapeamentoModelagemOfficioTestes
         var modelo = contexto.Model;
 
         Assert.True(PossuiIndice(modelo.FindEntityType(typeof(Municipio))!, [nameof(Municipio.CodigoIbge)]));
+        Assert.True(PossuiIndice(modelo.FindEntityType(typeof(Estado))!, [nameof(Estado.CodigoIbge)]));
+        Assert.True(PossuiIndice(modelo.FindEntityType(typeof(Estado))!, [nameof(Estado.Sigla)]));
         Assert.True(PossuiIndice(modelo.FindEntityType(typeof(Pessoa))!, [nameof(Pessoa.Cpf)]));
-        Assert.True(PossuiIndice(modelo.FindEntityType(typeof(Empresa))!, [nameof(Empresa.Cnpj)]));
+        Assert.True(PossuiIndice(modelo.FindEntityType(typeof(Parceiro))!, [nameof(Parceiro.Cnpj)]));
+        Assert.True(PossuiIndice(modelo.FindEntityType(typeof(Empresa))!, [
+            nameof(Empresa.TenantId),
+            nameof(Empresa.Cnpj)]));
         Assert.True(PossuiIndice(modelo.FindEntityType(typeof(ProspectoPessoa))!, [
             nameof(ProspectoPessoa.ProspectId),
             nameof(ProspectoPessoa.PessoaId),
@@ -33,9 +38,17 @@ public class MapeamentoModelagemOfficioTestes
         var modelo = contexto.Model;
 
         Assert.Contains(modelo.FindEntityType(typeof(Prospecto))!.GetForeignKeys(), fk => fk.Properties.Any(p => p.Name == nameof(Prospecto.EmpresaId)));
+        Assert.Contains(modelo.FindEntityType(typeof(Prospecto))!.GetForeignKeys(), fk => fk.Properties.Any(p => p.Name == nameof(Prospecto.MunicipioId)));
+        Assert.Contains(modelo.FindEntityType(typeof(Municipio))!.GetForeignKeys(), fk => fk.Properties.Any(p => p.Name == nameof(Municipio.EstadoId)));
         Assert.Contains(modelo.FindEntityType(typeof(Cliente))!.GetForeignKeys(), fk => fk.Properties.Any(p => p.Name == nameof(Cliente.EmpresaId)));
         Assert.Contains(modelo.FindEntityType(typeof(Contrato))!.GetForeignKeys(), fk => fk.Properties.Any(p => p.Name == nameof(Contrato.OrcamentoVersaoAceitaId)));
         Assert.Contains(modelo.FindEntityType(typeof(ValidacaoDocumento))!.GetForeignKeys(), fk => fk.Properties.Any(p => p.Name == nameof(ValidacaoDocumento.OcrExecucaoId)));
+        Assert.Contains(modelo.FindEntityType(typeof(Empresa))!.GetForeignKeys(), fk =>
+            fk.PrincipalEntityType.ClrType == typeof(Parceiro) &&
+            fk.Properties.Any(p => p.Name == nameof(Empresa.TenantId)));
+        Assert.Contains(modelo.FindEntityType(typeof(Usuario))!.GetForeignKeys(), fk =>
+            fk.PrincipalEntityType.ClrType == typeof(Parceiro) &&
+            fk.Properties.Any(p => p.Name == nameof(Usuario.TenantId)));
     }
 
     private static ContextoAplicacao CriarContexto()

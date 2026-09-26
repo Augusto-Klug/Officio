@@ -109,6 +109,11 @@ public class NotificacaoServico(
             notificacao.Mensagem,
             notificacao.ReferenciaId,
             notificacao.Lida,
-            notificacao.LidaEm,
-            notificacao.CriadoEm);
+            notificacao.LidaEm is { } lidaEm ? ComoUtc(lidaEm) : null,
+            ComoUtc(notificacao.CriadoEm));
+
+    private static DateTime ComoUtc(DateTime data)
+        => data.Kind == DateTimeKind.Utc
+            ? data
+            : DateTime.SpecifyKind(data, DateTimeKind.Utc);
 }

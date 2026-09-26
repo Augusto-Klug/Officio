@@ -16,6 +16,7 @@ import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatCurrency, formatDate } from '../../../utils/format'
 import { listarClientes, obterCliente, vincularCodigoSci } from '../services/clientes.service'
 import type { Cliente, ClienteDetalhe } from '../types/cliente'
+import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
 
 const clientes = ref<Cliente[]>([])
 const router = useRouter()
@@ -32,6 +33,7 @@ const sciCodigo = ref('')
 const saving = ref(false)
 const dialogError = ref('')
 let controller: AbortController | undefined
+let generation = 0
 
 const situacoes = [
   { label: 'Todos', value: null },
@@ -40,17 +42,29 @@ const situacoes = [
 ]
 const localizacao = computed(() => detalhe.value && [detalhe.value.cidade, detalhe.value.uf].filter(Boolean).join(' / '))
 
-async function load() {
+async function load(options: { background?: boolean; reportErrors?: boolean } = {}) {
+  const { background = false, reportErrors = true } = options
+  const request = ++generation
   controller?.abort()
   controller = new AbortController()
-  loading.value = true
-  error.value = ''
+  if (!background) loading.value = true
+  if (reportErrors) error.value = ''
   try {
-    clientes.value = await listarClientes({ busca: busca.value.trim() || undefined, ativo: situacao.value ?? undefined }, controller.signal)
+    const resultado = await listarClientes({ busca: busca.value.trim() || undefined, ativo: situacao.value ?? undefined }, controller.signal)
+    if (request === generation) {
+      clientes.value = resultado
+      error.value = ''
+    }
   } catch (cause) {
-    if (!axios.isCancel(cause)) error.value = normalizeError(cause).message
-  } finally { loading.value = false }
+    if (request === generation && reportErrors && !axios.isCancel(cause)) error.value = normalizeError(cause).message
+  } finally { if (request === generation && !background) loading.value = false }
 }
+
+async function refreshData(reason: PageRefreshReason) {
+  await load({ background: true, reportErrors: reason === 'manual' })
+}
+
+const { refreshing, refreshNow } = usePageRefresh(refreshData, { busy: loading })
 
 async function abrirDetalhe(item: Cliente) {
   detalheOpen.value = true
@@ -92,22 +106,24 @@ function abrirAdmissoes(clienteId: string) {
 }
 
 void load()
-onBeforeUnmount(() => controller?.abort())
+onBeforeUnmount(() => { ++generation; controller?.abort() })
 </script>
 
 <template>
-  <PageHeader title="Clientes" description="Consulte empresas convertidas, seus contratos e documentos." />
+  <PageHeader title="Clientes" description="Consulte empresas convertidas, seus contratos e documentos.">
+    <BaseButton label="Atualizar" icon="pi pi-refresh" variant="secondary" :loading="refreshing" @click="refreshNow" />
+  </PageHeader>
   <Message v-if="success" severity="success" :closable="true" class="page-message" @close="success = ''">{{ success }}</Message>
   <Message v-if="error" severity="error" :closable="false" class="page-message">{{ error }}</Message>
   <BaseCard class="data-card">
-    <form class="filters" role="search" @submit.prevent="load">
+    <form class="filters" role="search" @submit.prevent="() => load()">
       <div class="field"><label for="client-search">Buscar cliente</label><InputText id="client-search" v-model="busca" placeholder="Razão social, CNPJ ou CPF" /></div>
       <div class="field"><label for="client-status">Situação</label><Select input-id="client-status" v-model="situacao" :options="situacoes" option-label="label" option-value="value" /></div>
       <BaseButton label="Buscar" icon="pi pi-search" type="submit" :loading="loading" />
     </form>
     <div class="list-heading"><h2>Carteira de clientes</h2><span>{{ loading ? 'Carregando…' : `${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}` }}</span></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando clientes…</p></div>
-    <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="load" /></div>
+    <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="() => load()" /></div>
     <DataTable v-else :value="clientes" data-key="id" class="work-table clients-table" :table-props="{ 'aria-label': 'Lista de clientes' }">
       <Column field="razaoSocial" header="Cliente"><template #body="{ data }"><div class="company-cell"><strong>{{ data.razaoSocial }}</strong><span>{{ formatCnpj(data.cnpj || data.cpf) }}</span></div></template></Column>
       <Column field="ativo" header="Situação"><template #body="{ data }"><StatusBadge :label="data.ativo ? 'Ativo' : 'Inativo'" :severity="data.ativo ? 'success' : 'secondary'" /></template></Column>

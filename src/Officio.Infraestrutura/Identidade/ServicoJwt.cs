@@ -48,8 +48,8 @@ public class ServicoJwt(IConfiguration configuration, ContextoAplicacao db) : IA
 
         if (!string.Equals(user.Role, "PlatformAdmin", StringComparison.OrdinalIgnoreCase))
         {
-            var empresa = await db.Empresas.FirstOrDefaultAsync(item => item.Id == user.TenantId, ct);
-            if (empresa is not null && !empresa.Ativo)
+            var parceiro = await db.Parceiros.FirstOrDefaultAsync(item => item.Id == user.TenantId, ct);
+            if (parceiro is null || !parceiro.Ativo)
                 return null;
         }
 

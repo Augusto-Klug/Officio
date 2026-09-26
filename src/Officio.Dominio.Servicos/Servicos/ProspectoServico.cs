@@ -10,6 +10,8 @@ namespace Officio.Dominio.Servicos.Servicos;
 
 internal class ProspectoServico(
     IProspectoRepositorio prospectoRepositorio,
+    IServicoEnderecoComercial servicoEnderecoComercial,
+    ILocalidadeServico localidadeServico,
     IEmpresaAtual empresaAtual) : IProspectoServico
 {
     public async Task<Resultado<ProspectoCriadoDto>> CriarAsync(
@@ -17,6 +19,23 @@ internal class ProspectoServico(
         CancellationToken ct = default)
     {
         var cnpj = DocumentoFiscal.SomenteDigitos(requisicao.Cnpj);
+
+        if (!string.IsNullOrWhiteSpace(requisicao.Cep))
+        {
+            var resultadoCep = await localidadeServico.ConsultarCepAsync(requisicao.Cep, ct);
+            if (resultadoCep.Sucesso && resultadoCep.Valor is null)
+                return Resultado<ProspectoCriadoDto>.CriarFalha(LocalidadeErros.CepInvalido);
+
+            if (resultadoCep.Sucesso &&
+                !string.IsNullOrWhiteSpace(requisicao.MunicipioCodigoIbge) &&
+                !string.Equals(
+                    resultadoCep.Valor!.MunicipioCodigoIbge,
+                    requisicao.MunicipioCodigoIbge.Trim(),
+                    StringComparison.Ordinal))
+            {
+                return Resultado<ProspectoCriadoDto>.CriarFalha(LocalidadeErros.MunicipioDivergenteDoCep);
+            }
+        }
 
         if (cnpj is not null)
         {
@@ -32,6 +51,42 @@ internal class ProspectoServico(
             requisicao.RazaoSocial,
             cnpj,
             requisicao.RegimeTributario);
+
+        prospecto.AtualizarDadosCadastrais(
+            requisicao.NomeFantasia,
+            requisicao.Cpf,
+            requisicao.PorteEmpresa,
+            requisicao.CnaePrincipal,
+            requisicao.DataAbertura,
+            requisicao.Email,
+            requisicao.Telefone,
+            requisicao.Whatsapp,
+            requisicao.NomeContato,
+            requisicao.Cep,
+            requisicao.Logradouro,
+            requisicao.Numero,
+            requisicao.Complemento,
+            requisicao.Bairro,
+            requisicao.Cidade,
+            requisicao.Uf,
+            requisicao.Origem,
+            requisicao.ResponsavelId,
+            requisicao.InscricaoEstadual,
+            requisicao.InscricaoMunicipal,
+            requisicao.TipoEmpresa);
+
+        if (!string.IsNullOrWhiteSpace(requisicao.MunicipioCodigoIbge))
+        {
+            var municipio = await prospectoRepositorio.ObterMunicipioPorCodigoIbgeAsync(
+                requisicao.MunicipioCodigoIbge.Trim(),
+                ct);
+
+            if (municipio is null)
+                return Resultado<ProspectoCriadoDto>.CriarFalha(
+                    "Municipio invalido. Selecione novamente o municipio do endereco.");
+
+            prospecto.VincularMunicipio(municipio.Id, municipio.Nome, municipio.Estado.Sigla);
+        }
 
         await prospectoRepositorio.AdicionarAsync(prospecto, ct);
 
@@ -68,25 +123,39 @@ internal class ProspectoServico(
         if (prospecto.Status == StatusProspecto.Convertido)
             return Resultado<Guid>.CriarFalha("Prospecto jÃ¡ foi convertido.");
 
-        if (prospecto.EmpresaId is null)
+        if (string.IsNullOrWhiteSpace(prospecto.Cnpj))
         {
-            if (string.IsNullOrWhiteSpace(prospecto.Cnpj))
-            {
-                return Resultado<Guid>.CriarFalha(
-                    "Informe o CNPJ e constitua a empresa antes de converter o prospecto em cliente.");
-            }
-
-            var empresa = await prospectoRepositorio.ObterEmpresaPorCnpjAsync(prospecto.Cnpj, ct);
-            if (empresa is null)
-            {
-                empresa = Empresa.CriarDoProspecto(prospecto);
-                await prospectoRepositorio.AdicionarAsync(empresa, ct);
-            }
-
-            prospecto.VincularEmpresa(empresa.Id);
+            return Resultado<Guid>.CriarFalha(
+                "Informe o CNPJ e constitua a empresa antes de converter o prospecto em cliente.");
         }
 
-        var cliente = prospecto.ConverterParaCliente();
+        var empresa = await prospectoRepositorio.ObterEmpresaPorCnpjAsync(prospecto.Cnpj, ct);
+        if (empresa is null)
+        {
+            empresa = Empresa.CriarDoProspecto(prospecto);
+            await prospectoRepositorio.AdicionarAsync(empresa, ct);
+        }
+
+        if (prospecto.EmpresaId != empresa.Id)
+            prospecto.VincularEmpresa(empresa.Id);
+
+        if (!empresa.EnderecoId.HasValue)
+        {
+            var resultadoEndereco = await servicoEnderecoComercial.CriarDoProspectoAsync(prospecto, ct);
+            if (!resultadoEndereco.Sucesso)
+                return Resultado<Guid>.CriarFalha(resultadoEndereco.Erro!);
+
+            empresa.VincularEndereco(resultadoEndereco.Valor?.Id);
+        }
+
+        var statusCliente = await prospectoRepositorio.ObterOuCriarStatusClienteAsync(
+            "ATIVO",
+            "Cliente ativo",
+            1,
+            ct);
+
+        var cliente = prospecto.ConverterParaCliente(statusCliente.Id);
+        cliente.VincularEndereco(empresa.EnderecoId);
         await prospectoRepositorio.AdicionarAsync(cliente, ct);
 
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);

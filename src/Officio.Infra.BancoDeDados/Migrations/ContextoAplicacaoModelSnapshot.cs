@@ -466,11 +466,14 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("EmpresaId")
+                    b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("EncerradoEm")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("EnderecoId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("InicioRelacionamentoEm")
                         .HasColumnType("datetime2");
@@ -502,7 +505,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<Guid?>("StatusClienteId")
+                    b.Property<Guid>("StatusClienteId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Telefone")
@@ -520,6 +523,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmpresaId");
+
+                    b.HasIndex("EnderecoId");
 
                     b.HasIndex("ProspectOrigemId");
 
@@ -605,7 +610,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<int>("DiaVencimento")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("EmpresaId")
+                    b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ModeloContratoId")
@@ -881,6 +886,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CriadoPorId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Email")
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
@@ -920,16 +928,24 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<string>("Telefone")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("ParceiroId");
+
                     b.Property<string>("TipoEmpresa")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Whatsapp")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Cnpj")
+                    b.HasIndex("EnderecoId");
+
+                    b.HasIndex("TenantId", "Cnpj")
                         .IsUnique()
                         .HasFilter("[Cnpj] <> ''");
-
-                    b.HasIndex("EnderecoId");
 
                     b.ToTable("Empresas", (string)null);
                 });
@@ -1080,6 +1096,44 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("MunicipioId");
 
                     b.ToTable("Enderecos", (string)null);
+                });
+
+            modelBuilder.Entity("Officio.Dominio.Entidades.Estado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("CodigoIbge")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<DateTime?>("MunicipiosSincronizadosEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Sigla")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodigoIbge")
+                        .IsUnique();
+
+                    b.HasIndex("Sigla")
+                        .IsUnique();
+
+                    b.ToTable("Estados");
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.FaturamentoMensal", b =>
@@ -1460,20 +1514,20 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(7)
                         .HasColumnType("nvarchar(7)");
 
+                    b.Property<Guid>("EstadoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("Uf")
-                        .IsRequired()
-                        .HasMaxLength(2)
-                        .HasColumnType("nvarchar(2)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CodigoIbge")
                         .IsUnique();
+
+                    b.HasIndex("EstadoId", "Nome");
 
                     b.ToTable("Municipios", (string)null);
                 });
@@ -1834,6 +1888,52 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.ToTable("VersoesOrcamento", (string)null);
                 });
 
+            modelBuilder.Entity("Officio.Dominio.Entidades.Parceiro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Cnpj")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("nvarchar(14)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("NomeFantasia")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("RazaoSocial")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Cnpj")
+                        .IsUnique();
+
+                    b.ToTable("Parceiros", (string)null);
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.PerfilPermissao", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2014,6 +2114,10 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(18)
                         .HasColumnType("nvarchar(18)");
 
+                    b.Property<string>("Complemento")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<DateTime?>("ConvertidoEm")
                         .HasColumnType("datetime2");
 
@@ -2048,11 +2152,20 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<Guid?>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("InscricaoEstadual")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InscricaoMunicipal")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Logradouro")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MotivoPerda")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("MunicipioId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("NomeContato")
                         .HasColumnType("nvarchar(max)");
@@ -2095,6 +2208,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("TipoEmpresa")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("TipoProspect")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -2112,6 +2228,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EmpresaId");
+
+                    b.HasIndex("MunicipioId");
 
                     b.HasIndex("StatusProspectId");
 
@@ -2690,6 +2808,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Usuarios", (string)null);
                 });
 
@@ -2970,6 +3090,12 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasOne("Officio.Dominio.Entidades.Empresa", "Empresa")
                         .WithMany()
                         .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Officio.Dominio.Entidades.Endereco", "Endereco")
+                        .WithMany()
+                        .HasForeignKey("EnderecoId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Officio.Dominio.Entidades.Prospecto", "ProspectOrigem")
@@ -2980,9 +3106,12 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasOne("Officio.Dominio.Entidades.StatusCliente", "StatusCliente")
                         .WithMany()
                         .HasForeignKey("StatusClienteId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Empresa");
+
+                    b.Navigation("Endereco");
 
                     b.Navigation("ProspectOrigem");
 
@@ -3015,7 +3144,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasOne("Officio.Dominio.Entidades.Empresa", "Empresa")
                         .WithMany()
                         .HasForeignKey("EmpresaId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Officio.Dominio.Entidades.ModeloContrato", "ModeloContrato")
                         .WithMany()
@@ -3071,6 +3201,15 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Navigation("Documento");
                 });
 
+            modelBuilder.Entity("Officio.Dominio.Entidades.ConviteUsuario", b =>
+                {
+                    b.HasOne("Officio.Dominio.Entidades.Parceiro", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.Documento", b =>
                 {
                     b.HasOne("Officio.Dominio.Entidades.Admissao", "Admissao")
@@ -3121,7 +3260,15 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasForeignKey("EnderecoId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Officio.Dominio.Entidades.Parceiro", "Parceiro")
+                        .WithMany("Empresas")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Endereco");
+
+                    b.Navigation("Parceiro");
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.EmpresaFuncionario", b =>
@@ -3260,6 +3407,17 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Officio.Dominio.Entidades.Municipio", b =>
+                {
+                    b.HasOne("Officio.Dominio.Entidades.Estado", "Estado")
+                        .WithMany("Municipios")
+                        .HasForeignKey("EstadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Estado");
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.OcrCampoExtraido", b =>
                 {
                     b.HasOne("Officio.Dominio.Entidades.OcrExecucao", "OcrExecucao")
@@ -3381,6 +3539,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasForeignKey("EmpresaId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Officio.Dominio.Entidades.Municipio", "Municipio")
+                        .WithMany()
+                        .HasForeignKey("MunicipioId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Officio.Dominio.Entidades.StatusProspect", "StatusProspect")
                         .WithMany()
                         .HasForeignKey("StatusProspectId")
@@ -3392,6 +3555,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Empresa");
+
+                    b.Navigation("Municipio");
 
                     b.Navigation("StatusProspect");
 
@@ -3447,6 +3612,17 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .IsRequired();
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Officio.Dominio.Entidades.Usuario", b =>
+                {
+                    b.HasOne("Officio.Dominio.Entidades.Parceiro", "Parceiro")
+                        .WithMany("Usuarios")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Parceiro");
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.UsuarioEmpresa", b =>
@@ -3568,6 +3744,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Navigation("Pessoas");
                 });
 
+            modelBuilder.Entity("Officio.Dominio.Entidades.Estado", b =>
+                {
+                    b.Navigation("Municipios");
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.FormularioAbertura", b =>
                 {
                     b.Navigation("Atividades");
@@ -3588,6 +3769,13 @@ namespace Officio.Infra.BancoDeDados.Migrations
             modelBuilder.Entity("Officio.Dominio.Entidades.OrcamentoVersao", b =>
                 {
                     b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("Officio.Dominio.Entidades.Parceiro", b =>
+                {
+                    b.Navigation("Empresas");
+
+                    b.Navigation("Usuarios");
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Prospecto", b =>

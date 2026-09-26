@@ -160,7 +160,7 @@ public class AdmissaoDocumentoServicoTestes
     {
         var tenantId = Guid.NewGuid();
         var contexto = CriarContexto(tenantId, nomeBanco);
-        var empresa = Empresa.CriarConstituida("11222333000144", "Empresa Teste");
+        var empresa = Empresa.CriarConstituida(tenantId, "11222333000144", "Empresa Teste");
         var cliente = Cliente.CriarParaEmpresa(tenantId, empresa.Id);
         contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);

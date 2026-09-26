@@ -19,7 +19,7 @@ public class AdmissaoServico(
         var cliente = await clienteRepositorio.ObterPorIdAsync(requisicao.ClienteId, ct);
         if (cliente is null || !cliente.Ativo)
             return Resultado<Guid>.CriarFalha("Cliente ativo nao encontrado.");
-        if (cliente.EmpresaId is null)
+        if (cliente.EmpresaId == Guid.Empty)
             return Resultado<Guid>.CriarFalha("Cliente nao possui empresa vinculada.");
 
         var validacao = ValidarDados(requisicao.Dados, exigirConclusao: false);
@@ -32,7 +32,7 @@ public class AdmissaoServico(
         {
             admissao = Admissao.Criar(
                 empresaAtual.TenantId,
-                cliente.EmpresaId.Value,
+                cliente.EmpresaId,
                 status.Id,
                 requisicao.Dados.NomeFuncionario);
             AplicarDados(admissao, requisicao.Dados);

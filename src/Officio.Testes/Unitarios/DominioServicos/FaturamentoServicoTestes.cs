@@ -198,7 +198,7 @@ public class FaturamentoServicoTestes
         decimal valorNaoRecorrente = 0m)
     {
         var empresa = Empresa.CriarConstituida(
-            "11222333000144", "Empresa Cliente", quantidadeFuncionariosAtual: funcionarios,
+            tenantId, "11222333000144", "Empresa Cliente", quantidadeFuncionariosAtual: funcionarios,
             quantidadeProLaboresAtual: proLabores);
         var prospecto = Prospecto.Create(tenantId, empresa.RazaoSocial, empresa.Cnpj, null);
         prospecto.VincularEmpresa(empresa.Id);

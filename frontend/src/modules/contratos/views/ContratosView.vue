@@ -1,24 +1,32 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
+import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
 import BaseButton from '../../../components/base/BaseButton.vue'
 import BaseCard from '../../../components/base/BaseCard.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
-import { formatCurrency, formatDate } from '../../../utils/format'
-import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, obterPdfAssinado } from '../services/contratos.service'
-import type { Contrato } from '../types/contrato'
+import { formatCnpj, formatCurrency, formatDate } from '../../../utils/format'
+import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, obterPdfAssinado } from '../services/contratos.service'
+import type { Contrato, EmpresaContratoFiltro } from '../types/contrato'
+import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
 
+const route = useRoute()
+const router = useRouter()
 const contratos = ref<Contrato[]>([])
+const empresas = ref<EmpresaContratoFiltro[]>([])
 const loading = ref(true)
+const empresasLoading = ref(true)
 const error = ref('')
+const empresasError = ref('')
 const success = ref('')
 const actionId = ref('')
 const signOpen = ref(false)
@@ -27,15 +35,62 @@ const formError = ref('')
 const resultLinks = ref<Array<{ label: string; url: string }>>([])
 const signer = ref({ nome: '', email: '', cpf: '', tipo: 'cliente', mensagemPersonalizada: '' })
 let controller: AbortController | undefined
+let empresasController: AbortController | undefined
+let generation = 0
+const empresaId = computed(() => typeof route.query.empresaId === 'string' ? route.query.empresaId : null)
+const empresaOptions = computed(() => empresas.value.map((empresa) => ({
+  label: empresa.cnpj ? `${empresa.razaoSocial} · ${formatCnpj(empresa.cnpj)}` : empresa.razaoSocial,
+  value: empresa.id,
+})))
+const possuiContratoEmTransicao = computed(() => contratos.value.some((contrato) => contrato.status === 'AguardandoAssinatura'))
+const paginaOcupada = computed(() => loading.value || !!actionId.value)
 
-async function load() {
+async function load(options: { background?: boolean; reportErrors?: boolean } = {}) {
+  const { background = false, reportErrors = true } = options
+  const request = ++generation
   controller?.abort()
   controller = new AbortController()
-  loading.value = true
-  error.value = ''
-  try { contratos.value = await listarContratos(controller.signal) }
-  catch (cause) { if (!axios.isCancel(cause)) error.value = normalizeError(cause).message }
-  finally { loading.value = false }
+  if (!background) loading.value = true
+  if (reportErrors) error.value = ''
+  try {
+    const resultado = await listarContratos(empresaId.value || undefined, controller.signal)
+    if (request === generation) {
+      contratos.value = resultado
+      error.value = ''
+    }
+  } catch (cause) {
+    if (request === generation && reportErrors && !axios.isCancel(cause)) error.value = normalizeError(cause).message
+  } finally {
+    if (request === generation && !background) loading.value = false
+  }
+}
+
+async function refreshData(reason: PageRefreshReason) {
+  await load({ background: true, reportErrors: reason === 'manual' })
+}
+
+const { refreshing, refreshNow } = usePageRefresh(refreshData, {
+  busy: paginaOcupada,
+  pollingEnabled: possuiContratoEmTransicao,
+  pollingIntervalMs: 15_000,
+})
+
+async function loadEmpresas() {
+  empresasController?.abort()
+  empresasController = new AbortController()
+  empresasLoading.value = true
+  empresasError.value = ''
+  try { empresas.value = await listarEmpresasContrato(empresasController.signal) }
+  catch (cause) { if (!axios.isCancel(cause)) empresasError.value = normalizeError(cause).message }
+  finally { empresasLoading.value = false }
+}
+
+function aplicarFiltroEmpresa(value: string | null) {
+  void router.replace({ query: { ...route.query, empresaId: value || undefined } })
+}
+
+function limparFiltroEmpresa() {
+  void router.replace({ query: { ...route.query, empresaId: undefined } })
 }
 
 async function gerarPdf(item: Contrato) {
@@ -98,28 +153,43 @@ function severity(status: string) {
   return 'secondary'
 }
 
-void load()
-onBeforeUnmount(() => controller?.abort())
+watch(() => route.query.empresaId, () => void load(), { immediate: true })
+void loadEmpresas()
+onBeforeUnmount(() => {
+  ++generation
+  controller?.abort()
+  empresasController?.abort()
+})
 </script>
 
 <template>
-  <PageHeader title="Contratos" description="Gere documentos, acompanhe assinaturas e acesse os arquivos concluídos." />
+  <PageHeader title="Contratos" description="Gere documentos, acompanhe assinaturas e acesse os arquivos concluídos.">
+    <BaseButton label="Atualizar" icon="pi pi-refresh" variant="secondary" :loading="refreshing" @click="refreshNow" />
+  </PageHeader>
   <Message v-if="success" severity="success" :closable="true" class="page-message" @close="success = ''">{{ success }}</Message>
   <div v-if="resultLinks.length" class="result-links" aria-label="Links da operação">
     <a v-for="item in resultLinks" :key="item.url" :href="item.url" target="_blank" rel="noopener noreferrer"><i class="pi pi-external-link" aria-hidden="true" />{{ item.label }}</a>
   </div>
   <Message v-if="error" severity="error" :closable="false" class="page-message">{{ error }}</Message>
   <BaseCard class="data-card">
+    <form class="filters" role="search" aria-label="Filtrar contratos" @submit.prevent>
+      <div class="field">
+        <label for="contract-company">Empresa</label>
+        <Select input-id="contract-company" :model-value="empresaId" :options="empresaOptions" option-label="label" option-value="value" filter show-clear placeholder="Todas as empresas" :loading="empresasLoading" :disabled="empresasLoading || !!empresasError" @update:model-value="aplicarFiltroEmpresa" />
+        <small v-if="empresasError" class="field-error">{{ empresasError }}</small>
+      </div>
+      <BaseButton v-if="empresaId" label="Limpar filtro" variant="text" @click="limparFiltroEmpresa" />
+    </form>
     <div class="list-heading"><h2>Contratos</h2><span>{{ loading ? 'Carregando…' : `${contratos.length} ${contratos.length === 1 ? 'contrato' : 'contratos'}` }}</span></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando contratos…</p></div>
-    <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="load" /></div>
+    <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="() => load()" /></div>
     <DataTable v-else :value="contratos" data-key="id" class="work-table contracts-table" :table-props="{ 'aria-label': 'Lista de contratos' }">
       <Column field="numero" header="Contrato"><template #body="{ data }"><div class="company-cell"><strong>{{ data.numero }}</strong><span>{{ data.razaoSocial }}</span></div></template></Column>
       <Column field="status" header="Status"><template #body="{ data }"><StatusBadge :label="data.status" :severity="severity(data.status)" /></template></Column>
       <Column field="valorTotal" header="Valor"><template #body="{ data }"><span class="numeric">{{ formatCurrency(data.valorTotal) }}</span></template></Column>
       <Column field="dataInicio" header="Início"><template #body="{ data }"><span class="numeric">{{ formatDate(data.dataInicio) }}</span></template></Column>
       <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton v-if="!data.pdfGerado" label="Gerar PDF" icon="pi pi-file-pdf" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="gerarPdf(data)" /><BaseButton v-else-if="data.status === 'Rascunho'" label="Enviar" icon="pi pi-send" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirAssinatura(data)" /><BaseButton v-if="data.pdfAssinadoDisponivel" label="Assinado" icon="pi pi-download" variant="text" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirPdfAssinado(data)" /></div></template></Column>
-      <template #empty><div class="empty-state"><i class="pi pi-file" /><h3>Nenhum contrato criado</h3><p>Contratos gerados a partir de orçamentos aceitos aparecerão aqui.</p></div></template>
+      <template #empty><div class="empty-state"><i class="pi pi-file" /><h3>{{ empresaId ? 'Nenhum contrato para esta empresa' : 'Nenhum contrato criado' }}</h3><p>{{ empresaId ? 'Selecione outra empresa ou limpe o filtro.' : 'Contratos gerados a partir de orçamentos aceitos aparecerão aqui.' }}</p><BaseButton v-if="empresaId" label="Limpar filtro" variant="secondary" @click="limparFiltroEmpresa" /></div></template>
     </DataTable>
   </BaseCard>
 

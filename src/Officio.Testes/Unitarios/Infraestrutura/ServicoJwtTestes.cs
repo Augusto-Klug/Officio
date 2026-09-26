@@ -23,6 +23,7 @@ public class ServicoJwtTestes
         await using var contexto = CriarContexto(Guid.NewGuid());
         var usuario = Usuario.Create(Guid.NewGuid(), "Maria", "maria@test.local", "", "Admin");
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha"));
+        contexto.Parceiros.Add(Parceiro.CriarDesenvolvimento(usuario.TenantId, "00999888000177", "Parceiro Teste"));
         contexto.Users.Add(usuario);
         contexto.Entry(usuario).Property(u => u.Ativo).CurrentValue = false;
         await contexto.SaveChangesAsync();
@@ -37,6 +38,7 @@ public class ServicoJwtTestes
         await using var contexto = CriarContexto(Guid.Empty);
         var usuario = Usuario.Create(Guid.NewGuid(), "Maria", "maria@test.local", "", "Admin");
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha"));
+        contexto.Parceiros.Add(Parceiro.CriarDesenvolvimento(usuario.TenantId, "00999888000177", "Parceiro Teste"));
         contexto.Users.Add(usuario);
         await contexto.SaveChangesAsync();
         var config = CriarConfiguracao();
@@ -68,6 +70,7 @@ public class ServicoJwtTestes
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha-correta"));
 
         await using var contexto = CriarContexto(tenantId);
+        contexto.Parceiros.Add(Parceiro.CriarDesenvolvimento(tenantId, "00999888000177", "Parceiro Teste"));
         contexto.Users.Add(usuario);
         await contexto.SaveChangesAsync();
 
@@ -87,6 +90,7 @@ public class ServicoJwtTestes
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha-correta"));
 
         await using var contexto = CriarContexto(tenantId);
+        contexto.Parceiros.Add(Parceiro.CriarDesenvolvimento(tenantId, "00999888000177", "Parceiro Teste"));
         contexto.Users.Add(usuario);
         await contexto.SaveChangesAsync();
 
@@ -98,14 +102,15 @@ public class ServicoJwtTestes
     }
 
     [Fact]
-    public async Task AutenticarAsync_EmpresaSuspensa_Falha()
+    public async Task AutenticarAsync_ParceiroSuspenso_Falha()
     {
-        var empresa = Empresa.Create("Empresa suspensa", "11222333000144");
-        empresa.AlterarStatus(false);
-        var usuario = Usuario.Create(empresa.Id, "Maria", "maria@suspensa.test", "", "Admin");
+        var parceiroId = Guid.NewGuid();
+        var parceiro = Parceiro.CriarDesenvolvimento(parceiroId, "00999888000177", "Parceiro suspenso");
+        parceiro.AlterarStatus(false);
+        var usuario = Usuario.Create(parceiro.Id, "Maria", "maria@suspensa.test", "", "Admin");
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha-correta"));
         await using var contexto = CriarContexto(Guid.Empty);
-        contexto.Empresas.Add(empresa);
+        contexto.Parceiros.Add(parceiro);
         contexto.Users.Add(usuario);
         await contexto.SaveChangesAsync();
 
@@ -123,6 +128,7 @@ public class ServicoJwtTestes
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha-correta"));
 
         await using var contexto = CriarContexto(tenantId);
+        contexto.Parceiros.Add(Parceiro.CriarDesenvolvimento(tenantId, "00999888000177", "Parceiro Teste"));
         contexto.Users.Add(usuario);
         await contexto.SaveChangesAsync();
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.GerarPdfContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarEmpresasContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterPdfAssinadoContrato;
 using Officio.ViewModels.Contratos;
@@ -18,9 +19,18 @@ public class ContratosController(
     IContratoViewModelConversor contratoViewModelConversor) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Listar(CancellationToken cancellationToken)
+    public async Task<IActionResult> Listar(
+        [FromQuery] Guid? empresaId,
+        CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(new ListarContratosConsulta(), cancellationToken);
+        var resultado = await mediator.Send(new ListarContratosConsulta(empresaId), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ListarEmpresas(CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ListarEmpresasContratosConsulta(), cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
 

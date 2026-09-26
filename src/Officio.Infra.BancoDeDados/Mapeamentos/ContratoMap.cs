@@ -20,6 +20,9 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
         builder.Property(c => c.ClientId)
             .IsRequired(false);
 
+        builder.Property(c => c.EmpresaId)
+            .IsRequired();
+
         builder.HasOne(c => c.Prospecto)
             .WithMany()
             .HasForeignKey(c => c.ProspectId)

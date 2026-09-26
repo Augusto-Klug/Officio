@@ -4,9 +4,9 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IGestaoAcessoRepositorio
 {
-    Task<bool> EmpresaExistePorCnpjAsync(string cnpj, CancellationToken ct = default);
-    Task<List<Empresa>> ListarEmpresasAsync(CancellationToken ct = default);
-    Task<Empresa?> ObterEmpresaAsync(Guid empresaId, CancellationToken ct = default);
+    Task<bool> ParceiroExistePorCnpjAsync(string cnpj, CancellationToken ct = default);
+    Task<List<Parceiro>> ListarParceirosAsync(CancellationToken ct = default);
+    Task<Parceiro?> ObterParceiroAsync(Guid parceiroId, CancellationToken ct = default);
     Task<int> ContarUsuariosAsync(Guid tenantId, CancellationToken ct = default);
     Task<ConviteUsuario?> ObterConviteAdministradorAsync(Guid tenantId, CancellationToken ct = default);
     Task<bool> UsuarioExistePorEmailAsync(string email, CancellationToken ct = default);

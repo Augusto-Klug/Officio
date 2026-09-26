@@ -20,6 +20,19 @@ internal class ClienteMap : IEntityTypeConfiguration<Cliente>
         builder.Property(c => c.SciCodigo)
             .HasMaxLength(50);
 
+        builder.Property(c => c.EmpresaId)
+            .IsRequired();
+
+        builder.HasOne(c => c.Empresa)
+            .WithMany()
+            .HasForeignKey(c => c.EmpresaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(c => c.Endereco)
+            .WithMany()
+            .HasForeignKey(c => c.EnderecoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(c => c.Socios)
             .WithOne()
             .HasForeignKey(s => s.ClientId)

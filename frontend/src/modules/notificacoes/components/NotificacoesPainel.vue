@@ -13,6 +13,7 @@ import {
   marcarTodasNotificacoesComoLidas,
 } from '../services/notificacoes.service'
 import type { FiltroNotificacoes, Notificacao } from '../types/notificacao'
+import { formatSaoPauloDateTime } from '../../../utils/format'
 
 const props = withDefaults(defineProps<{
   titulo?: string
@@ -143,13 +144,6 @@ function categoria(tipo: string): string {
   return categorias[tipo] ?? 'Atualização'
 }
 
-function formatarData(data: string): string {
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(new Date(data))
-}
-
 watch(filtro, () => { void carregar() }, { immediate: true })
 onBeforeUnmount(() => { ++geracao; controller?.abort() })
 defineExpose({ recarregar: carregar })
@@ -208,7 +202,7 @@ defineExpose({ recarregar: carregar })
         <button class="notification-content" type="button" :disabled="!notificacao.referenciaId" @click="selecionar(notificacao)">
           <span class="notification-icon" aria-hidden="true"><i :class="icone(notificacao.tipo)" /></span>
           <span class="notification-copy">
-            <span class="notification-meta"><BaseBadge :label="categoria(notificacao.tipo)" /> <time :datetime="notificacao.criadoEm">{{ formatarData(notificacao.criadoEm) }}</time></span>
+            <span class="notification-meta"><BaseBadge :label="categoria(notificacao.tipo)" /> <time :datetime="notificacao.criadoEm">{{ formatSaoPauloDateTime(notificacao.criadoEm) }}</time></span>
             <strong>{{ notificacao.titulo }}</strong>
             <span v-if="notificacao.mensagem">{{ notificacao.mensagem }}</span>
           </span>

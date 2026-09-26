@@ -37,6 +37,7 @@ public class BearerTokenTestes
         usuario.UpdatePassword(new PasswordHasher<Usuario>().HashPassword(usuario, "senha"));
         await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, new ServicoEmpresaAtual(), new PublicadorEventosFake());
+        db.Parceiros.Add(Parceiro.CriarDesenvolvimento(usuario.TenantId, "00999888000177", "Parceiro Teste"));
         db.Users.Add(usuario);
         await db.SaveChangesAsync();
         var login = await new ServicoJwt(config, db).AutenticarAsync(usuario.Email, "senha");
@@ -71,7 +72,7 @@ public class BearerTokenTestes
         public Task<bool> UsuarioAtivoAsync(Guid usuarioId, CancellationToken ct = default)
             => Task.FromResult(true);
 
-        public Task<bool> EmpresaAtivaAsync(Guid empresaId, CancellationToken ct = default)
+        public Task<bool> ParceiroAtivoAsync(Guid parceiroId, CancellationToken ct = default)
             => Task.FromResult(true);
     }
 }

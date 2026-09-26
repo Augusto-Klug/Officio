@@ -9,6 +9,7 @@ public class Usuario : EntidadeAuditavel
     public string SenhaHash { get; private set; } = default!;
     public string Role { get; private set; } = default!;
     public bool Ativo { get; private set; } = true;
+    public Parceiro Parceiro { get; private set; } = default!;
 
     private Usuario() { }
 

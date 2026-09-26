@@ -38,8 +38,28 @@ export interface CriarSocioPayload {
 
 export interface CriarProspectoPayload {
   razaoSocial: string
+  nomeFantasia?: string | null
   cnpj: string | null
+  inscricaoEstadual?: string | null
+  inscricaoMunicipal?: string | null
+  tipoEmpresa?: string | null
   regimeTributario: RegimeTributario | null
+  porteEmpresa?: string | null
+  cnaePrincipal?: string | null
+  dataAbertura?: string | null
+  email?: string | null
+  telefone?: string | null
+  whatsapp?: string | null
+  nomeContato?: string | null
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cidade?: string | null
+  uf?: string | null
+  municipioCodigoIbge?: string | null
+  origem?: string | null
   socios: CriarSocioPayload[]
 }
 

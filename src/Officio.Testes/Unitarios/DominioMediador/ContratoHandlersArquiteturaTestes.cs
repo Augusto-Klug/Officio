@@ -1,6 +1,7 @@
 using System.Reflection;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarEmpresasContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
 
@@ -12,6 +13,7 @@ public class ContratoHandlersArquiteturaTestes
     {
         typeof(ConverterOrcamentoParaContratoHandler),
         typeof(ListarContratosHandler),
+        typeof(ListarEmpresasContratosHandler),
         typeof(ObterContratoPorIdHandler)
     };
 

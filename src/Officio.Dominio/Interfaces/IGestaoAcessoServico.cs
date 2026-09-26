@@ -5,10 +5,10 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IGestaoAcessoServico
 {
-    Task<Resultado<EmpresaOnboardingDto>> CriarEmpresaAdministradorAsync(CriarEmpresaAdministradorRequisicao requisicao, CancellationToken ct = default);
-    Task<Resultado<List<EmpresaPlataformaDto>>> ListarEmpresasAsync(CancellationToken ct = default);
-    Task<Resultado<bool>> AlterarStatusEmpresaAsync(Guid empresaId, bool ativa, CancellationToken ct = default);
-    Task<Resultado<ConviteCriadoDto>> ReenviarConviteAdministradorAsync(Guid empresaId, CancellationToken ct = default);
+    Task<Resultado<ParceiroOnboardingDto>> CriarParceiroAdministradorAsync(CriarParceiroAdministradorRequisicao requisicao, CancellationToken ct = default);
+    Task<Resultado<List<ParceiroPlataformaDto>>> ListarParceirosAsync(CancellationToken ct = default);
+    Task<Resultado<bool>> AlterarStatusParceiroAsync(Guid parceiroId, bool ativo, CancellationToken ct = default);
+    Task<Resultado<ConviteCriadoDto>> ReenviarConviteAdministradorAsync(Guid parceiroId, CancellationToken ct = default);
     Task<Resultado<List<UsuarioGestaoDto>>> ListarUsuariosAsync(CancellationToken ct = default);
     Task<Resultado<List<ConviteUsuarioDto>>> ListarConvitesAsync(CancellationToken ct = default);
     Task<Resultado<ConviteCriadoDto>> ConvidarUsuarioAsync(CriarConviteUsuarioRequisicao requisicao, CancellationToken ct = default);

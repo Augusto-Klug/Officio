@@ -32,6 +32,51 @@ internal class ProspectoRepositorio(
     public Task<Empresa?> ObterEmpresaPorCnpjAsync(string cnpj, CancellationToken cancellationToken = default)
         => Contexto.Empresas.FirstOrDefaultAsync(empresa => empresa.Cnpj == cnpj, cancellationToken);
 
+    public Task<Municipio?> ObterMunicipioPorCodigoIbgeAsync(
+        string codigoIbge,
+        CancellationToken cancellationToken = default)
+        => Contexto.Municipios
+            .Include(municipio => municipio.Estado)
+            .FirstOrDefaultAsync(
+                municipio => municipio.CodigoIbge == codigoIbge,
+                cancellationToken);
+
+    public Task<Municipio?> ObterMunicipioPorIdAsync(
+        Guid municipioId,
+        CancellationToken cancellationToken = default)
+        => Contexto.Municipios.FirstOrDefaultAsync(
+            municipio => municipio.Id == municipioId,
+            cancellationToken);
+
+    public Task<Estado?> ObterEstadoPorUfAsync(
+        string uf,
+        CancellationToken cancellationToken = default)
+        => Contexto.Estados.FirstOrDefaultAsync(
+            estado => estado.Sigla == uf,
+            cancellationToken);
+
+    public async Task<StatusCliente> ObterOuCriarStatusClienteAsync(
+        string codigo,
+        string descricao,
+        int ordem,
+        CancellationToken cancellationToken = default)
+    {
+        var statusLocal = Contexto.StatusClientes.Local
+            .FirstOrDefault(item => item.Codigo == codigo);
+        if (statusLocal is not null)
+            return statusLocal;
+
+        var status = await Contexto.StatusClientes
+            .FirstOrDefaultAsync(item => item.Codigo == codigo, cancellationToken);
+
+        if (status is not null)
+            return status;
+
+        status = new StatusCliente(codigo, descricao, ordem);
+        await Contexto.StatusClientes.AddAsync(status, cancellationToken);
+        return status;
+    }
+
     public IQueryable<Prospecto> MontarConsulta(bool rastreamento = true)
         => MontarConsulta<Prospecto>(rastreamento);
 
@@ -60,6 +105,15 @@ internal class ProspectoRepositorio(
 
     public async Task AdicionarAsync(Empresa empresa, CancellationToken cancellationToken = default)
         => await AdicionarAsync<Empresa>(empresa, cancellationToken);
+
+    public async Task AdicionarAsync(Estado estado, CancellationToken cancellationToken = default)
+        => await AdicionarAsync<Estado>(estado, cancellationToken);
+
+    public async Task AdicionarAsync(Municipio municipio, CancellationToken cancellationToken = default)
+        => await AdicionarAsync<Municipio>(municipio, cancellationToken);
+
+    public async Task AdicionarAsync(Endereco endereco, CancellationToken cancellationToken = default)
+        => await AdicionarAsync<Endereco>(endereco, cancellationToken);
 
     public async Task AdicionarSocioAsync(Socio socio, CancellationToken cancellationToken = default)
         => await AdicionarAsync<Socio>(socio, cancellationToken);

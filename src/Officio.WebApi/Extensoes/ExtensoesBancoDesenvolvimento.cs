@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Officio.Dominio.Entidades;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.WebApi.Desenvolvimento;
@@ -27,12 +29,32 @@ public static class ExtensoesBancoDesenvolvimento
 
         var schemaCriado = await contexto.Database.EnsureCreatedAsync();
 
+        if (schemaCriado && contexto.Database.IsRelational())
+            await RegistrarBaselineMigracoesAsync(contexto);
+
         if (!schemaCriado && !await TabelaUsuariosExisteAsync(contexto))
             throw new InvalidOperationException(
                 "O banco configurado existe, mas nao contem o schema base do Officio. " +
                 "Para teste local, remova esse banco ou use outro nome em ConnectionStrings:DefaultConnection e suba a API novamente. " +
                 "Nao execute as migrations incrementais em uma base vazia.");
 
+    }
+
+    private static async Task RegistrarBaselineMigracoesAsync(ContextoAplicacao contexto)
+    {
+        var repositorioHistorico = contexto.GetService<IHistoryRepository>();
+        var assemblyMigracoes = contexto.GetService<IMigrationsAssembly>();
+
+        await using var transacao = await contexto.Database.BeginTransactionAsync();
+        await contexto.Database.ExecuteSqlRawAsync(repositorioHistorico.GetCreateIfNotExistsScript());
+
+        foreach (var migrationId in assemblyMigracoes.Migrations.Keys.OrderBy(id => id))
+        {
+            var linha = new HistoryRow(migrationId, ProductInfo.GetVersion());
+            await contexto.Database.ExecuteSqlRawAsync(repositorioHistorico.GetInsertScript(linha));
+        }
+
+        await transacao.CommitAsync();
     }
 
     private static async Task<bool> TabelaUsuariosExisteAsync(ContextoAplicacao contexto)

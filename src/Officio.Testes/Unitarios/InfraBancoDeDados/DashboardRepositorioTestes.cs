@@ -42,7 +42,9 @@ public class DashboardRepositorioTestes
         string razaoSocial,
         decimal valor)
     {
-        var prospecto = Prospecto.Create(tenantId, razaoSocial, null, null);
+        var empresa = Empresa.CriarConstituida(tenantId, "11222333000144", razaoSocial);
+        var prospecto = Prospecto.Create(tenantId, razaoSocial, "11222333000144", null);
+        prospecto.VincularEmpresa(empresa.Id);
         var cliente = Cliente.CreateFromProspect(prospecto);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Mensalidade", 10, null);
         orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
@@ -90,6 +92,7 @@ public class DashboardRepositorioTestes
             valor,
             0m);
 
+        contexto.Empresas.Add(empresa);
         contexto.Prospects.Add(prospecto);
         contexto.Clients.Add(cliente);
         contexto.Budgets.Add(orcamento);

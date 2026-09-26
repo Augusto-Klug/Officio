@@ -17,39 +17,39 @@ public class GestaoAcessoServico(
     IServicoEmail servicoEmail,
     IConfiguration configuracao) : IGestaoAcessoServico
 {
-    public async Task<Resultado<EmpresaOnboardingDto>> CriarEmpresaAdministradorAsync(
-        CriarEmpresaAdministradorRequisicao requisicao,
+    public async Task<Resultado<ParceiroOnboardingDto>> CriarParceiroAdministradorAsync(
+        CriarParceiroAdministradorRequisicao requisicao,
         CancellationToken ct = default)
     {
         var cnpj = SomenteDigitos(requisicao.Cnpj);
         var email = NormalizarEmail(requisicao.EmailAdministrador);
-        if (await repositorio.EmpresaExistePorCnpjAsync(cnpj, ct))
-            return Resultado<EmpresaOnboardingDto>.CriarFalha("Ja existe uma empresa com este CNPJ.");
+        if (await repositorio.ParceiroExistePorCnpjAsync(cnpj, ct))
+            return Resultado<ParceiroOnboardingDto>.CriarFalha("Ja existe um parceiro com este CNPJ.");
         if (await repositorio.UsuarioExistePorEmailAsync(email, ct))
-            return Resultado<EmpresaOnboardingDto>.CriarFalha("Ja existe um usuario com este e-mail.");
+            return Resultado<ParceiroOnboardingDto>.CriarFalha("Ja existe um usuario com este e-mail.");
 
-        var empresa = Empresa.CriarConstituida(
+        var parceiro = Parceiro.Criar(
             cnpj,
             requisicao.RazaoSocial.Trim(),
             LimparOpcional(requisicao.NomeFantasia),
-            email: LimparOpcional(requisicao.EmailEmpresa));
+            email: LimparOpcional(requisicao.EmailParceiro));
         var token = GerarToken();
         var expiraEm = DateTime.UtcNow.AddHours(ObterHoras("Acesso:ConviteExpiracaoHoras", 48));
         var convite = ConviteUsuario.Criar(
-            empresa.Id,
+            parceiro.Id,
             requisicao.NomeAdministrador.Trim(),
             email,
             PerfisAcesso.Admin,
             GerarHashToken(token),
             expiraEm);
 
-        await repositorio.AdicionarAsync(empresa, ct);
+        await repositorio.AdicionarAsync(parceiro, ct);
         await repositorio.AdicionarAsync(convite, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
         await EnviarConviteAsync(convite, token, ct);
 
-        return Resultado<EmpresaOnboardingDto>.CriarSucesso(
-            new EmpresaOnboardingDto(empresa.Id, convite.Id, convite.Email, convite.ExpiraEm));
+        return Resultado<ParceiroOnboardingDto>.CriarSucesso(
+            new ParceiroOnboardingDto(parceiro.Id, convite.Id, convite.Email, convite.ExpiraEm));
     }
 
     public async Task<Resultado<List<UsuarioGestaoDto>>> ListarUsuariosAsync(CancellationToken ct = default)
@@ -67,50 +67,50 @@ public class GestaoAcessoServico(
             .ToList());
     }
 
-    public async Task<Resultado<List<EmpresaPlataformaDto>>> ListarEmpresasAsync(CancellationToken ct = default)
+    public async Task<Resultado<List<ParceiroPlataformaDto>>> ListarParceirosAsync(CancellationToken ct = default)
     {
-        var empresas = await repositorio.ListarEmpresasAsync(ct);
-        var resultado = new List<EmpresaPlataformaDto>(empresas.Count);
+        var parceiros = await repositorio.ListarParceirosAsync(ct);
+        var resultado = new List<ParceiroPlataformaDto>(parceiros.Count);
 
-        foreach (var empresa in empresas)
+        foreach (var parceiro in parceiros)
         {
-            var convite = await repositorio.ObterConviteAdministradorAsync(empresa.Id, ct);
-            resultado.Add(new EmpresaPlataformaDto(
-                empresa.Id,
-                empresa.RazaoSocial,
-                empresa.NomeFantasia,
-                empresa.Cnpj,
-                empresa.Ativo,
-                empresa.CriadoEm,
-                await repositorio.ContarUsuariosAsync(empresa.Id, ct),
+            var convite = await repositorio.ObterConviteAdministradorAsync(parceiro.Id, ct);
+            resultado.Add(new ParceiroPlataformaDto(
+                parceiro.Id,
+                parceiro.RazaoSocial,
+                parceiro.NomeFantasia,
+                parceiro.Cnpj ?? string.Empty,
+                parceiro.Ativo,
+                parceiro.CriadoEm,
+                await repositorio.ContarUsuariosAsync(parceiro.Id, ct),
                 convite?.Email));
         }
 
-        return Resultado<List<EmpresaPlataformaDto>>.CriarSucesso(resultado);
+        return Resultado<List<ParceiroPlataformaDto>>.CriarSucesso(resultado);
     }
 
-    public async Task<Resultado<bool>> AlterarStatusEmpresaAsync(
-        Guid empresaId,
-        bool ativa,
+    public async Task<Resultado<bool>> AlterarStatusParceiroAsync(
+        Guid parceiroId,
+        bool ativo,
         CancellationToken ct = default)
     {
-        var empresa = await repositorio.ObterEmpresaAsync(empresaId, ct);
-        if (empresa is null)
-            return Resultado<bool>.CriarFalha("Empresa nao encontrada.");
+        var parceiro = await repositorio.ObterParceiroAsync(parceiroId, ct);
+        if (parceiro is null)
+            return Resultado<bool>.CriarFalha("Parceiro nao encontrado.");
 
-        empresa.AlterarStatus(ativa);
+        parceiro.AlterarStatus(ativo);
         await repositorio.SalvarAlteracoesAsync(ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
     public async Task<Resultado<ConviteCriadoDto>> ReenviarConviteAdministradorAsync(
-        Guid empresaId,
+        Guid parceiroId,
         CancellationToken ct = default)
     {
-        if (await repositorio.ObterEmpresaAsync(empresaId, ct) is null)
-            return Resultado<ConviteCriadoDto>.CriarFalha("Empresa nao encontrada.");
+        if (await repositorio.ObterParceiroAsync(parceiroId, ct) is null)
+            return Resultado<ConviteCriadoDto>.CriarFalha("Parceiro nao encontrado.");
 
-        var convite = await repositorio.ObterConviteAdministradorAsync(empresaId, ct);
+        var convite = await repositorio.ObterConviteAdministradorAsync(parceiroId, ct);
         if (convite is null)
             return Resultado<ConviteCriadoDto>.CriarFalha("Convite do administrador nao encontrado.");
         if (convite.AceitoEm is not null || await repositorio.UsuarioExistePorEmailAsync(convite.Email, ct))
@@ -214,11 +214,9 @@ public class GestaoAcessoServico(
 
         var usuario = Usuario.Create(convite.TenantId, convite.Nome, convite.Email, string.Empty, convite.Perfil);
         usuario.UpdatePassword(servicoSenha.GerarHash(usuario, requisicao.Senha));
-        var vinculo = UsuarioEmpresa.Criar(usuario.Id, convite.TenantId);
         convite.Aceitar(agora);
 
         await repositorio.AdicionarAsync(usuario, ct);
-        await repositorio.AdicionarAsync(vinculo, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
         return Resultado<bool>.CriarSucesso(true);
     }
@@ -252,8 +250,6 @@ public class GestaoAcessoServico(
             return Resultado<bool>.CriarFalha("A empresa deve manter ao menos um administrador ativo.");
 
         usuario.AlterarStatus(ativo);
-        var vinculo = await repositorio.ObterVinculoAsync(usuario.Id, empresaAtual.TenantId, ct);
-        vinculo?.AlterarStatus(ativo);
         await repositorio.SalvarAlteracoesAsync(ct);
         return Resultado<bool>.CriarSucesso(true);
     }

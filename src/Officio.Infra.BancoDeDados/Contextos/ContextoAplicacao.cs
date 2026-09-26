@@ -13,6 +13,7 @@ public class ContextoAplicacao(
     IPublisher publisher,
     IContextoAuditoria? contextoAuditoria = null) : DbContext(options)
 {
+    public DbSet<Parceiro> Parceiros => Set<Parceiro>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Usuario> Users => Set<Usuario>();
     public DbSet<Prospecto> Prospects => Set<Prospecto>();
@@ -27,6 +28,7 @@ public class ContextoAplicacao(
     public DbSet<Assinatura> Signatures => Set<Assinatura>();
     public DbSet<ItemOrcamento> BudgetItems => Set<ItemOrcamento>();
     public DbSet<ItemCatalogoOrcamento> BudgetCatalogItems => Set<ItemCatalogoOrcamento>();
+    public DbSet<Estado> Estados => Set<Estado>();
     public DbSet<Municipio> Municipios => Set<Municipio>();
     public DbSet<Endereco> Enderecos => Set<Endereco>();
     public DbSet<Pessoa> Pessoas => Set<Pessoa>();
@@ -84,6 +86,10 @@ public class ContextoAplicacao(
             entity.Property(usuario => usuario.Nome).HasMaxLength(200).IsRequired();
             entity.Property(usuario => usuario.SenhaHash).HasMaxLength(500).IsRequired();
             entity.Property(usuario => usuario.Role).HasMaxLength(50).IsRequired();
+            entity.HasOne(usuario => usuario.Parceiro)
+                .WithMany(parceiro => parceiro.Usuarios)
+                .HasForeignKey(usuario => usuario.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<ConviteUsuario>(entity =>
@@ -95,6 +101,10 @@ public class ContextoAplicacao(
             entity.Property(convite => convite.TokenHash).HasMaxLength(64).IsRequired();
             entity.HasIndex(convite => convite.TokenHash).IsUnique();
             entity.HasIndex(convite => new { convite.TenantId, convite.Email });
+            entity.HasOne<Parceiro>()
+                .WithMany()
+                .HasForeignKey(convite => convite.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<TokenRedefinicaoSenha>(entity =>

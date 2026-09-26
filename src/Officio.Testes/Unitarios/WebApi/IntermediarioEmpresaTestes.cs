@@ -106,7 +106,7 @@ public class IntermediarioEmpresaTestes
     {
         var chamado = false;
         var contexto = new DefaultHttpContext();
-        contexto.Request.Path = "/api/v1/admin/empresas";
+        contexto.Request.Path = "/api/v1/admin/parceiros";
         contexto.User = new ClaimsPrincipal(new ClaimsIdentity(
             [
                 new Claim(ClaimTypes.Role, "PlatformAdmin"),
@@ -130,7 +130,7 @@ public class IntermediarioEmpresaTestes
     public async Task InvokeAsync_AdminGlobalBloqueiaAnonimoEAdminTenant(string? perfil, int statusEsperado)
     {
         var contexto = new DefaultHttpContext();
-        contexto.Request.Path = "/api/v1/admin/empresas";
+        contexto.Request.Path = "/api/v1/admin/parceiros";
         if (perfil is not null)
             contexto.User = new ClaimsPrincipal(new ClaimsIdentity(
                 [
@@ -166,7 +166,7 @@ public class IntermediarioEmpresaTestes
         public Task<bool> UsuarioAtivoAsync(Guid usuarioId, CancellationToken ct = default)
             => Task.FromResult(usuarioAtivo);
 
-        public Task<bool> EmpresaAtivaAsync(Guid empresaId, CancellationToken ct = default)
+        public Task<bool> ParceiroAtivoAsync(Guid parceiroId, CancellationToken ct = default)
             => Task.FromResult(empresaAtiva);
     }
 }

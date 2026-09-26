@@ -1,10 +1,10 @@
 namespace Officio.Dominio.Contratos;
 
-public record CriarEmpresaAdministradorRequisicao(
+public record CriarParceiroAdministradorRequisicao(
     string Cnpj,
     string RazaoSocial,
     string? NomeFantasia,
-    string? EmailEmpresa,
+    string? EmailParceiro,
     string NomeAdministrador,
     string EmailAdministrador);
 
@@ -14,14 +14,14 @@ public record AceitarConviteRequisicao(string Token, string Senha);
 
 public record RedefinirSenhaRequisicao(string Token, string Senha);
 
-public record EmpresaOnboardingDto(Guid EmpresaId, Guid ConviteId, string EmailAdministrador, DateTime ExpiraEm);
+public record ParceiroOnboardingDto(Guid ParceiroId, Guid ConviteId, string EmailAdministrador, DateTime ExpiraEm);
 
-public record EmpresaPlataformaDto(
+public record ParceiroPlataformaDto(
     Guid Id,
     string RazaoSocial,
     string? NomeFantasia,
     string Cnpj,
-    bool Ativa,
+    bool Ativo,
     DateTime CriadaEm,
     int QuantidadeUsuarios,
     string? AdministradorEmail);

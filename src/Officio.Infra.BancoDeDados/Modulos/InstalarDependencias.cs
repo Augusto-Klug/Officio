@@ -22,9 +22,10 @@ public static class InstalarDependenciasBancoDeDados
         servicos.AddScoped<DbContext>(sp => sp.GetRequiredService<ContextoAplicacao>());
         servicos.AddScoped<IRepositorioBase<ContextoAplicacao, Guid>, RepositorioBase<ContextoAplicacao, Guid>>();
         servicos.AddScoped<IProspectoRepositorio, ProspectoRepositorio>();
+        servicos.AddScoped<ILocalidadeRepositorio, LocalidadeRepositorio>();
         servicos.AddScoped<IDocumentoRepositorio, DocumentoRepositorio>();
         servicos.AddScoped<IContratoRepositorio, ContratoRepositorio>();
-        servicos.AddScoped<IEmpresaRepositorio, EmpresaRepositorio>();
+        servicos.AddScoped<IParceiroRepositorio, ParceiroRepositorio>();
         servicos.AddScoped<IOrcamentoRepositorio, OrcamentoRepositorio>();
         servicos.AddScoped<IClienteRepositorio, ClienteRepositorio>();
         servicos.AddScoped<INotificacaoRepositorio, NotificacaoRepositorio>();

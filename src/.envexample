@@ -1,11 +1,30 @@
+# Banco SQL Server. A connection string base esta em appsettings.Development.json.
+Database__Password=
+
+# Autenticacao JWT.
+Jwt__Key=
+
+# Armazenamento de arquivos. UseDevelopmentStorage=true requer o Azurite em execucao.
+ConnectionStrings__AzureBlobStorage=UseDevelopmentStorage=true
+
+# OCR Azure e opcional. Sem estes valores, o servico de OCR fica indisponivel.
+AzureOcr__Endpoint=
+AzureOcr__Key=
+
+# Assinatura digital Autentique.
 Autentique__BaseUrl=https://api.autentique.com.br/v2/graphql
 Autentique__ApiToken=
 Autentique__WebhookSecret=
+Autentique__Sandbox=true
 Autentique__OrganizationId=
 Autentique__FolderId=
+
+# Links enviados por convite e redefinicao de senha.
 Acesso__FrontendBaseUrl=http://localhost:5173
 Acesso__ConviteExpiracaoHoras=48
 Acesso__RedefinicaoSenhaExpiracaoHoras=1
+
+# Em desenvolvimento, true registra o conteudo dos e-mails no log.
 Email__ExporConteudoNoLog=false
 Email__Smtp__Host=
 Email__Smtp__Port=587
@@ -13,9 +32,16 @@ Email__Smtp__EnableSsl=true
 Email__Smtp__From=
 Email__Smtp__User=
 Email__Smtp__Password=
+
+# Criacao idempotente do contexto e usuario iniciais em Development.
+# PlatformAdmin administra parceiros; Admin administra usuarios de um unico parceiro.
 BootstrapUser__Enabled=false
 BootstrapUser__TenantId=
+BootstrapUser__TenantNome=
+BootstrapUser__TenantCnpj=
+BootstrapUser__TenantNomeFantasia=
+BootstrapUser__TenantEmail=
 BootstrapUser__Nome=
 BootstrapUser__Email=
 BootstrapUser__Password=
-BootstrapUser__Role=Admin
+BootstrapUser__Role=PlatformAdmin
