@@ -177,7 +177,7 @@ public class ContratoServicoTestes
     }
 
     [Fact]
-    public async Task GerarPdfAsync_ComContratoVinculadoAoProspecto_UsaDadosDoProspecto()
+    public async Task GerarPdfAsync_ComEmpresaGeradaDoProspecto_UsaDadosCadastrais()
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
@@ -188,6 +188,8 @@ public class ContratoServicoTestes
             "Empresa Prospect",
             "11222333000144",
             RegimeTributario.SimplesNacional);
+        var empresa = Empresa.CriarDoProspecto(prospecto);
+        prospecto.VincularEmpresa(empresa.Id);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
         orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
             tenantId,
@@ -208,6 +210,7 @@ public class ContratoServicoTestes
             true,
             null);
         contexto.Parceiros.Add(parceiro);
+        contexto.Empresas.Add(empresa);
         contexto.Prospects.Add(prospecto);
         contexto.Budgets.Add(orcamento);
         contexto.Contracts.Add(contrato);
