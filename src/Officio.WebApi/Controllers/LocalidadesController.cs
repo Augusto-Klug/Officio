@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Localidades.Consultas.ConsultarCep;
 using Officio.Dominio.Mediador.Funcionalidades.Localidades.Consultas.ListarEstados;
@@ -13,6 +14,8 @@ namespace Officio.WebApi.Controllers;
 public sealed class LocalidadesController(IMediator mediator) : ControllerBase
 {
     [HttpGet("estados")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> ListarEstados(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarEstadosConsulta(), cancellationToken);
@@ -20,6 +23,8 @@ public sealed class LocalidadesController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("estados/{uf}/municipios")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ListarMunicipios(string uf, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarMunicipiosConsulta(uf), cancellationToken);
@@ -27,6 +32,10 @@ public sealed class LocalidadesController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("cep/{cep}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> ConsultarCep(string cep, CancellationToken cancellationToken)
     {
         if (new string(cep.Where(char.IsDigit).ToArray()).Length != 8)

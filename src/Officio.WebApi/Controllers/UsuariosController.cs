@@ -19,14 +19,18 @@ namespace Officio.WebApi.Controllers;
 public class UsuariosController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(200)]
     public async Task<IActionResult> Listar(CancellationToken cancellationToken)
         => Ok((await mediator.Send(new ListarUsuariosConsulta(), cancellationToken)).Valor);
 
     [HttpGet("convites")]
+    [ProducesResponseType(200)]
     public async Task<IActionResult> ListarConvites(CancellationToken cancellationToken)
         => Ok((await mediator.Send(new ListarConvitesConsulta(), cancellationToken)).Valor);
 
     [HttpPost("convites")]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Convidar(
         [FromBody] ConvidarUsuarioViewModel viewModel,
         CancellationToken cancellationToken)
@@ -40,14 +44,20 @@ public class UsuariosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("convites/{conviteId:guid}/reenviar")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Reenviar(Guid conviteId, CancellationToken cancellationToken)
         => Resultado(await mediator.Send(new ReenviarConviteComando(conviteId), cancellationToken));
 
     [HttpPost("convites/{conviteId:guid}/cancelar")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Cancelar(Guid conviteId, CancellationToken cancellationToken)
         => Resultado(await mediator.Send(new CancelarConviteComando(conviteId), cancellationToken));
 
     [HttpPatch("{usuarioId:guid}/perfil")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> AlterarPerfil(
         Guid usuarioId,
         [FromBody] AlterarPerfilUsuarioViewModel viewModel,
@@ -56,6 +66,8 @@ public class UsuariosController(IMediator mediator) : ControllerBase
             new AlterarPerfilUsuarioComando(usuarioId, viewModel.Perfil), cancellationToken));
 
     [HttpPatch("{usuarioId:guid}/status")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> AlterarStatus(
         Guid usuarioId,
         [FromBody] AlterarStatusUsuarioViewModel viewModel,

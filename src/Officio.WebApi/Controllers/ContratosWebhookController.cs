@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.WebApi.Servicos.Webhooks;
@@ -14,6 +15,9 @@ public class ContratosWebhookController(
     IConfiguration configuration) : ControllerBase
 {
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Receber(CancellationToken cancellationToken)
     {
         using var reader = new StreamReader(Request.Body, Encoding.UTF8);

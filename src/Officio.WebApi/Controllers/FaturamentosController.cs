@@ -18,6 +18,8 @@ namespace Officio.WebApi.Controllers;
 public class FaturamentosController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Listar(
         [FromQuery] DateOnly? competencia,
         [FromQuery] string? status,
@@ -28,6 +30,8 @@ public class FaturamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> GerarCompetencia(
         [FromBody] GerarFaturamentoCompetenciaViewModel viewModel,
         CancellationToken cancellationToken)
@@ -39,6 +43,8 @@ public class FaturamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> RecalcularCompetencia(
         [FromBody] GerarFaturamentoCompetenciaViewModel viewModel,
         CancellationToken cancellationToken)
@@ -50,6 +56,8 @@ public class FaturamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Resumo(
         [FromQuery] DateOnly competencia,
         CancellationToken cancellationToken)
@@ -61,6 +69,8 @@ public class FaturamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> FecharCompetencia(
         [FromBody] GerarFaturamentoCompetenciaViewModel viewModel,
         CancellationToken cancellationToken)
@@ -72,6 +82,8 @@ public class FaturamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Fechar(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new FecharFaturamentoComando(id), cancellationToken);
@@ -79,6 +91,8 @@ public class FaturamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Cancelar(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new CancelarFaturamentoComando(id), cancellationToken);

@@ -19,6 +19,8 @@ public class ContratosController(
     IContratoViewModelConversor contratoViewModelConversor) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Listar(
         [FromQuery] Guid? empresaId,
         CancellationToken cancellationToken)
@@ -28,6 +30,8 @@ public class ContratosController(
     }
 
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> ListarEmpresas(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarEmpresasContratosConsulta(), cancellationToken);
@@ -35,6 +39,9 @@ public class ContratosController(
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterContratoPorIdConsulta(id), cancellationToken);
@@ -42,6 +49,9 @@ public class ContratosController(
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> GerarPdf(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new GerarPdfContratoComando(id), cancellationToken);
@@ -49,6 +59,9 @@ public class ContratosController(
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> ObterPdfAssinado(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterPdfAssinadoContratoConsulta(id), cancellationToken);
@@ -56,6 +69,9 @@ public class ContratosController(
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> EnviarParaAssinatura(
         Guid id,
         [FromBody] EnviarAssinaturaViewModel viewModel,

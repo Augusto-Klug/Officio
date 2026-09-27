@@ -25,6 +25,8 @@ namespace Officio.WebApi.Controllers;
 public class AdmissoesController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Listar(
         [FromQuery] Guid? clienteId,
         [FromQuery] string? status,
@@ -38,6 +40,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterAdmissaoPorIdConsulta(id), cancellationToken);
@@ -45,6 +50,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CriarManual(
         [FromBody] CriarAdmissaoManualViewModel viewModel,
         CancellationToken cancellationToken)
@@ -56,6 +64,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Atualizar(
         Guid id,
         [FromBody] AtualizarAdmissaoViewModel viewModel,
@@ -66,6 +77,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Concluir(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ConcluirAdmissaoComando(id), cancellationToken);
@@ -73,6 +87,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Cancelar(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new CancelarAdmissaoComando(id), cancellationToken);
@@ -80,6 +97,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GerarLinkFicha(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new GerarLinkFichaAdmissaoComando(id), cancellationToken);
@@ -87,6 +107,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevogarLinkFicha(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new RevogarLinkFichaAdmissaoComando(id), cancellationToken);
@@ -94,6 +117,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ListarDocumentos(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarDocumentosAdmissaoConsulta(id), cancellationToken);
@@ -102,6 +128,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
 
     [HttpPost("{id:guid}/itens/{itemId:guid}")]
     [Consumes("multipart/form-data")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> EnviarDocumento(
         Guid id,
         Guid itemId,
@@ -127,6 +156,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{id:guid}/itens/{itemId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ObterUrlDocumento(
         Guid id,
         Guid itemId,
@@ -138,6 +170,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}/itens/{itemId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ValidarDocumento(
         Guid id,
         Guid itemId,
@@ -149,6 +184,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}/itens/{itemId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AprovarDocumento(
         Guid id,
         Guid itemId,
@@ -162,6 +200,9 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpDelete("{id:guid}/itens/{itemId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoverDocumento(
         Guid id,
         Guid itemId,

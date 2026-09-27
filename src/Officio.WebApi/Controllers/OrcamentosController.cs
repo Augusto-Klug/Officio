@@ -18,6 +18,9 @@ namespace Officio.WebApi.Controllers;
 public class OrcamentosController(IMediator mediator) : ControllerBase
 {
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterOrcamentoPorIdConsulta(id), cancellationToken);
@@ -26,6 +29,9 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{prospectoId:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> PorProspecto(Guid prospectoId, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(
@@ -36,6 +42,8 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Criar(
         [FromBody] CriarOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
@@ -51,6 +59,9 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> Atualizar(
         Guid id,
         [FromBody] AtualizarOrcamentoViewModel viewModel,
@@ -65,6 +76,9 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> AlterarStatus(
         Guid id,
         [FromBody] AlterarStatusOrcamentoViewModel viewModel,
@@ -79,6 +93,9 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> Aceitar(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new AceitarOrcamentoComando(id), cancellationToken);
@@ -87,6 +104,9 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> ConverterParaContrato(
         Guid id,
         [FromBody] ConverterOrcamentoParaContratoViewModel viewModel,
@@ -100,6 +120,9 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> Recusar(
         Guid id,
         [FromBody] RecusarOrcamentoViewModel viewModel,
@@ -114,6 +137,8 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Catalogo(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarCatalogoOrcamentoConsulta(), cancellationToken);
@@ -122,6 +147,8 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> CriarItemCatalogo(
         [FromBody] CriarItemCatalogoOrcamentoViewModel viewModel,
         CancellationToken cancellationToken)
@@ -137,6 +164,9 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> AtualizarItemCatalogo(
         Guid id,
         [FromBody] AtualizarItemCatalogoOrcamentoViewModel viewModel,
@@ -151,10 +181,16 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public Task<IActionResult> AtivarItemCatalogo(Guid id, CancellationToken cancellationToken)
         => AlterarAtivoItemCatalogo(id, true, cancellationToken);
 
     [HttpPatch("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public Task<IActionResult> DesativarItemCatalogo(Guid id, CancellationToken cancellationToken)
         => AlterarAtivoItemCatalogo(id, false, cancellationToken);
 
