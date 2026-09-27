@@ -10,6 +10,7 @@ using Officio.Dominio.Entidades;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Seguranca;
 using Officio.Infra.BancoDeDados.Contextos;
+using Officio.WebApi.Servicos.Webhooks;
 
 namespace Officio.Testes.Integracao.Infraestrutura;
 
@@ -18,6 +19,7 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
     private readonly string banco = $"officio-integracao-{Guid.NewGuid()}";
 
     public ServicoEmailFake ServicoEmail { get; } = new();
+    public FilaWebhookAutentiqueFake FilaWebhook { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -35,7 +37,8 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
                 ["Jwt:Issuer"] = "Officio.IntegrationTests",
                 ["Jwt:Audience"] = "Officio.IntegrationTests",
                 ["Database:EnsureCreatedOnStartup"] = "false",
-                ["Email:ExporConteudoNoLog"] = "false"
+                ["Email:ExporConteudoNoLog"] = "false",
+                ["Autentique:WebhookSecret"] = "segredo-webhook-integracao"
             });
         });
 
@@ -52,12 +55,15 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
             services.AddSingleton<IServicoEmail>(ServicoEmail);
             services.RemoveAll<IServicoArmazenamento>();
             services.AddSingleton<IServicoArmazenamento, ServicoArmazenamentoFake>();
+            services.RemoveAll<IFilaWebhookAutentique>();
+            services.AddSingleton<IFilaWebhookAutentique>(FilaWebhook);
         });
     }
 
     public async Task ReiniciarBancoAsync()
     {
         ServicoEmail.Limpar();
+        FilaWebhook.Limpar();
 
         using var scope = Services.CreateScope();
         var contexto = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
