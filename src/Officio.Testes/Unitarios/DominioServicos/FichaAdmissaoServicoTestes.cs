@@ -82,7 +82,7 @@ public class FichaAdmissaoServicoTestes
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.Equal(cenario.TenantId, cenario.EmpresaAtual.TenantId);
         Assert.Equal("Empresa Teste", resultado.Valor!.EmpresaNome);
-        Assert.Equal(4, resultado.Valor.Documentos.Count);
+        Assert.Equal(7, resultado.Valor.Documentos.Count);
     }
 
     [Fact]
@@ -159,8 +159,10 @@ public class FichaAdmissaoServicoTestes
     {
         var admissao = await contexto.Admissoes
             .Include(item => item.Documentos)
+                .ThenInclude(item => item.TipoDocumento)
             .SingleAsync(item => item.Id == cenario.AdmissaoId);
-        foreach (var item in admissao.Documentos.Where(item => item.Obrigatorio))
+        foreach (var item in admissao.Documentos.Where(item =>
+                     item.Obrigatorio || item.TipoDocumento.Codigo == "IDENTIDADE"))
         {
             var documento = Documento.CriarAdmissao(
                 cenario.TenantId, admissao.Id, admissao.EmpresaId, item.TipoDocumentoId,

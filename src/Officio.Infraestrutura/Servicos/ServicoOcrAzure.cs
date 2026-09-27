@@ -1,5 +1,5 @@
 using Azure;
-using Azure.AI.FormRecognizer.DocumentAnalysis;
+using Azure.AI.DocumentIntelligence;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Enumeradores;
 using Microsoft.Extensions.Logging;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Officio.Infraestrutura.Servicos;
 
 public class ServicoOcrAzure(
-    DocumentAnalysisClient azureClient,
+    DocumentIntelligenceClient azureClient,
     ILogger<ServicoOcrAzure> logger) : IServicoOcr
 {
     public async Task<ResultadoOcr> AnalisarDocumentoAsync(
@@ -15,27 +15,18 @@ public class ServicoOcrAzure(
         TipoDocumento type,
         CancellationToken ct = default)
     {
-        var modelId = type switch
-        {
-            TipoDocumento.CartaoCnpj => "prebuilt-document",
-            TipoDocumento.RgSocio => "prebuilt-idDocument",
-            TipoDocumento.CnhSocio => "prebuilt-idDocument",
-            TipoDocumento.ContratoSocial => "prebuilt-document",
-            TipoDocumento.Identidade => "prebuilt-idDocument",
-            TipoDocumento.Cpf => "prebuilt-idDocument",
-            TipoDocumento.ComprovanteResidencia => "prebuilt-document",
-            TipoDocumento.CarteiraTrabalho => "prebuilt-document",
-            _ => "prebuilt-document"
-        };
+        var modelId = ObterModelo(type);
 
         try
         {
+            var conteudo = await BinaryData.FromStreamAsync(documentStream, ct);
+            var opcoes = CriarOpcoes(type, conteudo);
+
             var operation = await azureClient
                 .AnalyzeDocumentAsync(
                     WaitUntil.Completed,
-                    modelId,
-                    documentStream,
-                    cancellationToken: ct);
+                    opcoes,
+                    ct);
 
             var result = operation.Value;
 
@@ -51,6 +42,17 @@ public class ServicoOcrAzure(
                         par.Key.Content,
                         par.Value!.Content,
                         (decimal)par.Confidence)))
+                .Concat(result.Pages.SelectMany((pagina, indicePagina) =>
+                {
+                    var confiancaPagina = pagina.Words.Count > 0
+                        ? Convert.ToDecimal(pagina.Words.Average(palavra => palavra.Confidence))
+                        : 0m;
+
+                    return pagina.Lines.Select((linha, indiceLinha) => new CampoOcrBruto(
+                        $"__linha_{indicePagina}_{indiceLinha}",
+                        linha.Content,
+                        confiancaPagina));
+                }))
                 .ToList();
 
             var fields = NormalizadorCamposOcr.Normalizar(type, camposBrutos);
@@ -58,20 +60,50 @@ public class ServicoOcrAzure(
                 ? result.Documents.Average(documento => documento.Confidence)
                 : result.KeyValuePairs.Count > 0
                     ? result.KeyValuePairs.Average(par => par.Confidence)
-                    : 0;
+                    : result.Pages.SelectMany(pagina => pagina.Words).Select(palavra => palavra.Confidence)
+                        .DefaultIfEmpty(0f)
+                        .Average();
 
             return ResultadoOcr.CriarSucesso(
                 fields.Valores,
                 (decimal)confidence,
-                modelId,
+                DescreverModelo(modelId),
                 fields.Confiancas);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Erro ao processar OCR para {TipoDocumento}", type);
-            return ResultadoOcr.CriarFalha("Serviço de OCR indisponível.");
+            logger.LogWarning(ex, "OCR Azure indisponivel para {TipoDocumento}", type);
+            return ResultadoOcr.CriarFalha(
+                "Servico de OCR indisponivel.",
+                DescreverModelo(modelId));
         }
     }
+
+    internal static AnalyzeDocumentOptions CriarOpcoes(TipoDocumento tipo, BinaryData conteudo)
+    {
+        var modelo = ObterModelo(tipo);
+        var opcoes = new AnalyzeDocumentOptions(modelo, conteudo);
+        if (modelo == "prebuilt-layout")
+        {
+            opcoes.Locale = "pt-BR";
+            opcoes.Features.Add(DocumentAnalysisFeature.KeyValuePairs);
+        }
+
+        return opcoes;
+    }
+
+    private static string ObterModelo(TipoDocumento tipo)
+        => tipo is TipoDocumento.Identidade or TipoDocumento.RgSocio or
+            TipoDocumento.Cnh or TipoDocumento.CnhSocio
+            ? "prebuilt-idDocument"
+            : "prebuilt-layout";
+
+    private static string DescreverModelo(string modelo)
+        => modelo == "prebuilt-layout" ? $"{modelo}:keyValuePairs" : modelo;
 }
 
 

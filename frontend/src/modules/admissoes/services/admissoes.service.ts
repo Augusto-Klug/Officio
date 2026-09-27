@@ -118,6 +118,8 @@ function normalizeDocumento(value: unknown): AdmissaoDocumento {
     mensagemValidacao: optionalString(field(item, 'mensagemValidacao')),
     camposExtraidos: normalizeCamposExtraidos(field(item, 'camposExtraidos')),
     divergencias: normalizeDivergencias(field(item, 'divergencias')),
+    tipoDocumentoDetectado: optionalString(field(item, 'tipoDocumentoDetectado')),
+    tipoDocumentoIncompativel: optionalBoolean(field(item, 'tipoDocumentoIncompativel')) ?? false,
   }
 }
 
@@ -159,9 +161,9 @@ export async function listarDocumentosAdmissao(id: string): Promise<AdmissaoDocu
   return normalizeDocumentosAdmissao(data)
 }
 
-export async function enviarDocumentoAdmissao(id: string, itemId: string, arquivo: File): Promise<void> {
+export async function enviarDocumentoAdmissao(id: string, itemId: string, arquivos: File[]): Promise<void> {
   const form = new FormData()
-  form.append('arquivo', arquivo)
+  arquivos.forEach((arquivo) => form.append('arquivos', arquivo))
   await http.post(`/v1/admissoes/EnviarDocumento/${id}/itens/${itemId}`, form)
 }
 
@@ -245,9 +247,9 @@ export async function concluirFichaAdmissao(token: string): Promise<void> {
   await http.post(`/v1/admissoes-publicas/Concluir/${encodeURIComponent(token)}`, undefined, { skipAuth: true })
 }
 
-export async function enviarDocumentoFichaAdmissao(token: string, itemId: string, arquivo: File): Promise<void> {
+export async function enviarDocumentoFichaAdmissao(token: string, itemId: string, arquivos: File[]): Promise<void> {
   const form = new FormData()
-  form.append('arquivo', arquivo)
+  arquivos.forEach((arquivo) => form.append('arquivos', arquivo))
   await http.post(`/v1/admissoes-publicas/EnviarDocumento/${encodeURIComponent(token)}/itens/${itemId}`, form, { skipAuth: true })
 }
 

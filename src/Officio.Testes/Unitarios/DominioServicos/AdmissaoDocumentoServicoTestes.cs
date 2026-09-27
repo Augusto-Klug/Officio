@@ -105,6 +105,74 @@ public class AdmissaoDocumentoServicoTestes
         var validacao = await contexto.DocumentValidations.SingleAsync();
         Assert.Equal(StatusValidacao.Aprovado, validacao.Status);
         Assert.Equal("Conferido manualmente", validacao.ObservacaoRevisao);
+        Assert.Equal(cenario.RevisorId, validacao.RevisadoPorId);
+        Assert.NotNull(validacao.RevisadoEm);
+    }
+
+    [Fact]
+    public async Task AprovarManualmente_ExigeJustificativa()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
+        contexto.DocumentValidations.Add(ValidacaoDocumento.RequireManualReview(
+            cenario.TenantId, documentoId, observacao: "Baixa confianca", admissaoDocumentoId: item.Id));
+        await contexto.SaveChangesAsync();
+
+        var resultado = await cenario.Servico.AprovarManualmenteAsync(
+            new AprovarDocumentoAdmissaoRequisicao(cenario.AdmissaoId, item.Id, "  "));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("justificativa", resultado.Erro);
+    }
+
+    [Fact]
+    public async Task AprovarManualmente_NaoPermiteReaprovarDocumentoJaAprovado()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
+        contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
+            cenario.TenantId, documentoId, [], [], true, 1m, item.Id));
+        await contexto.SaveChangesAsync();
+
+        var resultado = await cenario.Servico.AprovarManualmenteAsync(
+            new AprovarDocumentoAdmissaoRequisicao(cenario.AdmissaoId, item.Id, "Conferido visualmente"));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("reprovados", resultado.Erro);
+    }
+
+    [Fact]
+    public async Task AprovarManualmente_NaoPermiteIgnorarTipoDeDocumentoIncompativel()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos
+            .Include(documento => documento.TipoDocumento)
+            .SingleAsync(documento => documento.TipoDocumento.Codigo == "CNH");
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "conta.pdf"));
+        var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
+        contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
+            cenario.TenantId,
+            documentoId,
+            new Dictionary<string, string>
+            {
+                ["__tipo_documento_detectado"] = "COMPROVANTE_RESIDENCIA",
+                ["__tipo_documento_incompativel"] = "true"
+            },
+            [], false, 0.98m, item.Id, observacao: "O documento nao corresponde ao tipo solicitado."));
+        await contexto.SaveChangesAsync();
+
+        var resultado = await cenario.Servico.AprovarManualmenteAsync(
+            new AprovarDocumentoAdmissaoRequisicao(cenario.AdmissaoId, item.Id, "Aprovado visualmente"));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("nao corresponde", resultado.Erro);
     }
 
     [Fact]
@@ -138,7 +206,8 @@ public class AdmissaoDocumentoServicoTestes
         var conteudo = new byte[] { 1, 2, 3 };
 
         var resultado = await cenario.Servico.EnviarAsync(new(
-            cenario.AdmissaoId, item.Id, new MemoryStream(conteudo), nomeArquivo, mimeType, conteudo.Length));
+            cenario.AdmissaoId, item.Id,
+            [new(new MemoryStream(conteudo), nomeArquivo, mimeType, conteudo.Length)]));
 
         Assert.False(resultado.Sucesso);
         Assert.Contains("extensao", resultado.Erro);
@@ -151,7 +220,8 @@ public class AdmissaoDocumentoServicoTestes
         string nomeArquivo)
     {
         var conteudo = new byte[] { 37, 80, 68, 70, 45, 49, 46, 52 };
-        return new(admissaoId, itemId, new MemoryStream(conteudo), nomeArquivo, "application/pdf", conteudo.Length);
+        return new(admissaoId, itemId,
+            [new(new MemoryStream(conteudo), nomeArquivo, "application/pdf", conteudo.Length)]);
     }
 
     private static async Task<Cenario> CriarCenarioAsync(
@@ -177,7 +247,7 @@ public class AdmissaoDocumentoServicoTestes
 
         var armazenamento = new ArmazenamentoFake();
         var servico = CriarServicoDocumento(contexto, tenantId, armazenamento, resultadoValidacao);
-        return new(contexto, servico, armazenamento, tenantId, criacao.Valor);
+        return new(contexto, servico, armazenamento, tenantId, RevisorId, criacao.Valor);
     }
 
     private static AdmissaoDocumentoServico CriarServicoDocumento(
@@ -190,8 +260,12 @@ public class AdmissaoDocumentoServicoTestes
             new DocumentoServicoFake(resultadoValidacao),
             armazenamento,
             new EstimadorQualidadeFake(),
+            new ConversorImagensPdfFake(),
             CriarEmpresaAtual(tenantId),
+            new UsuarioAtualFake(RevisorId),
             NullLogger<AdmissaoDocumentoServico>.Instance);
+
+    private static readonly Guid RevisorId = Guid.NewGuid();
 
     private static ContextoAplicacao CriarContexto(Guid tenantId, string? nomeBanco = null)
     {
@@ -213,7 +287,14 @@ public class AdmissaoDocumentoServicoTestes
         AdmissaoDocumentoServico Servico,
         ArmazenamentoFake Armazenamento,
         Guid TenantId,
+        Guid RevisorId,
         Guid AdmissaoId);
+
+    private sealed class UsuarioAtualFake(Guid userId) : IUsuarioAtual
+    {
+        public Guid UserId => userId;
+        public string? Email => "revisor@officio.local";
+    }
 
     private sealed class DocumentoServicoFake(Resultado<ValidationResultDto>? resultado) : IDocumentoServico
     {
@@ -229,6 +310,77 @@ public class AdmissaoDocumentoServicoTestes
     {
         public Task<decimal> EstimarAsync(Stream arquivo, CancellationToken cancellationToken = default)
             => Task.FromResult(1m);
+    }
+
+    [Fact]
+    public async Task Enviar_VariasImagens_ArmazenaUmPdfMultipagina()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        var arquivos = new byte[] { 1, 2, 3 };
+
+        var resultado = await cenario.Servico.EnviarAsync(new(
+            cenario.AdmissaoId,
+            item.Id,
+            [
+                new(new MemoryStream(arquivos), "frente.jpg", "image/jpeg", arquivos.Length),
+                new(new MemoryStream(arquivos), "verso.png", "image/png", arquivos.Length)
+            ]));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal("application/pdf", resultado.Valor!.Documento.MimeType);
+        Assert.EndsWith("-multipagina.pdf", resultado.Valor.Documento.NomeArquivo);
+        Assert.Single(await contexto.Documents.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Enviar_CNHDepoisDaIdentidade_SubstituiAlternativaAnterior()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var identidade = await contexto.AdmissaoDocumentos
+            .Include(item => item.TipoDocumento)
+            .SingleAsync(item => item.TipoDocumento.Codigo == "IDENTIDADE");
+        var cnh = await contexto.AdmissaoDocumentos
+            .Include(item => item.TipoDocumento)
+            .SingleAsync(item => item.TipoDocumento.Codigo == "CNH");
+
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, identidade.Id, "identidade.pdf"));
+        var resultado = await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, cnh.Id, "cnh.pdf"));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Single(await contexto.Documents.ToListAsync());
+        Assert.Null((await contexto.AdmissaoDocumentos.SingleAsync(item => item.Id == identidade.Id)).DocumentoId);
+        Assert.NotNull((await contexto.AdmissaoDocumentos.SingleAsync(item => item.Id == cnh.Id)).DocumentoId);
+        Assert.Contains(cenario.Armazenamento.Excluidos, caminho => caminho.Contains("identidade.pdf"));
+    }
+
+    [Fact]
+    public async Task Enviar_MisturaPdfEImagem_RejeitaComOrientacao()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        var arquivo = new byte[] { 1, 2, 3 };
+
+        var resultado = await cenario.Servico.EnviarAsync(new(
+            cenario.AdmissaoId,
+            item.Id,
+            [
+                new(new MemoryStream(arquivo), "documento.pdf", "application/pdf", arquivo.Length),
+                new(new MemoryStream(arquivo), "frente.jpg", "image/jpeg", arquivo.Length)
+            ]));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("selecione somente imagens", resultado.Erro);
+        Assert.Empty(await contexto.Documents.ToListAsync());
+    }
+
+    private sealed class ConversorImagensPdfFake : IConversorImagensPdf
+    {
+        public byte[] CriarPdf(IReadOnlyList<byte[]> imagens)
+            => [37, 80, 68, 70, .. imagens.SelectMany(imagem => imagem)];
     }
 
     private sealed class ArmazenamentoFake : IServicoArmazenamento

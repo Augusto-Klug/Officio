@@ -130,13 +130,19 @@ public class AdmissaoServico(
         var validacao = ValidarDados(dados, exigirConclusao: true);
         if (validacao is not null)
             return Resultado<bool>.CriarFalha(validacao);
-        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId is null))
+        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId is null &&
+                item.TipoDocumento.Codigo is not ("IDENTIDADE" or "CNH")))
             return Resultado<bool>.CriarFalha("Envie todos os documentos obrigatorios antes de concluir a admissao.");
-        if (admissao.Documentos.Any(item => item.Obrigatorio &&
+        if (!AdmissaoDocumentoRegras.PossuiIdentificacao(admissao.Documentos))
+            return Resultado<bool>.CriarFalha("Envie uma identidade (RG/CIN) ou CNH antes de concluir a admissao.");
+        if (!AdmissaoDocumentoRegras.IdentificacaoAprovada(admissao.Documentos))
+            return Resultado<bool>.CriarFalha("Valide e aprove a identidade ou CNH antes de concluir a admissao.");
+        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId.HasValue &&
                 item.Documento!.Validacoes.OrderByDescending(validacaoDocumento => validacaoDocumento.CriadoEm)
                     .FirstOrDefault()?.Status != Officio.Dominio.Enumeradores.StatusValidacao.Aprovado))
             return Resultado<bool>.CriarFalha("Valide e aprove todos os documentos obrigatorios antes de concluir a admissao.");
         if (admissao.Documentos.Any(item =>
+                item.TipoDocumento.Codigo is not ("IDENTIDADE" or "CNH") &&
                 item.Documento?.Validacoes.OrderByDescending(validacaoDocumento => validacaoDocumento.CriadoEm)
                     .FirstOrDefault()?.Status is Officio.Dominio.Enumeradores.StatusValidacao.Reprovado or Officio.Dominio.Enumeradores.StatusValidacao.RevisaoManual))
             return Resultado<bool>.CriarFalha("Existem documentos aguardando revisao antes de concluir a admissao.");

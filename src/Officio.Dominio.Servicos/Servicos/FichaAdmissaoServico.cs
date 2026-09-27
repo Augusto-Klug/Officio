@@ -106,8 +106,11 @@ public sealed class FichaAdmissaoServico(
         if (string.IsNullOrWhiteSpace(admissao.Cpf) || admissao.DataNascimento is null ||
             (string.IsNullOrWhiteSpace(admissao.Email) && string.IsNullOrWhiteSpace(admissao.Telefone)))
             return Resultado<bool>.CriarFalha("Preencha CPF, data de nascimento e ao menos um contato antes de finalizar.");
-        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId is null))
+        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId is null &&
+                item.TipoDocumento.Codigo is not ("IDENTIDADE" or "CNH")))
             return Resultado<bool>.CriarFalha("Envie todos os documentos obrigatorios antes de finalizar.");
+        if (!AdmissaoDocumentoRegras.PossuiIdentificacao(admissao.Documentos))
+            return Resultado<bool>.CriarFalha("Envie uma identidade (RG/CIN) ou CNH antes de finalizar.");
 
         var status = await repositorio.ObterOuCriarStatusAsync(
             StatusAdmissaoCodigos.EmValidacao, "Em validacao", 3, ct);
@@ -121,10 +124,7 @@ public sealed class FichaAdmissaoServico(
     public async Task<Resultado<ResultadoDocumentoAdmissaoDto>> EnviarDocumentoAsync(
         string token,
         Guid itemId,
-        Stream arquivo,
-        string nomeArquivo,
-        string mimeType,
-        long tamanhoBytes,
+        IReadOnlyList<ArquivoAdmissaoUpload> arquivos,
         CancellationToken ct = default)
     {
         var resultado = await ObterPorTokenAsync(token, rastreamento: false, exigirEditavel: true, ct);
@@ -135,7 +135,7 @@ public sealed class FichaAdmissaoServico(
             return Resultado<ResultadoDocumentoAdmissaoDto>.CriarFalha("Documento da admissao nao encontrado.");
 
         return await documentoServico.EnviarAsync(
-            new(admissao.Id, itemId, arquivo, nomeArquivo, mimeType, tamanhoBytes), ct);
+            new(admissao.Id, itemId, arquivos), ct);
     }
 
     public async Task<Resultado<ResultadoUrlDocumentoAdmissaoDto>> ObterUrlDocumentoAsync(

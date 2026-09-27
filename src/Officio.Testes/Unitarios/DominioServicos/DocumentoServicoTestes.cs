@@ -372,6 +372,192 @@ public class DocumentoServicoTestes
         Assert.Equal(item.Id, validacao.AdmissaoDocumentoId);
     }
 
+    [Fact]
+    public async Task ValidarAsync_ComprovanteEscolaridadeComNomeCorreto_NaoExigeCpfRgOuNascimento()
+    {
+        var tenantId = Guid.NewGuid();
+        var (empresa, status, tipo, admissao, documento) = CriarDocumentoAdmissao(
+            tenantId,
+            "COMPROVANTE_ESCOLARIDADE",
+            TipoDocumento.ComprovanteEscolaridade,
+            "escolaridade.pdf");
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["nome"] = "Ana Silva",
+                ["tipo_documento_detectado"] = "COMPROVANTE_ESCOLARIDADE"
+            }, 0.96m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
+        contexto.StatusAdmissoes.Add(status);
+        contexto.TiposDocumento.Add(tipo);
+        contexto.Admissoes.Add(admissao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.Valido);
+        Assert.False(resultado.Valor.FallbackManual);
+        Assert.Empty(resultado.Valor.Divergencias);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_TituloEleitoralComNomeEInscricaoNaoExigeCpf()
+    {
+        var tenantId = Guid.NewGuid();
+        var (empresa, status, tipo, admissao, documento) = CriarDocumentoAdmissao(
+            tenantId,
+            "TITULO_ELEITOR",
+            TipoDocumento.TituloEleitor,
+            "titulo-eleitoral.pdf");
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["nome"] = "Ana Silva",
+                ["numero_titulo"] = "067278480957",
+                ["tipo_documento_detectado"] = "TITULO_ELEITOR"
+            }, 0.99m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
+        contexto.StatusAdmissoes.Add(status);
+        contexto.TiposDocumento.Add(tipo);
+        contexto.Admissoes.Add(admissao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.Valido);
+        Assert.False(resultado.Valor.FallbackManual);
+        Assert.Empty(resultado.Valor.Divergencias);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_TituloEleitoralSemInscricaoSegueParaRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var (empresa, status, tipo, admissao, documento) = CriarDocumentoAdmissao(
+            tenantId,
+            "TITULO_ELEITOR",
+            TipoDocumento.TituloEleitor,
+            "titulo-eleitoral.pdf");
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["nome"] = "Ana Silva",
+                ["tipo_documento_detectado"] = "TITULO_ELEITOR"
+            }, 0.99m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
+        contexto.StatusAdmissoes.Add(status);
+        contexto.TiposDocumento.Add(tipo);
+        contexto.Admissoes.Add(admissao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.FallbackManual);
+        Assert.Contains("inscricao", resultado.Valor.Mensagem, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_CnhSemCpf_SegueParaRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var (empresa, status, tipo, admissao, documento) = CriarDocumentoAdmissao(
+            tenantId,
+            "CNH",
+            TipoDocumento.Cnh,
+            "cnh.pdf");
+
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["nome"] = "Ana Silva",
+                ["tipo_documento_detectado"] = "CNH"
+            }, 0.96m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
+        contexto.StatusAdmissoes.Add(status);
+        contexto.TiposDocumento.Add(tipo);
+        contexto.Admissoes.Add(admissao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.FallbackManual);
+        var divergencia = Assert.Single(resultado.Valor.Divergencias);
+        Assert.Equal("cpf", divergencia.Campo);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_ComprovanteResidenciaNoCampoCnh_ReprovaSemPermitirRevisaoManual()
+    {
+        var tenantId = Guid.NewGuid();
+        var (empresa, status, tipo, admissao, documento) = CriarDocumentoAdmissao(
+            tenantId, "CNH", TipoDocumento.Cnh, "conta-luz.pdf");
+        await using var provedor = CriarProvedor(
+            tenantId,
+            ResultadoOcr.CriarSucesso(new Dictionary<string, string>
+            {
+                ["nome"] = "Ana Silva",
+                ["cpf"] = "11789299900",
+                ["endereco"] = "Rua das Flores, 123",
+                ["tipo_documento_detectado"] = "COMPROVANTE_RESIDENCIA"
+            }, 0.98m));
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
+        contexto.StatusAdmissoes.Add(status);
+        contexto.TiposDocumento.Add(tipo);
+        contexto.Admissoes.Add(admissao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.False(resultado.Valor!.Valido);
+        Assert.False(resultado.Valor.FallbackManual);
+        Assert.Contains("nao corresponde", resultado.Valor.Mensagem, StringComparison.OrdinalIgnoreCase);
+        contexto.ChangeTracker.Clear();
+        var validacao = await contexto.DocumentValidations.SingleAsync();
+        Assert.True(validacao.TipoDocumentoIncompativel);
+        Assert.Equal("COMPROVANTE_RESIDENCIA", validacao.TipoDocumentoDetectado);
+    }
+
+    private static (Empresa Empresa, StatusAdmissao Status, TipoDocumentoDominio Tipo,
+        Admissao Admissao, Documento Documento) CriarDocumentoAdmissao(
+        Guid tenantId,
+        string codigoTipo,
+        TipoDocumento tipoDocumento,
+        string nomeArquivo)
+    {
+        var empresa = Empresa.CriarConstituida(tenantId, "11222333000144", "Empresa Teste");
+        var status = new StatusAdmissao("RASCUNHO", "Rascunho", 1);
+        var tipo = new TipoDocumentoDominio(codigoTipo, codigoTipo, 1);
+        var admissao = Admissao.Criar(tenantId, empresa.Id, status.Id, "Ana Silva");
+        admissao.AtualizarDados(
+            "Ana Silva", "11789299900", "1234567", new DateOnly(1995, 5, 10), null, null,
+            "Ensino medio", null, null, null, null, null, null, null, null, null, null, null,
+            null, null, null, null);
+        var item = AdmissaoDocumento.Criar(admissao.Id, tipo.Id, true, 1);
+        var documento = Documento.CriarAdmissao(
+            tenantId, admissao.Id, empresa.Id, tipo.Id, nomeArquivo, tipoDocumento,
+            $"documentos/{nomeArquivo}", "application/pdf", 100, 1m);
+        item.VincularDocumento(documento);
+        admissao.AdicionarDocumentos([item]);
+        return (empresa, status, tipo, admissao, documento);
+    }
+
     private static ServiceProvider CriarProvedor(
         Guid tenantId,
         ResultadoOcr resultadoOcr,

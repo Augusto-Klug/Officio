@@ -105,17 +105,25 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> EnviarDocumento(
         Guid id,
         Guid itemId,
-        IFormFile arquivo,
+        [FromForm] List<IFormFile> arquivos,
         CancellationToken cancellationToken)
     {
-        if (arquivo.Length == 0)
-            return BadRequest("Arquivo nao informado.");
-
-        await using var stream = arquivo.OpenReadStream();
-        var requisicao = new EnviarDocumentoAdmissaoRequisicao(
-            id, itemId, stream, arquivo.FileName, arquivo.ContentType, arquivo.Length);
-        var resultado = await mediator.Send(new EnviarDocumentoAdmissaoComando(requisicao), cancellationToken);
-        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+        if (arquivos.Count == 0)
+            return BadRequest("Envie ao menos um arquivo.");
+        var streams = arquivos.Select(arquivo => arquivo.OpenReadStream()).ToList();
+        try
+        {
+            var uploads = arquivos.Select((arquivo, indice) => new ArquivoAdmissaoUpload(
+                streams[indice], arquivo.FileName, arquivo.ContentType, arquivo.Length)).ToList();
+            var requisicao = new EnviarDocumentoAdmissaoRequisicao(id, itemId, uploads);
+            var resultado = await mediator.Send(new EnviarDocumentoAdmissaoComando(requisicao), cancellationToken);
+            return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+        }
+        finally
+        {
+            foreach (var stream in streams)
+                await stream.DisposeAsync();
+        }
     }
 
     [HttpGet("{id:guid}/itens/{itemId:guid}")]

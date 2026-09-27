@@ -5,6 +5,7 @@ using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
@@ -83,11 +84,16 @@ internal class DocumentoServico(
         if (documento is null)
             return Resultado<ValidationResultDto>.CriarFalha("Documento nao encontrado.");
 
-        if (documento.QualidadeEstimada < 0.4m)
-            return Resultado<ValidationResultDto>.CriarFalha(
-                "Qualidade do documento abaixo do limite minimo. Reenvie uma imagem mais nitida.");
-
         var admissaoDocumentoId = await documentoRepositorio.ObterAdmissaoDocumentoIdAsync(documento.Id, ct);
+        if (documento.QualidadeEstimada < 0.4m)
+        {
+            const string mensagemQualidade = "A imagem esta escura ou desfocada. Substitua o arquivo ou solicite revisao manual.";
+            if (admissaoDocumentoId.HasValue)
+                return await CriarRevisaoManualAsync(
+                    documento, [], 0m, [], mensagemQualidade, admissaoDocumentoId, null, ct);
+
+            return Resultado<ValidationResultDto>.CriarFalha(mensagemQualidade);
+        }
 
         await using var stream = await servicoArmazenamento.BaixarAsync(documento.CaminhoStorage, ct);
         var resultadoOcr = await servicoOcr.AnalisarDocumentoAsync(stream, documento.Tipo, ct);
@@ -106,6 +112,33 @@ internal class DocumentoServico(
 
         await documentoRepositorio.AdicionarExecucaoOcrAsync(execucaoOcr, ct);
 
+        var tipoDetectado = resultadoOcr.CamposExtraidos.GetValueOrDefault("tipo_documento_detectado");
+        if (admissaoDocumentoId.HasValue)
+        {
+            var tipoEsperado = await documentoRepositorio.ObterTipoDocumentoAdmissaoAsync(admissaoDocumentoId.Value, ct);
+            if (tipoEsperado is null || tipoDetectado is null)
+            {
+                return await CriarRevisaoManualAsync(
+                    documento, resultadoOcr.CamposExtraidos, resultadoOcr.ConfiancaOcr, [],
+                    "Nao foi possivel confirmar automaticamente o tipo do documento. Confirme visualmente.",
+                    admissaoDocumentoId, execucaoOcr.Id, ct);
+            }
+
+            if (!TipoDocumentoCompativel(tipoEsperado, tipoDetectado))
+            {
+                const string mensagemTipo = "O documento enviado nao corresponde ao tipo solicitado. Substitua pelo documento correto.";
+                var camposAuditoria = CriarCamposAuditoria(resultadoOcr.CamposExtraidos, tipoDetectado, incompatibilidade: true);
+                var validacaoTipo = ValidacaoDocumento.Create(
+                    documento.TenantId, documento.Id, camposAuditoria, [], false,
+                    resultadoOcr.ConfiancaOcr, admissaoDocumentoId, execucaoOcr.Id, mensagemTipo);
+                await documentoRepositorio.AdicionarValidacaoAsync(validacaoTipo, ct);
+                await documentoRepositorio.SalvarAlteracoesAsync(ct);
+
+                return Resultado<ValidationResultDto>.CriarSucesso(
+                    new ValidationResultDto(false, resultadoOcr.ConfiancaOcr, [], false, mensagemTipo));
+            }
+        }
+
         if (!resultadoOcr.Sucesso)
         {
             return await CriarRevisaoManualAsync(
@@ -119,7 +152,26 @@ internal class DocumentoServico(
                 ct);
         }
 
-        var dadosCadastro = await documentoRepositorio.ObterDadosCadastroAsync(documento, ct);
+        if (documento.Tipo == TipoDocumento.TituloEleitor &&
+            (!resultadoOcr.CamposExtraidos.TryGetValue("numero_titulo", out var numeroTitulo) ||
+             string.Concat(numeroTitulo.Where(char.IsDigit)).Length != 12))
+        {
+            return await CriarRevisaoManualAsync(
+                documento,
+                resultadoOcr.CamposExtraidos,
+                resultadoOcr.ConfiancaOcr,
+                [],
+                "Numero de inscricao do titulo eleitoral nao identificado. Documento marcado para revisao manual.",
+                admissaoDocumentoId,
+                execucaoOcr.Id,
+                ct);
+        }
+
+        var dadosCadastroCompletos = await documentoRepositorio.ObterDadosCadastroAsync(documento, ct);
+        var dadosCadastro = SelecionarDadosComparaveis(
+            documento.Tipo,
+            CriarCamposAuditoria(resultadoOcr.CamposExtraidos, tipoDetectado),
+            dadosCadastroCompletos);
         if (dadosCadastro.Count == 0)
         {
             return await CriarRevisaoManualAsync(
@@ -177,7 +229,7 @@ internal class DocumentoServico(
         List<DivergenciaDocumento> divergencias,
         string mensagem,
         Guid? admissaoDocumentoId,
-        Guid ocrExecucaoId,
+        Guid? ocrExecucaoId,
         CancellationToken ct)
     {
         var validacao = ValidacaoDocumento.RequireManualReview(
@@ -224,6 +276,62 @@ internal class DocumentoServico(
         }
 
         return divergencias;
+    }
+
+    private static Dictionary<string, string> CriarCamposAuditoria(
+        IReadOnlyDictionary<string, string> campos,
+        string? tipoDetectado,
+        bool incompatibilidade = false)
+    {
+        var resultado = campos.ToDictionary(campo => campo.Key, campo => campo.Value, StringComparer.OrdinalIgnoreCase);
+        if (tipoDetectado is not null)
+            resultado["__tipo_documento_detectado"] = tipoDetectado;
+        if (incompatibilidade)
+            resultado["__tipo_documento_incompativel"] = "true";
+        return resultado;
+    }
+
+    private static bool TipoDocumentoCompativel(string codigoEsperado, string detectado)
+    {
+        var esperado = codigoEsperado.ToUpperInvariant();
+        var tipo = detectado.ToUpperInvariant();
+        if (esperado is "IDENTIDADE" or "RG") esperado = "IDENTIDADE";
+        return esperado == tipo;
+    }
+
+    private static Dictionary<string, string> SelecionarDadosComparaveis(
+        TipoDocumento tipo,
+        IReadOnlyDictionary<string, string> camposExtraidos,
+        IReadOnlyDictionary<string, string> dadosCadastro)
+    {
+        var perfil = PerfilValidacaoDocumento.Obter(tipo);
+        var selecionados = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var campo in perfil.Obrigatorios)
+        {
+            if (dadosCadastro.TryGetValue(campo, out var valor))
+                selecionados[campo] = valor;
+        }
+
+        var alternativasDisponiveis = perfil.PeloMenosUm
+            .Where(dadosCadastro.ContainsKey)
+            .ToList();
+        var alternativasExtraidas = alternativasDisponiveis
+            .Where(camposExtraidos.ContainsKey)
+            .ToList();
+        var alternativasSelecionadas = alternativasExtraidas.Count > 0
+            ? alternativasExtraidas
+            : alternativasDisponiveis.Take(1);
+        foreach (var campo in alternativasSelecionadas)
+            selecionados[campo] = dadosCadastro[campo];
+
+        foreach (var campo in perfil.Opcionais)
+        {
+            if (camposExtraidos.ContainsKey(campo) && dadosCadastro.TryGetValue(campo, out var valor))
+                selecionados[campo] = valor;
+        }
+
+        return selecionados;
     }
 
     private static async Task<bool> CopiarComLimiteAsync(
@@ -308,5 +416,32 @@ internal class DocumentoServico(
         }
 
         return normalizado.ToString();
+    }
+
+    private sealed record PerfilValidacaoDocumento(
+        IReadOnlyCollection<string> Obrigatorios,
+        IReadOnlyCollection<string> PeloMenosUm,
+        IReadOnlyCollection<string> Opcionais)
+    {
+        private static readonly PerfilValidacaoDocumento PessoaComCpf =
+            new(["nome", "cpf"], [], ["data_nascimento"]);
+
+        public static PerfilValidacaoDocumento Obter(TipoDocumento tipo)
+            => tipo switch
+            {
+                TipoDocumento.CartaoCnpj or TipoDocumento.ContratoSocial =>
+                    new(["razao_social", "cnpj"], [], ["nome_fantasia", "email"]),
+                TipoDocumento.RgSocio => new(["nome"], ["cpf"], []),
+                TipoDocumento.CpfSocio => new(["cpf"], [], ["nome"]),
+                TipoDocumento.CnhSocio or TipoDocumento.Cnh => PessoaComCpf,
+                TipoDocumento.Identidade => new(["nome"], ["cpf", "rg", "data_nascimento"], []),
+                TipoDocumento.Cpf => new(["cpf"], [], ["nome"]),
+                TipoDocumento.ComprovanteResidencia => new(["nome"], [], []),
+                TipoDocumento.CarteiraTrabalho => PessoaComCpf,
+                TipoDocumento.TituloEleitor => new(["nome"], [], ["data_nascimento"]),
+                TipoDocumento.ComprovanteEscolaridade => new(["nome"], [], ["escolaridade"]),
+                TipoDocumento.CertificadoReservista => PessoaComCpf,
+                _ => throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de documento sem perfil de validacao.")
+            };
     }
 }

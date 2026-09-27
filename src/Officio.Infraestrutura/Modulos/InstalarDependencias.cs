@@ -1,4 +1,4 @@
-using Azure.AI.FormRecognizer.DocumentAnalysis;
+using Azure.AI.DocumentIntelligence;
 using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +35,7 @@ public static class InstalarDependenciasInfraestrutura
             !string.IsNullOrWhiteSpace(ocrKey))
         {
             services.AddSingleton(_ =>
-                new DocumentAnalysisClient(
+                new DocumentIntelligenceClient(
                     endpoint,
                     new global::Azure.AzureKeyCredential(ocrKey)));
 
@@ -49,6 +49,7 @@ public static class InstalarDependenciasInfraestrutura
         QuestPDF.Settings.License = LicenseType.Community;
         services.Configure<OpcoesPdf>(configuration.GetSection("Pdf"));
         services.AddScoped<IServicoPdf, ServicoPdfQuest>();
+        services.AddScoped<IConversorImagensPdf, ConversorImagensPdfQuest>();
 
         services.Configure<OpcoesAutentique>(configuration.GetSection("Autentique"));
         services.AddHttpClient<IClienteIntegracao<OpcoesAutentique>, ClienteIntegracao<OpcoesAutentique>>(client =>

@@ -10,7 +10,11 @@ public enum TipoDocumento
     Identidade,
     Cpf,
     ComprovanteResidencia,
-    CarteiraTrabalho
+    CarteiraTrabalho,
+    Cnh,
+    TituloEleitor,
+    ComprovanteEscolaridade,
+    CertificadoReservista
 }
 
 

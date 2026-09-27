@@ -5,7 +5,10 @@ namespace Officio.Dominio.Contratos;
 public record EnviarDocumentoAdmissaoRequisicao(
     Guid AdmissaoId,
     Guid AdmissaoDocumentoId,
-    Stream Arquivo,
+    IReadOnlyList<ArquivoAdmissaoUpload> Arquivos);
+
+public record ArquivoAdmissaoUpload(
+    Stream Conteudo,
     string NomeArquivo,
     string MimeType,
     long TamanhoBytes);

@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <UserSecretsId>Officio-WebApi-Development</UserSecretsId>
     <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin-test/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

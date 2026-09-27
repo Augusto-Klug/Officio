@@ -48,15 +48,24 @@ public class AdmissoesPublicasController(IFichaAdmissaoServico servico) : Contro
     public async Task<IActionResult> EnviarDocumento(
         string token,
         Guid itemId,
-        IFormFile arquivo,
+        [FromForm] List<IFormFile> arquivos,
         CancellationToken cancellationToken)
     {
-        if (arquivo.Length == 0)
-            return BadRequest("Arquivo nao informado.");
-        await using var stream = arquivo.OpenReadStream();
-        var resultado = await servico.EnviarDocumentoAsync(
-            token, itemId, stream, arquivo.FileName, arquivo.ContentType, arquivo.Length, cancellationToken);
-        return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
+        if (arquivos.Count == 0)
+            return BadRequest("Envie ao menos um arquivo.");
+        var streams = arquivos.Select(arquivo => arquivo.OpenReadStream()).ToList();
+        try
+        {
+            var uploads = arquivos.Select((arquivo, indice) => new ArquivoAdmissaoUpload(
+                streams[indice], arquivo.FileName, arquivo.ContentType, arquivo.Length)).ToList();
+            var resultado = await servico.EnviarDocumentoAsync(token, itemId, uploads, cancellationToken);
+            return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
+        }
+        finally
+        {
+            foreach (var stream in streams)
+                await stream.DisposeAsync();
+        }
     }
 
     [HttpGet("{token}/itens/{itemId:guid}")]

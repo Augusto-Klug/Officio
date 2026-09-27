@@ -26,4 +26,13 @@ public class ConfigDocumentoAdmissao : EntidadeBase
             RotuloExibicao = string.IsNullOrWhiteSpace(rotuloExibicao) ? null : rotuloExibicao.Trim()
         };
     }
+
+    public void AtualizarConfiguracao(bool obrigatorio, int ordem, string? rotuloExibicao)
+    {
+        if (ordem <= 0)
+            throw new ArgumentOutOfRangeException(nameof(ordem), "Ordem deve ser maior que zero.");
+        Obrigatorio = obrigatorio;
+        Ordem = ordem;
+        RotuloExibicao = string.IsNullOrWhiteSpace(rotuloExibicao) ? null : rotuloExibicao.Trim();
+    }
 }
