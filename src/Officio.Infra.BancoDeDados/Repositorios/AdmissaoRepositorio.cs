@@ -60,6 +60,8 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(admissao => admissao.StatusAdmissao)
             .Include(admissao => admissao.Dependentes)
             .Include(admissao => admissao.Documentos)
+                .ThenInclude(item => item.TipoDocumento)
+            .Include(admissao => admissao.Documentos)
                 .ThenInclude(item => item.Documento)
                     .ThenInclude(documento => documento!.Validacoes)
             .FirstOrDefaultAsync(admissao => admissao.Id == admissaoId, cancellationToken);
@@ -92,39 +94,57 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
     {
         var configuracoes = await Contexto.ConfigDocumentosAdmissao
             .Include(item => item.TipoDocumento)
-            .Where(item => item.Ativo)
+            .Where(item => item.Ativo && item.TipoDocumento.Codigo != "CPF")
             .OrderBy(item => item.Ordem)
             .ToListAsync(cancellationToken);
-        if (configuracoes.Count > 0)
-            return configuracoes;
-
         var padroes = new[]
         {
-            new ConfiguracaoPadrao("IDENTIDADE", "Documento de identidade", "Identidade / RG", true, 1),
-            new ConfiguracaoPadrao("CPF", "Cadastro de Pessoa Fisica", "CPF", true, 2),
-            new ConfiguracaoPadrao("COMPROVANTE_RESIDENCIA", "Comprovante de residencia", "Comprovante de residência", true, 3),
-            new ConfiguracaoPadrao("CARTEIRA_TRABALHO", "Carteira de trabalho", "Carteira de trabalho", true, 4)
+            new ConfiguracaoPadrao("IDENTIDADE", "Documento de identidade", "Identidade (RG/CIN)", false, 1),
+            new ConfiguracaoPadrao("COMPROVANTE_RESIDENCIA", "Comprovante de residencia", "Comprovante de residência", true, 2),
+            new ConfiguracaoPadrao("CARTEIRA_TRABALHO", "Carteira de trabalho", "Carteira de trabalho", true, 3),
+            new ConfiguracaoPadrao("CNH", "Carteira Nacional de Habilitacao", "CNH", false, 4),
+            new ConfiguracaoPadrao("TITULO_ELEITOR", "Titulo de eleitor", "Título de eleitor", false, 5),
+            new ConfiguracaoPadrao("COMPROVANTE_ESCOLARIDADE", "Comprovante de escolaridade", "Comprovante de escolaridade", false, 6),
+            new ConfiguracaoPadrao("CERTIFICADO_RESERVISTA", "Certificado de reservista", "Certificado de reservista", false, 7)
         };
 
         var codigos = padroes.Select(item => item.Codigo).ToList();
         var tiposExistentes = await Contexto.TiposDocumento
             .Where(item => codigos.Contains(item.Codigo))
             .ToDictionaryAsync(item => item.Codigo, cancellationToken);
+        var codigosConfigurados = configuracoes
+            .Select(item => item.TipoDocumento.Codigo)
+            .ToHashSet(StringComparer.Ordinal);
 
         foreach (var padrao in padroes)
         {
+            if (codigosConfigurados.Contains(padrao.Codigo))
+            {
+                var existente = configuracoes.First(item => item.TipoDocumento.Codigo == padrao.Codigo);
+                if (padrao.Codigo is "IDENTIDADE" or "CNH")
+                    existente.AtualizarConfiguracao(padrao.Obrigatorio, padrao.Ordem, padrao.Rotulo);
+                continue;
+            }
+
             if (!tiposExistentes.TryGetValue(padrao.Codigo, out var tipo))
             {
                 tipo = new TipoDocumentoDominio(padrao.Codigo, padrao.Descricao, padrao.Ordem);
                 Contexto.TiposDocumento.Add(tipo);
+                tiposExistentes[padrao.Codigo] = tipo;
             }
 
             configuracoes.Add(ConfigDocumentoAdmissao.Criar(
                 tipo.Id, padrao.Obrigatorio, padrao.Ordem, padrao.Rotulo));
+            codigosConfigurados.Add(padrao.Codigo);
         }
 
-        await Contexto.ConfigDocumentosAdmissao.AddRangeAsync(configuracoes, cancellationToken);
-        return configuracoes;
+        var novasConfiguracoes = configuracoes
+            .Where(item => Contexto.Entry(item).State == EntityState.Detached)
+            .ToList();
+        if (novasConfiguracoes.Count > 0)
+            await Contexto.ConfigDocumentosAdmissao.AddRangeAsync(novasConfiguracoes, cancellationToken);
+
+        return configuracoes.OrderBy(item => item.Ordem).ToList();
     }
 
     public Task<List<AdmissaoDocumento>> ListarDocumentosAsync(
@@ -132,7 +152,7 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
         CancellationToken cancellationToken = default)
         => Contexto.AdmissaoDocumentos
             .AsNoTracking()
-            .Where(item => item.AdmissaoId == admissaoId)
+            .Where(item => item.AdmissaoId == admissaoId && item.TipoDocumento.Codigo != "CPF")
             .Include(item => item.TipoDocumento)
             .Include(item => item.Documento)
                 .ThenInclude(documento => documento!.Validacoes)

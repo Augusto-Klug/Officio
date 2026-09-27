@@ -17,6 +17,12 @@ internal class DocumentoRepositorio(
             .Select(item => (Guid?)item.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<string?> ObterTipoDocumentoAdmissaoAsync(Guid admissaoDocumentoId, CancellationToken cancellationToken = default)
+        => Contexto.AdmissaoDocumentos
+            .Where(item => item.Id == admissaoDocumentoId)
+            .Select(item => item.TipoDocumento.Codigo)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<Dictionary<string, string>> ObterDadosCadastroAsync(
         Documento documento,
         CancellationToken cancellationToken = default)
@@ -33,7 +39,8 @@ internal class DocumentoRepositorio(
                     ["nome"] = admissao.NomeFuncionario,
                     ["cpf"] = admissao.Cpf,
                     ["rg"] = admissao.Rg,
-                    ["data_nascimento"] = admissao.DataNascimento?.ToString("yyyy-MM-dd")
+                    ["data_nascimento"] = admissao.DataNascimento?.ToString("yyyy-MM-dd"),
+                    ["escolaridade"] = admissao.Escolaridade
                 });
         }
 

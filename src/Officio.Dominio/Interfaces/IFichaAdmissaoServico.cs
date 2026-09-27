@@ -10,6 +10,6 @@ public interface IFichaAdmissaoServico
     Task<Resultado<FichaAdmissaoPublicaDto>> ObterAsync(string token, CancellationToken ct = default);
     Task<Resultado<bool>> AtualizarAsync(string token, AtualizarFichaAdmissaoRequisicao requisicao, CancellationToken ct = default);
     Task<Resultado<bool>> ConcluirAsync(string token, CancellationToken ct = default);
-    Task<Resultado<ResultadoDocumentoAdmissaoDto>> EnviarDocumentoAsync(string token, Guid itemId, Stream arquivo, string nomeArquivo, string mimeType, long tamanhoBytes, CancellationToken ct = default);
+    Task<Resultado<ResultadoDocumentoAdmissaoDto>> EnviarDocumentoAsync(string token, Guid itemId, IReadOnlyList<ArquivoAdmissaoUpload> arquivos, CancellationToken ct = default);
     Task<Resultado<ResultadoUrlDocumentoAdmissaoDto>> ObterUrlDocumentoAsync(string token, Guid itemId, CancellationToken ct = default);
 }

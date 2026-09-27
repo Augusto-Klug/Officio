@@ -12,6 +12,23 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 public class AdmissaoServicoTestes
 {
     [Fact]
+    public async Task ConfiguracoesDocumentoPadrao_ComCatalogoParcial_CompletaSemDuplicar()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var repositorio = new AdmissaoRepositorio(contexto);
+
+        var primeiraLeitura = await repositorio.ObterOuCriarConfiguracoesDocumentoPadraoAsync();
+        await contexto.SaveChangesAsync();
+        var segundaLeitura = await repositorio.ObterOuCriarConfiguracoesDocumentoPadraoAsync();
+
+        Assert.Equal(7, primeiraLeitura.Count);
+        Assert.Equal(7, segundaLeitura.Count);
+        Assert.Equal(7, await contexto.ConfigDocumentosAdmissao.CountAsync());
+        Assert.Equal(2, segundaLeitura.Count(item => item.Obrigatorio));
+    }
+
+    [Fact]
     public async Task CriarManual_NormalizaDocumentosEPersisteDependentes()
     {
         var tenantId = Guid.NewGuid();
@@ -224,7 +241,9 @@ public class AdmissaoServicoTestes
         bool aprovar = true)
     {
         var itens = await contexto.AdmissaoDocumentos
-            .Where(item => item.AdmissaoId == admissaoId && item.Obrigatorio)
+            .Include(item => item.TipoDocumento)
+            .Where(item => item.AdmissaoId == admissaoId &&
+                (item.Obrigatorio || item.TipoDocumento.Codigo == "IDENTIDADE"))
             .ToListAsync();
         foreach (var item in itens)
         {

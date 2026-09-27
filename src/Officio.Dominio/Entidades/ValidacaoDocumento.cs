@@ -19,6 +19,9 @@ public class ValidacaoDocumento : EntidadeAuditavel
     public decimal ConfiancaOcr { get; private set; }
     public bool FallbackManual { get; private set; }
     public string? Observacao { get; private set; }
+    public string? TipoDocumentoDetectado => CamposExtraidos.GetValueOrDefault("__tipo_documento_detectado");
+    public bool TipoDocumentoIncompativel =>
+        CamposExtraidos.GetValueOrDefault("__tipo_documento_incompativel") == "true";
 
     // Navigation
     public Documento Documento { get; private set; } = default!;
@@ -38,7 +41,8 @@ public class ValidacaoDocumento : EntidadeAuditavel
         bool valido,
         decimal confiancaOcr,
         Guid? admissaoDocumentoId = null,
-        Guid? ocrExecucaoId = null)
+        Guid? ocrExecucaoId = null,
+        string? observacao = null)
     {
         var validation = new ValidacaoDocumento
         {
@@ -49,7 +53,8 @@ public class ValidacaoDocumento : EntidadeAuditavel
             CamposExtraidos = camposExtraidos,
             ConfiancaOcr = confiancaOcr,
             Status = valido ? StatusValidacao.Aprovado : StatusValidacao.Reprovado,
-            FallbackManual = false
+            FallbackManual = false,
+            Observacao = observacao
         };
 
         validation.AdicionarDivergencias(divergencias);
@@ -87,12 +92,17 @@ public class ValidacaoDocumento : EntidadeAuditavel
         return validation;
     }
 
-    public void ApproveManually(string? observacao)
+    public void ApproveManually(Guid revisorId, string observacao)
     {
+        if (revisorId == Guid.Empty)
+            throw new ArgumentException("O usuario revisor deve ser informado.", nameof(revisorId));
+        if (string.IsNullOrWhiteSpace(observacao))
+            throw new ArgumentException("A justificativa da revisao manual deve ser informada.", nameof(observacao));
+
         Status = StatusValidacao.Aprovado;
-        Observacao = observacao;
+        RevisadoPorId = revisorId;
         RevisadoEm = DateTime.UtcNow;
-        ObservacaoRevisao = observacao;
+        ObservacaoRevisao = observacao.Trim();
     }
 
     private void AdicionarDivergencias(IEnumerable<DivergenciaDocumento> divergencias)

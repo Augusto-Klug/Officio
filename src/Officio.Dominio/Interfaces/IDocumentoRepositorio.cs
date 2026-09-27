@@ -6,6 +6,7 @@ public interface IDocumentoRepositorio
 {
     Task<Documento?> ObterPorIdAsync(Guid documentoId, CancellationToken cancellationToken = default);
     Task<Guid?> ObterAdmissaoDocumentoIdAsync(Guid documentoId, CancellationToken cancellationToken = default);
+    Task<string?> ObterTipoDocumentoAdmissaoAsync(Guid admissaoDocumentoId, CancellationToken cancellationToken = default);
     Task<Dictionary<string, string>> ObterDadosCadastroAsync(Documento documento, CancellationToken cancellationToken = default);
     Task AdicionarAsync(Documento documento, CancellationToken cancellationToken = default);
     Task AdicionarValidacaoAsync(ValidacaoDocumento validacao, CancellationToken cancellationToken = default);

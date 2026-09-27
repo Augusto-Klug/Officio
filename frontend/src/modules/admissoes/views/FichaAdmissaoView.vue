@@ -11,6 +11,7 @@ import { normalizeError } from '../../../api/errors'
 import { formatDate } from '../../../utils/format'
 import { atualizarFichaAdmissao, concluirFichaAdmissao, enviarDocumentoFichaAdmissao, obterFichaAdmissao, obterUrlDocumentoFichaAdmissao } from '../services/admissoes.service'
 import type { AtualizarFichaAdmissaoPayload, FichaAdmissaoPublica } from '../types/admissao'
+import { agruparDocumentosAdmissao } from '../documentos'
 
 const route = useRoute()
 const token = String(route.params.token || '')
@@ -22,6 +23,8 @@ const actionId = ref('')
 const error = ref('')
 const success = ref('')
 const finalizado = computed(() => ficha.value?.preenchimentoConcluido === true)
+const gruposDocumentos = computed(() => agruparDocumentosAdmissao(ficha.value?.documentos ?? []))
+const tipoIdentificacao = ref<Record<string, string>>({})
 const sexos = ['Feminino', 'Masculino', 'Outro', 'Prefiro não informar']
 const estadosCivis = ['Solteiro(a)', 'Casado(a)', 'União estável', 'Divorciado(a)', 'Viúvo(a)']
 const tiposConta = ['Corrente', 'Poupança', 'Salário']
@@ -48,7 +51,14 @@ function preencher(dados: FichaAdmissaoPublica) {
 async function carregar() {
   loading.value = true
   error.value = ''
-  try { ficha.value = await obterFichaAdmissao(token); preencher(ficha.value) }
+  try {
+    ficha.value = await obterFichaAdmissao(token)
+    preencher(ficha.value)
+    for (const documento of gruposDocumentos.value.flatMap((grupo) => grupo.documentos)) {
+      if (documento.alternativas && !tipoIdentificacao.value[documento.id])
+        tipoIdentificacao.value[documento.id] = documento.alternativas.find((item) => item.documentoId)?.tipoCodigo ?? 'IDENTIDADE'
+    }
+  }
   catch (cause) { error.value = normalizeError(cause).message }
   finally { loading.value = false }
 }
@@ -81,18 +91,24 @@ async function concluir() {
 
 async function enviarDocumento(itemId: string, event: Event) {
   const input = event.target as HTMLInputElement
-  const arquivo = input.files?.[0]
+  const arquivos = Array.from(input.files ?? [])
   input.value = ''
-  if (!arquivo) return
-  if (arquivo.size > tamanhoMaximoArquivo) {
-    error.value = 'O arquivo deve ter no máximo 10 MB.'
+  if (!arquivos.length) return
+  if (arquivos.length > 10 || arquivos.reduce((total, arquivo) => total + arquivo.size, 0) > tamanhoMaximoArquivo) {
+    error.value = 'Selecione no máximo 10 arquivos, somando até 10 MB.'
     return
   }
   actionId.value = itemId
   error.value = ''
-  try { await enviarDocumentoFichaAdmissao(token, itemId, arquivo); success.value = 'Documento enviado.'; await carregar() }
+  try { await enviarDocumentoFichaAdmissao(token, itemId, arquivos); success.value = 'Documento enviado.'; await carregar() }
   catch (cause) { error.value = normalizeError(cause).message }
   finally { actionId.value = '' }
+}
+
+function documentoAtivo(documento: NonNullable<FichaAdmissaoPublica['documentos'][number]>): FichaAdmissaoPublica['documentos'][number] {
+  if (!documento.alternativas) return documento
+  const tipo = tipoIdentificacao.value[documento.id] ?? 'IDENTIDADE'
+  return documento.alternativas.find((item) => item.tipoCodigo === tipo) ?? documento.alternativas[0]!
 }
 
 async function visualizar(itemId: string) {
@@ -155,11 +171,11 @@ onMounted(() => void carregar())
           </div></div><p v-else class="muted">Nenhum dependente informado.</p>
         </section>
 
-        <section class="public-form-section"><h2>Documentos</h2><div class="public-document-list"><div v-for="documento in ficha.documentos" :key="documento.id" class="public-document-row">
-          <div><strong>{{ documento.rotulo }}</strong><span>{{ documento.nomeArquivo || (documento.obrigatorio ? 'Obrigatório' : 'Opcional') }}</span></div>
-          <StatusBadge :label="documento.documentoId ? 'Enviado' : 'Pendente'" :severity="documento.documentoId ? 'success' : 'warn'" />
-          <div class="document-actions"><BaseButton v-if="documento.documentoId" icon="pi pi-eye" variant="text" title="Visualizar documento" aria-label="Visualizar documento" :loading="actionId === documento.id" :disabled="Boolean(actionId)" @click="visualizar(documento.id)" /><label class="document-upload" :class="{ disabled: Boolean(actionId) }" :for="`public-doc-${documento.id}`"><i :class="actionId === documento.id ? 'pi pi-spinner loading-spinner' : documento.documentoId ? 'pi pi-refresh' : 'pi pi-upload'" />{{ documento.documentoId ? 'Substituir' : 'Enviar' }}</label><input :id="`public-doc-${documento.id}`" class="visually-hidden" type="file" accept=".pdf,.jpg,.jpeg,.png" :disabled="Boolean(actionId)" @change="enviarDocumento(documento.id, $event)" /></div>
-        </div></div></section>
+        <section class="public-form-section"><h2>Documentos</h2><div class="public-document-groups"><section v-for="grupo in gruposDocumentos" :key="grupo.codigo" class="public-document-group"><h3><i :class="grupo.icone" aria-hidden="true" />{{ grupo.titulo }}<span>{{ grupo.documentos.length }}</span></h3><div class="public-document-list"><div v-for="documento in grupo.documentos" :key="documento.id" class="public-document-row">
+          <div><strong>{{ documento.rotulo }}</strong><div v-if="documento.alternativas" class="document-type-choice"><label v-for="opcao in documento.alternativas" :key="opcao.id"><input v-model="tipoIdentificacao[documento.id]" type="radio" :name="`public-identificacao-${documento.id}`" :value="opcao.tipoCodigo" :disabled="Boolean(actionId)">{{ opcao.tipoCodigo === 'CNH' ? 'CNH' : 'Identidade (RG/CIN)' }}</label></div><span>{{ documentoAtivo(documento).nomeArquivo || (documento.obrigatorio ? 'Obrigatório' : 'Opcional') }}</span></div>
+          <StatusBadge :label="documentoAtivo(documento).documentoId ? 'Enviado' : documento.obrigatorio ? 'Pendente' : 'Opcional'" :severity="documentoAtivo(documento).documentoId ? 'success' : documento.obrigatorio ? 'warn' : 'secondary'" />
+          <div class="document-actions"><BaseButton v-if="documentoAtivo(documento).documentoId" icon="pi pi-eye" variant="text" title="Visualizar documento" aria-label="Visualizar documento" :loading="actionId === documentoAtivo(documento).id" :disabled="Boolean(actionId)" @click="visualizar(documentoAtivo(documento).id)" /><label class="document-upload" :class="{ disabled: Boolean(actionId) }" :for="`public-doc-${documentoAtivo(documento).id}`"><i :class="actionId === documentoAtivo(documento).id ? 'pi pi-spinner loading-spinner' : documentoAtivo(documento).documentoId ? 'pi pi-refresh' : 'pi pi-upload'" />{{ documentoAtivo(documento).documentoId ? 'Substituir' : 'Enviar' }}</label><input :id="`public-doc-${documentoAtivo(documento).id}`" class="visually-hidden" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" :disabled="Boolean(actionId)" @change="enviarDocumento(documentoAtivo(documento).id, $event)" /></div>
+        </div></div></section></div></section>
       </fieldset>
 
       <footer v-if="!finalizado" class="public-form-actions"><span>Link válido até {{ formatDate(ficha.expiraEm) }}</span><div><BaseButton label="Salvar" icon="pi pi-save" variant="secondary" :loading="saving" type="submit" /><BaseButton label="Enviar para conferência" icon="pi pi-check" :loading="saving" @click="concluir" /></div></footer>

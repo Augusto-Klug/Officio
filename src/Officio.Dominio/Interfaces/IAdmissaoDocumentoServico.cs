@@ -14,3 +14,8 @@ public interface IAdmissaoDocumentoServico
     Task<Resultado<bool>> AprovarManualmenteAsync(AprovarDocumentoAdmissaoRequisicao requisicao, CancellationToken ct = default);
     Task<Resultado<bool>> RemoverAsync(Guid admissaoId, Guid admissaoDocumentoId, CancellationToken ct = default);
 }
+
+public interface IConversorImagensPdf
+{
+    byte[] CriarPdf(IReadOnlyList<byte[]> imagens);
+}

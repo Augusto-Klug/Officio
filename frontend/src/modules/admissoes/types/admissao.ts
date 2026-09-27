@@ -63,6 +63,9 @@ export interface AdmissaoDocumento {
   mensagemValidacao: string | null
   camposExtraidos: Record<string, string>
   divergencias: DivergenciaDocumento[]
+  tipoDocumentoDetectado?: string | null
+  tipoDocumentoIncompativel?: boolean
+  alternativas?: AdmissaoDocumento[]
 }
 
 export interface DivergenciaDocumento {

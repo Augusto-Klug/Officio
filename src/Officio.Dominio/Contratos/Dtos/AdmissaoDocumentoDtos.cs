@@ -18,7 +18,9 @@ public record AdmissaoDocumentoDto(
     decimal? ConfiancaOcr,
     string? MensagemValidacao,
     Dictionary<string, string> CamposExtraidos,
-    List<DivergenciaDto> Divergencias);
+    List<DivergenciaDto> Divergencias,
+    string? TipoDocumentoDetectado = null,
+    bool TipoDocumentoIncompativel = false);
 
 public record ResumoValidacaoDocumentosAdmissaoDto(
     int Processados,
