@@ -16,6 +16,8 @@ namespace Officio.WebApi.Controllers;
 public class AdminParceirosController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Listar(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarParceirosConsulta(), cancellationToken);
@@ -23,6 +25,8 @@ public class AdminParceirosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(409)]
     public async Task<IActionResult> Criar(
         [FromBody] CriarParceiroAdministradorViewModel viewModel,
         CancellationToken cancellationToken)
@@ -40,6 +44,8 @@ public class AdminParceirosController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{parceiroId:guid}/status")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> AlterarStatus(
         Guid parceiroId,
         [FromBody] AlterarStatusParceiroViewModel viewModel,
@@ -48,6 +54,8 @@ public class AdminParceirosController(IMediator mediator) : ControllerBase
             new AlterarStatusParceiroComando(parceiroId, viewModel.Ativo), cancellationToken));
 
     [HttpPost("{parceiroId:guid}/administrador/reenviar-convite")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> ReenviarConviteAdministrador(
         Guid parceiroId,
         CancellationToken cancellationToken)

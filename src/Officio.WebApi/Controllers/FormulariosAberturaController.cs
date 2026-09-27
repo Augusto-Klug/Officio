@@ -14,6 +14,9 @@ namespace Officio.WebApi.Controllers;
 public class FormulariosAberturaController(IMediator mediator) : ControllerBase
 {
     [HttpGet("prospectos/{prospectoId:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> ObterPorProspecto(Guid prospectoId, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterFormularioAberturaPorProspectoConsulta(prospectoId), cancellationToken);
@@ -21,6 +24,9 @@ public class FormulariosAberturaController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("prospectos/{prospectoId:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> Atualizar(
         Guid prospectoId,
         [FromBody] AtualizarFormularioAberturaViewModel viewModel,

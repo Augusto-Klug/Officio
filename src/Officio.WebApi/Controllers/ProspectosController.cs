@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.ConverterParaCliente;
@@ -17,6 +18,8 @@ public class ProspectosController(
     IProspectoViewModelConversor prospectoViewModelConversor) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Listar(
         [FromQuery] int pagina = 1,
         [FromQuery] int tamanhoPagina = 20,
@@ -33,6 +36,10 @@ public class ProspectosController(
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Criar(
         [FromBody] CriarProspectoViewModel viewModel,
         CancellationToken cancellationToken)
@@ -53,6 +60,9 @@ public class ProspectosController(
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ConverterParaCliente(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ConverterProspectoComando(id), cancellationToken);

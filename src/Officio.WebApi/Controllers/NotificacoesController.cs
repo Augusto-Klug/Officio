@@ -13,6 +13,8 @@ namespace Officio.WebApi.Controllers;
 public class NotificacoesController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Listar(
         [FromQuery] bool? lida,
         CancellationToken cancellationToken)
@@ -25,6 +27,9 @@ public class NotificacoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> MarcarComoLida(
         Guid id,
         CancellationToken cancellationToken)
@@ -37,6 +42,8 @@ public class NotificacoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> MarcarTodasComoLidas(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(

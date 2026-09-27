@@ -15,6 +15,8 @@ public class DocumentosController(
     IDocumentoViewModelConversor documentoViewModelConversor) : ControllerBase
 {
     [HttpPost]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Enviar(
         IFormFile arquivo,
         [FromForm] EnviarDocumentoViewModel viewModel,
@@ -34,6 +36,8 @@ public class DocumentosController(
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Validar(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ValidarDocumentoComando(id), cancellationToken);

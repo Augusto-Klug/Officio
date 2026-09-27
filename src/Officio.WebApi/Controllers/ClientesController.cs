@@ -14,6 +14,8 @@ namespace Officio.WebApi.Controllers;
 public class ClientesController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Listar(
         [FromQuery] string? busca,
         [FromQuery] bool? ativo,
@@ -25,6 +27,9 @@ public class ClientesController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterClientePorIdConsulta(id), cancellationToken);
@@ -33,6 +38,9 @@ public class ClientesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> Atualizar(
         Guid id,
         [FromBody] AtualizarClienteViewModel viewModel,
@@ -47,6 +55,9 @@ public class ClientesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPatch("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     public async Task<IActionResult> VincularCodigoSci(
         Guid id,
         [FromBody] VincularCodigoSciViewModel viewModel,

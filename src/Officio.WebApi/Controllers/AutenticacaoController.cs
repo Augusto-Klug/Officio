@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Autenticacao.Comandos.AceitarConvite;
@@ -15,6 +16,8 @@ namespace Officio.WebApi.Controllers;
 public class AutenticacaoController(IAutenticacaoServico autenticacaoServico, IMediator mediator) : ControllerBase
 {
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(
         [FromBody] LoginViewModel viewModel,
         CancellationToken cancellationToken)
@@ -30,6 +33,8 @@ public class AutenticacaoController(IAutenticacaoServico autenticacaoServico, IM
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> AceitarConvite(
         [FromBody] AceitarConviteViewModel viewModel,
         CancellationToken cancellationToken)
@@ -40,6 +45,7 @@ public class AutenticacaoController(IAutenticacaoServico autenticacaoServico, IM
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> EsqueciSenha(
         [FromBody] EsqueciSenhaViewModel viewModel,
         CancellationToken cancellationToken)
@@ -49,6 +55,8 @@ public class AutenticacaoController(IAutenticacaoServico autenticacaoServico, IM
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RedefinirSenha(
         [FromBody] RedefinirSenhaViewModel viewModel,
         CancellationToken cancellationToken)

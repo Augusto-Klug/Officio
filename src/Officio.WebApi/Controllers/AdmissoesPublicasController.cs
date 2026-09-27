@@ -12,6 +12,8 @@ namespace Officio.WebApi.Controllers;
 public class AdmissoesPublicasController(IFichaAdmissaoServico servico) : ControllerBase
 {
     [HttpGet("{token}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Obter(string token, CancellationToken cancellationToken)
     {
         var resultado = await servico.ObterAsync(token, cancellationToken);
@@ -19,6 +21,8 @@ public class AdmissoesPublicasController(IFichaAdmissaoServico servico) : Contro
     }
 
     [HttpPut("{token}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Atualizar(
         string token,
         [FromBody] AtualizarFichaAdmissaoViewModel viewModel,
@@ -37,6 +41,8 @@ public class AdmissoesPublicasController(IFichaAdmissaoServico servico) : Contro
     }
 
     [HttpPost("{token}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Concluir(string token, CancellationToken cancellationToken)
     {
         var resultado = await servico.ConcluirAsync(token, cancellationToken);
@@ -45,6 +51,8 @@ public class AdmissoesPublicasController(IFichaAdmissaoServico servico) : Contro
 
     [HttpPost("{token}/itens/{itemId:guid}")]
     [Consumes("multipart/form-data")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> EnviarDocumento(
         string token,
         Guid itemId,
@@ -69,6 +77,8 @@ public class AdmissoesPublicasController(IFichaAdmissaoServico servico) : Contro
     }
 
     [HttpGet("{token}/itens/{itemId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ObterUrlDocumento(
         string token,
         Guid itemId,

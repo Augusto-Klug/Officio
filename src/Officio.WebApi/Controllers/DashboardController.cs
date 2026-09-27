@@ -13,6 +13,8 @@ namespace Officio.WebApi.Controllers;
 public class DashboardController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> VisaoGeral(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterVisaoGeralDashboardConsulta(), cancellationToken);
@@ -20,6 +22,8 @@ public class DashboardController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> Alertas(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ListarAlertasDashboardConsulta(), cancellationToken);
@@ -27,6 +31,8 @@ public class DashboardController(IMediator mediator) : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<IActionResult> ProjecaoReceita(CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterProjecaoReceitaDashboardConsulta(), cancellationToken);
