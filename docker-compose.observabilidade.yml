@@ -20,13 +20,35 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
       - ./src/observabilidade/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./src/observabilidade/prometheus/rules:/etc/prometheus/rules:ro
+      - ./src/observabilidade/prometheus/tests:/etc/prometheus/tests:ro
       - prometheus-data:/prometheus
     depends_on:
       - otel-collector
+      - alertmanager
+
+  alertmanager:
+    image: quay.io/prometheus/alertmanager:v0.34.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./src/observabilidade/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    depends_on:
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:v1.31.1
+    ports:
+      - "127.0.0.1:8025:8025"
 
   grafana:
     image: grafana/grafana:12.4.0
@@ -47,3 +69,4 @@ services:
 volumes:
   prometheus-data:
   grafana-data:
+  alertmanager-data:

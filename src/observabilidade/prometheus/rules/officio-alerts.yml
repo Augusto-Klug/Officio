@@ -1,0 +1,62 @@
+groups:
+  - name: officio-operacional
+    rules:
+      - alert: TelemetryCollectorUnavailable
+        expr: up{job="officio-otel-collector"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "O Prometheus nao consegue coletar telemetria do Officio"
+          description: "O alvo do OpenTelemetry Collector esta indisponivel ha mais de um minuto."
+
+      - alert: OfficioHttp5xxRateHigh
+        expr: sum(rate(officio_http_server_request_duration_seconds_count{exported_job="Officio.WebApi", http_response_status_code=~"5.."}[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A API Officio esta retornando muitos erros HTTP 5xx"
+          description: "A taxa de respostas 5xx excedeu 0.1 requisicao por segundo durante dois minutos."
+
+      - alert: OfficioHttpLatencyP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(officio_http_server_request_duration_seconds_bucket{exported_job="Officio.WebApi"}[5m]))) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A latencia p95 da API Officio esta alta"
+          description: "O percentil 95 da duracao de requisicoes ultrapassou dois segundos por cinco minutos."
+
+      - alert: AutentiqueWebhookQueueFull
+        expr: increase(officio_officio_webhook_received_total{result="queue_full"}[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "A fila do webhook Autentique rejeitou eventos"
+          description: "Eventos foram recusados porque a fila de processamento estava cheia nos ultimos cinco minutos."
+
+      - alert: AutentiqueWebhookProcessingFailure
+        expr: increase(officio_officio_webhook_processing_failures_total[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Falha ao processar webhook da Autentique"
+          description: "O processamento de pelo menos um evento falhou nos ultimos cinco minutos."
+
+      - alert: AutentiqueWebhookQueueBacklog
+        expr: max(officio_officio_webhook_queue_size) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A fila de webhooks Autentique esta acumulando"
+          description: "Mais de dez eventos permaneceram pendentes por pelo menos um minuto."
+
+      - alert: AutentiqueWebhookInvalidSignatures
+        expr: increase(officio_officio_webhook_received_total{result="invalid_signature"}[5m]) >= 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "Foram recebidas varias assinaturas de webhook invalidas"
+          description: "Cinco ou mais webhooks com assinatura invalida foram recebidos nos ultimos cinco minutos."

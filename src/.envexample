@@ -37,7 +37,9 @@ Email__Smtp__Password=
 # Para usar o stack local, inicie na raiz: docker compose -f docker-compose.observabilidade.yml up -d
 # Grafana: http://localhost:3000 (admin/admin na primeira inicializacao)
 # Jaeger (traces): http://localhost:16686 | Prometheus (metricas): http://localhost:9090
+# Alertmanager: http://localhost:9093 | Caixa de e-mail de teste Mailpit: http://localhost:8025
 # O Collector recebe OTLP gRPC da API em localhost:4317 e encaminha traces/metricas.
+# Alertas locais sao capturados pelo Mailpit; nao enviam e-mails para destinatarios reais.
 Observabilidade__Otlp__Endpoint=
 # Use 1.0 para testes locais; em producao, ajuste conforme volume/custo.
 Observabilidade__TraceSampleRatio=1.0

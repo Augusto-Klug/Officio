@@ -1,0 +1,112 @@
+rule_files:
+  - ../rules/officio-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="officio-otel-collector"}'
+        values: '1 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: TelemetryCollectorUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: officio-otel-collector
+            exp_annotations:
+              summary: "O Prometheus nao consegue coletar telemetria do Officio"
+              description: "O alvo do OpenTelemetry Collector esta indisponivel ha mais de um minuto."
+
+  - interval: 1m
+    input_series:
+      - series: 'officio_officio_webhook_received_total{result="queue_full"}'
+        values: '0 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: AutentiqueWebhookQueueFull
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              result: queue_full
+            exp_annotations:
+              summary: "A fila do webhook Autentique rejeitou eventos"
+              description: "Eventos foram recusados porque a fila de processamento estava cheia nos ultimos cinco minutos."
+
+  - interval: 1m
+    input_series:
+      - series: 'officio_officio_webhook_processing_failures_total'
+        values: '0 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: AutentiqueWebhookProcessingFailure
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Falha ao processar webhook da Autentique"
+              description: "O processamento de pelo menos um evento falhou nos ultimos cinco minutos."
+
+  - interval: 1m
+    input_series:
+      - series: 'officio_http_server_request_duration_seconds_count{exported_job="Officio.WebApi", http_response_status_code="500"}'
+        values: '0 100 200 300 400 500'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: OfficioHttp5xxRateHigh
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "A API Officio esta retornando muitos erros HTTP 5xx"
+              description: "A taxa de respostas 5xx excedeu 0.1 requisicao por segundo durante dois minutos."
+
+  - interval: 1m
+    input_series:
+      - series: 'officio_http_server_request_duration_seconds_bucket{exported_job="Officio.WebApi", le="0.5"}'
+        values: '0 0 0 0 0 0 0 0'
+      - series: 'officio_http_server_request_duration_seconds_bucket{exported_job="Officio.WebApi", le="2"}'
+        values: '0 0 0 0 0 0 0 0'
+      - series: 'officio_http_server_request_duration_seconds_bucket{exported_job="Officio.WebApi", le="5"}'
+        values: '0 10 20 30 40 50 60 70'
+      - series: 'officio_http_server_request_duration_seconds_bucket{exported_job="Officio.WebApi", le="+Inf"}'
+        values: '0 10 20 30 40 50 60 70'
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: OfficioHttpLatencyP95High
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "A latencia p95 da API Officio esta alta"
+              description: "O percentil 95 da duracao de requisicoes ultrapassou dois segundos por cinco minutos."
+
+  - interval: 1m
+    input_series:
+      - series: 'officio_officio_webhook_queue_size'
+        values: '12 12 12'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: AutentiqueWebhookQueueBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "A fila de webhooks Autentique esta acumulando"
+              description: "Mais de dez eventos permaneceram pendentes por pelo menos um minuto."
+
+  - interval: 1m
+    input_series:
+      - series: 'officio_officio_webhook_received_total{result="invalid_signature"}'
+        values: '0 1 2 3 4 5 5'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AutentiqueWebhookInvalidSignatures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              result: invalid_signature
+            exp_annotations:
+              summary: "Foram recebidas varias assinaturas de webhook invalidas"
+              description: "Cinco ou mais webhooks com assinatura invalida foram recebidos nos ultimos cinco minutos."
