@@ -1,7 +1,5 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": { "list": [] },
   "editable": true,
   "graphTooltip": 0,
   "id": null,
@@ -33,8 +31,18 @@
       "id": 3,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single", "sort": "none" } },
       "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(officio_officio_webhook_processing_duration_milliseconds_bucket[5m])))", "legendFormat": "p95", "refId": "A" }],
-      "title": "Duração de processamento do webhook (p95)",
+      "title": "Duracao de processamento do webhook (p95)",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "auto" },
+      "targets": [{ "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)", "refId": "A" }],
+      "title": "Alertas ativos",
+      "type": "stat"
     }
   ],
   "refresh": "10s",
@@ -44,5 +52,5 @@
   "time": { "from": "now-1h", "to": "now" },
   "title": "Officio - Observabilidade",
   "uid": "officio-observabilidade",
-  "version": 1
+  "version": 2
 }

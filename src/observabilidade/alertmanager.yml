@@ -1,0 +1,21 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: mailpit:1025
+  smtp_from: alertas@officio.local
+  smtp_require_tls: false
+
+route:
+  receiver: officio-local-mail
+  group_by: [alertname, severity]
+  group_wait: 5s
+  group_interval: 1m
+  repeat_interval: 30m
+
+receivers:
+  - name: officio-local-mail
+    email_configs:
+      - to: dev@officio.local
+        send_resolved: true
+        headers:
+          subject: '[Officio] {{ .CommonLabels.alertname }} - {{ .Status }}'
+        html: '{{ range .Alerts }}<p><strong>{{ .Labels.severity }}</strong> - {{ .Annotations.summary }}</p><p>{{ .Annotations.description }}</p>{{ end }}'
