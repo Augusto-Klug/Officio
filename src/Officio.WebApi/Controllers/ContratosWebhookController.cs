@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,11 +25,18 @@ public class ContratosWebhookController(
         var payload = await reader.ReadToEndAsync(cancellationToken);
 
         if (!AssinaturaValida(payload, Request.Headers["x-autentique-signature"].FirstOrDefault()))
+        {
+            MetricasWebhookAutentique.RegistrarRecebido("invalid_signature");
             return Unauthorized();
+        }
 
-        if (!fila.TentarEnfileirar(payload))
+        if (!fila.TentarEnfileirar(payload, Activity.Current?.Context ?? default))
+        {
+            MetricasWebhookAutentique.RegistrarRecebido("queue_full");
             return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
 
+        MetricasWebhookAutentique.RegistrarRecebido("accepted");
         return Accepted();
     }
 

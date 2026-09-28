@@ -10,6 +10,7 @@ builder.Logging.AddDebug();
 
 builder.Services.AddControllers();
 builder.Services.AdicionarOpenApiOfficio();
+builder.Services.AdicionarObservabilidade(builder.Configuration);
 builder.Services.AdicionarServicosOfficio(builder.Configuration);
 
 var app = builder.Build();

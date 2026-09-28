@@ -24,7 +24,7 @@ Acesso__FrontendBaseUrl=http://localhost:5173
 Acesso__ConviteExpiracaoHoras=48
 Acesso__RedefinicaoSenhaExpiracaoHoras=1
 
-# Em desenvolvimento, true registra o conteudo dos e-mails no log.
+# Em desenvolvimento, true suprime o envio e registra apenas o assunto, sem expor links ou tokens.
 Email__ExporConteudoNoLog=false
 Email__Smtp__Host=
 Email__Smtp__Port=587
@@ -32,6 +32,15 @@ Email__Smtp__EnableSsl=true
 Email__Smtp__From=
 Email__Smtp__User=
 Email__Smtp__Password=
+
+# Telemetria OTLP opcional. Sem endpoint, nenhuma telemetria e exportada.
+# Para usar o stack local, inicie na raiz: docker compose -f docker-compose.observabilidade.yml up -d
+# Grafana: http://localhost:3000 (admin/admin na primeira inicializacao)
+# Jaeger (traces): http://localhost:16686 | Prometheus (metricas): http://localhost:9090
+# O Collector recebe OTLP gRPC da API em localhost:4317 e encaminha traces/metricas.
+Observabilidade__Otlp__Endpoint=
+# Use 1.0 para testes locais; em producao, ajuste conforme volume/custo.
+Observabilidade__TraceSampleRatio=1.0
 
 # Criacao idempotente do contexto e usuario iniciais em Development.
 # PlatformAdmin administra parceiros; Admin administra usuarios de um unico parceiro.
