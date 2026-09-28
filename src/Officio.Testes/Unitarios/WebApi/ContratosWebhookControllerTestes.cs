@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -26,11 +27,13 @@ public class ContratosWebhookControllerTestes
         const string payload = """{"event":"document.finished","document":{"id":"doc-1"}}""";
         var fila = new FilaFake();
         var controller = CriarController(payload, CriarAssinatura(payload), fila);
+        using var requisicao = new Activity("http.request").Start();
 
         var resultado = await controller.Receber(CancellationToken.None);
 
         Assert.IsType<AcceptedResult>(resultado);
         Assert.Equal(payload, fila.PayloadRecebido);
+        Assert.Equal(requisicao.Context, fila.ContextoTraceRecebido);
     }
 
     [Fact]
@@ -83,16 +86,19 @@ public class ContratosWebhookControllerTestes
     {
         public string? PayloadRecebido { get; private set; }
 
-        public bool TentarEnfileirar(string payload)
+        public ActivityContext ContextoTraceRecebido { get; private set; }
+
+        public bool TentarEnfileirar(string payload, ActivityContext contextoTrace)
         {
             if (!aceita)
                 return false;
 
             PayloadRecebido = payload;
+            ContextoTraceRecebido = contextoTrace;
             return true;
         }
 
-        public IAsyncEnumerable<string> LerTodosAsync(CancellationToken cancellationToken)
-            => AsyncEnumerable.Empty<string>();
+        public IAsyncEnumerable<WebhookAutentiqueEnfileirado> LerTodosAsync(CancellationToken cancellationToken)
+            => AsyncEnumerable.Empty<WebhookAutentiqueEnfileirado>();
     }
 }

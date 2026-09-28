@@ -12,7 +12,9 @@ public class ServicoEmail(ILogger<ServicoEmail> logger, IConfiguration configura
     {
         if (configuration.GetValue<bool>("Email:ExporConteudoNoLog"))
         {
-            logger.LogWarning("Conteudo de e-mail exposto para desenvolvimento: {Body}", body);
+            logger.LogWarning(
+                "Envio de e-mail suprimido pela configuracao Email:ExporConteudoNoLog. Assunto={Subject}",
+                subject);
             return;
         }
 
@@ -34,7 +36,7 @@ public class ServicoEmail(ILogger<ServicoEmail> logger, IConfiguration configura
             cliente.Credentials = new NetworkCredential(usuario, senha);
 
         await cliente.SendMailAsync(mensagem, ct);
-        logger.LogInformation("E-mail enviado. Destinatario={To} Assunto={Subject}", to, subject);
+        logger.LogInformation("E-mail enviado por SMTP. Assunto={Subject}", subject);
     }
 }
 

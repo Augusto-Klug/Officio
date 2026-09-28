@@ -245,15 +245,16 @@ public class ContratoServico(
         var evento = EventoWebhookAutentique.Criar(payload);
         if (evento is null)
         {
-            logger.LogWarning("Webhook Autentique ignorado: nao foi possivel extrair tipo/documento. Payload: {Payload}", payload);
+            logger.LogWarning(
+                "Webhook Autentique ignorado: nao foi possivel extrair tipo/documento. TamanhoPayload={TamanhoPayload}",
+                payload.Length);
             return Resultado<bool>.CriarFalha("Payload do webhook Autentique invalido.");
         }
 
         logger.LogInformation(
-            "Webhook Autentique recebido. Tipo={Tipo} DocumentoId={DocumentoId} Email={Email} DocumentoFinalizado={DocumentoFinalizado}",
+            "Webhook Autentique recebido. Tipo={Tipo} DocumentoId={DocumentoId} DocumentoFinalizado={DocumentoFinalizado}",
             evento.Tipo,
             evento.DocumentoId,
-            evento.EmailSignatario,
             evento.DocumentoFinalizado);
 
         var solicitacao = await contratoRepositorio.ObterSolicitacaoAssinaturaPorIdExternoAsync(
