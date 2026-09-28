@@ -274,10 +274,13 @@ public class GestaoAcessoServico(
         await repositorio.SalvarAlteracoesAsync(ct);
 
         var link = $"{ObterBaseFrontend()}/redefinir-senha?token={Uri.EscapeDataString(token)}";
+        var emailRedefinicao = TemplatesEmailAcesso.RedefinicaoSenha(
+            link,
+            ObterHoras("Acesso:RedefinicaoSenhaExpiracaoHoras", 1));
         await servicoEmail.SendAsync(
             usuario.Email,
-            "Redefinicao de senha do Officio",
-            $"Use o link a seguir para definir uma nova senha: {link}",
+            emailRedefinicao.Assunto,
+            emailRedefinicao.Corpo,
             ct);
     }
 
@@ -301,10 +304,14 @@ public class GestaoAcessoServico(
     private async Task EnviarConviteAsync(ConviteUsuario convite, string token, CancellationToken ct)
     {
         var link = $"{ObterBaseFrontend()}/ativar-conta?token={Uri.EscapeDataString(token)}";
+        var email = TemplatesEmailAcesso.Convite(
+            convite.Nome,
+            link,
+            ObterHoras("Acesso:ConviteExpiracaoHoras", 48));
         await servicoEmail.SendAsync(
             convite.Email,
-            "Convite para acessar o Officio",
-            $"Ola, {convite.Nome}. Defina sua senha e ative a conta em: {link}",
+            email.Assunto,
+            email.Corpo,
             ct);
     }
 

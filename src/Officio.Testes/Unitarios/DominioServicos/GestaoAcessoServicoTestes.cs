@@ -42,6 +42,10 @@ public class GestaoAcessoServicoTestes
         Assert.Single(await contexto.Parceiros.ToListAsync());
         Assert.Empty(await contexto.Empresas.IgnoreQueryFilters().ToListAsync());
         Assert.Empty(await contexto.UsuarioEmpresas.ToListAsync());
+        var emailConvite = Assert.Single(email.Mensagens);
+        Assert.Equal("Convite para acessar o Officio", emailConvite.Assunto);
+        Assert.Contains("expira em 48 horas", emailConvite.Corpo);
+        Assert.Contains("http://localhost:5173/ativar-conta?token=", emailConvite.Corpo);
     }
 
     [Fact]
@@ -98,6 +102,10 @@ public class GestaoAcessoServicoTestes
         var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), email);
 
         await servico.SolicitarRedefinicaoSenhaAsync(usuario.Email);
+        var emailRedefinicao = Assert.Single(email.Mensagens);
+        Assert.Equal("Redefinicao de senha do Officio", emailRedefinicao.Assunto);
+        Assert.Contains("expira em 1 hora", emailRedefinicao.Corpo);
+        Assert.Contains("http://localhost:5173/redefinir-senha?token=", emailRedefinicao.Corpo);
         var token = email.ObterTokenDoUltimoLink();
         var primeira = await servico.RedefinirSenhaAsync(new(token, "senha-nova-123"));
         var segunda = await servico.RedefinirSenhaAsync(new(token, "senha-outra-123"));
@@ -172,18 +180,18 @@ public class GestaoAcessoServicoTestes
 
     private sealed class EmailFake : IServicoEmail
     {
-        private readonly List<string> _corpos = [];
-        public int Quantidade => _corpos.Count;
+        public List<(string Destinatario, string Assunto, string Corpo)> Mensagens { get; } = [];
+        public int Quantidade => Mensagens.Count;
 
         public Task SendAsync(string to, string subject, string body, CancellationToken ct = default)
         {
-            _corpos.Add(body);
+            Mensagens.Add((to, subject, body));
             return Task.CompletedTask;
         }
 
         public string ObterTokenDoUltimoLink()
         {
-            var corpo = Assert.Single(_corpos.TakeLast(1));
+            var corpo = Assert.Single(Mensagens.TakeLast(1)).Corpo;
             var indice = corpo.LastIndexOf("token=", StringComparison.Ordinal);
             Assert.True(indice >= 0);
             return Uri.UnescapeDataString(corpo[(indice + 6)..]);
