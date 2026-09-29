@@ -146,7 +146,23 @@ Com a API em execucao, acesse:
 - Swagger UI: <http://localhost:5131/swagger>
 - documento OpenAPI: <http://localhost:5131/openapi/v1.json>
 
-> **Banco novo:** nao execute `dotnet ef database update` em uma base vazia deste projeto. As migrations atuais sao incrementais e nao contem a criacao inicial completa. Em desenvolvimento, deixe `Database:EnsureCreatedOnStartup=true` (valor ja presente em `appsettings.Development.json`) para a primeira criacao.
+### Banco de dados
+
+As migrations versionadas sao incrementais e pressupõem que o schema base já exista. Para preparar uma instalação limpa, configure `ConnectionStrings__DefaultConnection` para apontar a um banco vazio (a variável está exemplificada, comentada, em `src/.envexample`) e execute na raiz do repositório:
+
+```powershell
+dotnet run --project src/Officio.WebApi -- --bootstrap-schema
+```
+
+O comando cria as tabelas a partir do modelo EF Core atual e registra as migrations existentes como baseline. Ele recusa bancos que já contenham tabelas de usuário.
+
+Para atualizar uma base existente, faça backup e execute:
+
+```powershell
+dotnet run --project src/Officio.WebApi -- --apply-migrations
+```
+
+O início normal da API em produção não aplica migrations automaticamente. Em desenvolvimento, `Database:EnsureCreatedOnStartup=true` mantém o comportamento local de criar o schema e o baseline na primeira execução.
 
 ## 5. Configurar e executar o frontend
 
