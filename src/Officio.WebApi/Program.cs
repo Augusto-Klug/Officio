@@ -1,6 +1,7 @@
 using Officio.WebApi.Extensoes;
 
-var builder = WebApplication.CreateBuilder(args);
+var argumentosPrograma = args.AnalisarArgumentosPrograma();
+var builder = WebApplication.CreateBuilder(argumentosPrograma.ArgumentosHost);
 
 builder.Configuration.AdicionarArquivoEnv(builder.Environment);
 
@@ -14,6 +15,9 @@ builder.Services.AdicionarObservabilidade(builder.Configuration);
 builder.Services.AdicionarServicosOfficio(builder.Configuration);
 
 var app = builder.Build();
+
+if (await app.ExecutarComandoBancoAsync(argumentosPrograma.ComandoBanco))
+    return;
 
 await app.PrepararBancoDesenvolvimentoAsync();
 

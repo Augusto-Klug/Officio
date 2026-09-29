@@ -1,5 +1,7 @@
 # Banco SQL Server. A connection string base esta em appsettings.Development.json.
 Database__Password=
+# Opcional: use um banco local separado ao executar --bootstrap-schema.
+# ConnectionStrings__DefaultConnection=Server=localhost,1433;Database=OfficioBootstrapLocal;User Id=sa;Encrypt=False;TrustServerCertificate=True
 
 # Autenticacao JWT.
 Jwt__Key=

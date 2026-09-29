@@ -10,6 +10,47 @@ namespace Officio.Testes.Unitarios.WebApi;
 
 public class InicializacaoDesenvolvimentoTestes
 {
+    [Fact]
+    public void AnalisarArgumentosPrograma_SeparaComandoBancoDosArgumentosHost()
+    {
+        var resultado = new[] { "--bootstrap-schema", "--urls", "http://localhost:5131" }
+            .AnalisarArgumentosPrograma();
+
+        Assert.Equal("--bootstrap-schema", resultado.ComandoBanco);
+        Assert.Equal(new[] { "--urls", "http://localhost:5131" }, resultado.ArgumentosHost);
+    }
+
+    [Fact]
+    public void AnalisarArgumentosPrograma_RejeitaMaisDeUmComandoBanco()
+    {
+        var erro = Assert.Throws<ArgumentException>(() =>
+            new[] { "--bootstrap-schema", "--apply-migrations" }.AnalisarArgumentosPrograma());
+
+        Assert.Equal("Escolha apenas um comando de banco por execucao.", erro.Message);
+    }
+
+    [Fact]
+    public async Task InicializarBancoVazio_RejeitaBancoNaoSqlServer()
+    {
+        await using var services = CriarServicosBancoTeste();
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => services.InicializarBancoVazioAsync());
+
+        Assert.Equal("O bootstrap do schema exige SQL Server.", erro.Message);
+    }
+
+    [Fact]
+    public async Task AplicarMigrationsPendentes_RejeitaBancoNaoRelacional()
+    {
+        await using var services = CriarServicosBancoTeste();
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => services.AplicarMigrationsPendentesAsync());
+
+        Assert.Equal("A aplicacao de migrations exige SQL Server.", erro.Message);
+    }
+
     [Theory]
     [InlineData("Development", true, true, 1)]
     [InlineData("Development", false, true, 1)]
@@ -52,5 +93,15 @@ public class InicializacaoDesenvolvimentoTestes
         Assert.Empty(await db.Empresas.ToListAsync());
         if (usuariosEsperados == 1)
             Assert.Equal(tenant, Assert.Single(usuarios).TenantId);
+    }
+
+    private static ServiceProvider CriarServicosBancoTeste()
+    {
+        var services = new ServiceCollection();
+        var banco = Guid.NewGuid().ToString();
+        services.AddScoped(_ => new ContextoAplicacao(
+            new DbContextOptionsBuilder<ContextoAplicacao>().UseInMemoryDatabase(banco).Options,
+            new ServicoEmpresaAtual(), new PublicadorEventosFake()));
+        return services.BuildServiceProvider();
     }
 }

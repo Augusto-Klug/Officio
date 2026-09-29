@@ -193,13 +193,19 @@ Quando executada em ambiente de desenvolvimento, a aplicacao tambem mapeia a esp
 
 O acesso a dados usa Entity Framework Core com SQL Server. As migrations ficam no projeto `Officio.Infra.BancoDeDados`.
 
-Para aplicar migrations, configure a connection string `DefaultConnection` e execute o comando apropriado do Entity Framework Core a partir da solucao.
-
-Exemplo:
+As migrations versionadas sao incrementais e pressupõem um schema base já criado. Para uma instalação limpa, configure `ConnectionStrings__DefaultConnection` para apontar a um banco vazio (veja o exemplo comentado em `.envexample`) e execute a partir da pasta `src`:
 
 ```bash
-dotnet ef database update --project Officio.Infra.BancoDeDados --startup-project Officio.WebApi
+dotnet run --project Officio.WebApi -- --bootstrap-schema
 ```
+
+Esse comando cria o schema pelo modelo EF Core atual e registra as migrations existentes como baseline. Para aplicar migrations pendentes em uma base existente, faça backup e execute:
+
+```bash
+dotnet run --project Officio.WebApi -- --apply-migrations
+```
+
+A inicializacao normal da API em producao nao aplica migrations automaticamente.
 
 ## Observacoes para Leitores Externos
 
