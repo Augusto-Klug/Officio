@@ -164,6 +164,8 @@ dotnet run --project src/Officio.WebApi -- --apply-migrations
 
 O início normal da API em produção não aplica migrations automaticamente. Em desenvolvimento, `Database:EnsureCreatedOnStartup=true` mantém o comportamento local de criar o schema e o baseline na primeira execução.
 
+O procedimento de backup, aplicação de migrations e recuperação está em [docs/operacao-banco.md](docs/operacao-banco.md).
+
 ## 5. Configurar e executar o frontend
 
 Abra outro terminal na raiz do repositorio.
