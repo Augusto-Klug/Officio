@@ -11,6 +11,25 @@ namespace Officio.WebApi.Extensoes;
 
 public static class ExtensoesServiceCollection
 {
+    public static IServiceCollection AdicionarCorsFrontend(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var origens = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()?
+            .Where(origem => !string.IsNullOrWhiteSpace(origem))
+            .Select(origem => origem.Trim().TrimEnd('/'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? [];
+
+        services.AddCors(options => options.AddDefaultPolicy(policy =>
+        {
+            if (origens.Length > 0)
+                policy.WithOrigins(origens).AllowAnyHeader().AllowAnyMethod();
+        }));
+
+        return services;
+    }
+
     public static IServiceCollection AdicionarServicosOfficio(
         this IServiceCollection services,
         IConfiguration configuration)

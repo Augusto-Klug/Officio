@@ -1,0 +1,17 @@
+services:
+  sql-staging:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: officio-sql-staging
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${Database__Password:?Configure Database__Password in src/.env}
+    ports:
+      - "127.0.0.1:1434:1433"
+    volumes:
+      - officio-staging-sql-data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  officio-staging-sql-data:
+    name: officio-staging-sql-data
