@@ -10,6 +10,8 @@ O Officio e uma aplicacao para apoiar o ciclo comercial e operacional de empresa
 
 Este guia mostra como preparar uma maquina nova e executar o sistema completo em desenvolvimento. O caminho principal usa Docker somente para o SQL Server e o Azurite; backend e frontend rodam diretamente na maquina para facilitar o desenvolvimento.
 
+Para preparar um piloto hospedado na Azure, consulte [docs/piloto-azure.md](docs/piloto-azure.md). O guia separa a preparacao local da ativacao com o parceiro e registra os bloqueios para uso real.
+
 ## 1. O que instalar
 
 Instale os itens abaixo:

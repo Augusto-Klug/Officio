@@ -22,6 +22,18 @@ O comando usa a conexao configurada e aplica somente migrations pendentes. A ini
 
 Depois da migration, confira o historico em `__EFMigrationsHistory`, valide tabelas/dados afetados e execute smoke tests dos fluxos relevantes antes de reabrir as escritas.
 
+## Staging local
+
+Para ensaios locais, o Compose dedicado cria uma segunda instancia SQL Server 2022 em `127.0.0.1:1434`, com volume separado do container de desenvolvimento. Inicie-a a partir da raiz do repositorio:
+
+```powershell
+docker compose --env-file src/.env -f docker-compose.staging.yml up -d
+```
+
+A senha `Database__Password` do arquivo local `src/.env` e usada somente para essa instancia local. A base da aplicacao ainda precisa ser inicializada no banco `OfficioStaging`; use a connection string `Server=127.0.0.1,1434;Database=OfficioStaging;User Id=sa;Encrypt=False;TrustServerCertificate=True` e o comando `--bootstrap-schema` uma unica vez. Para releases posteriores, use `--apply-migrations` nessa mesma base.
+
+Mantenha esse staging local com dados sinteticos ou anonimizados. Nao restaure nele uma copia bruta de um banco com dados pessoais. Essa instancia valida migrations em SQL Server local, mas nao substitui testes de backup/PITR, rede, disponibilidade ou configuracao de um ambiente gerenciado de producao. O volume `officio-staging-sql-data` persiste apos `docker compose down`; nao use `down -v` a menos que queira apagar a base de staging.
+
 ## Restaurar
 
 Restaure o backup em uma base separada. Consulte os nomes logicos dos arquivos com `RESTORE FILELISTONLY` e use `WITH MOVE` para atribuir caminhos/nomes de arquivos que nao colidam com a base original. Em seguida:

@@ -26,6 +26,9 @@ Acesso__FrontendBaseUrl=http://localhost:5173
 Acesso__ConviteExpiracaoHoras=48
 Acesso__RedefinicaoSenhaExpiracaoHoras=1
 
+# Somente para frontend hospedado em origem diferente da API; informe a origem exata, sem caminho.
+# Cors__AllowedOrigins__0=https://<seu-frontend>.azurestaticapps.net
+
 # Em desenvolvimento, true suprime o envio e registra apenas o assunto, sem expor links ou tokens.
 Email__ExporConteudoNoLog=false
 Email__Smtp__Host=
