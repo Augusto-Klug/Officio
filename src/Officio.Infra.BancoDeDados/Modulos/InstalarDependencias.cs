@@ -17,7 +17,9 @@ public static class InstalarDependenciasBancoDeDados
         servicos.AddDbContext<ContextoAplicacao>(options =>
             options.UseSqlServer(
                 ObterConnectionString(configuracao),
-                b => b.MigrationsAssembly(typeof(ContextoAplicacao).Assembly.FullName)));
+                b => b
+                    .MigrationsAssembly(typeof(ContextoAplicacao).Assembly.FullName)
+                    .EnableRetryOnFailure()));
 
         servicos.AddScoped<DbContext>(sp => sp.GetRequiredService<ContextoAplicacao>());
         servicos.AddScoped<IRepositorioBase<ContextoAplicacao, Guid>, RepositorioBase<ContextoAplicacao, Guid>>();

@@ -46,16 +46,26 @@ public static class ExtensoesBanco
         var repositorioHistorico = contexto.GetService<IHistoryRepository>();
         var assemblyMigracoes = contexto.GetService<IMigrationsAssembly>();
 
-        await using var transacao = await contexto.Database.BeginTransactionAsync();
-        await contexto.Database.ExecuteSqlRawAsync(repositorioHistorico.GetCreateIfNotExistsScript());
-
-        foreach (var migrationId in assemblyMigracoes.Migrations.Keys.OrderBy(id => id))
+        var estrategia = contexto.Database.CreateExecutionStrategy();
+        await estrategia.ExecuteAsync(async () =>
         {
-            var linha = new HistoryRow(migrationId, ProductInfo.GetVersion());
-            await contexto.Database.ExecuteSqlRawAsync(repositorioHistorico.GetInsertScript(linha));
-        }
+            await using var transacao = await contexto.Database.BeginTransactionAsync();
+            await contexto.Database.ExecuteSqlRawAsync(repositorioHistorico.GetCreateIfNotExistsScript());
 
-        await transacao.CommitAsync();
+            var migracoesAplicadas = (await contexto.Database.GetAppliedMigrationsAsync())
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var migrationId in assemblyMigracoes.Migrations.Keys.OrderBy(id => id))
+            {
+                if (migracoesAplicadas.Contains(migrationId))
+                    continue;
+
+                var linha = new HistoryRow(migrationId, ProductInfo.GetVersion());
+                await contexto.Database.ExecuteSqlRawAsync(repositorioHistorico.GetInsertScript(linha));
+            }
+
+            await transacao.CommitAsync();
+        });
     }
 
     private static async Task<bool> PossuiTabelasDeUsuarioAsync(ContextoAplicacao contexto)
