@@ -16,7 +16,17 @@ public class InicializacaoDesenvolvimentoTestes
         var resultado = new[] { "--bootstrap-schema", "--urls", "http://localhost:5131" }
             .AnalisarArgumentosPrograma();
 
-        Assert.Equal("--bootstrap-schema", resultado.ComandoBanco);
+        Assert.Equal("--bootstrap-schema", resultado.Comando);
+        Assert.Equal(new[] { "--urls", "http://localhost:5131" }, resultado.ArgumentosHost);
+    }
+
+    [Fact]
+    public void AnalisarArgumentosPrograma_ReconheceBootstrapAdministradorPlataforma()
+    {
+        var resultado = new[] { "--bootstrap-platform-admin", "--urls", "http://localhost:5131" }
+            .AnalisarArgumentosPrograma();
+
+        Assert.Equal("--bootstrap-platform-admin", resultado.Comando);
         Assert.Equal(new[] { "--urls", "http://localhost:5131" }, resultado.ArgumentosHost);
     }
 
@@ -24,9 +34,9 @@ public class InicializacaoDesenvolvimentoTestes
     public void AnalisarArgumentosPrograma_RejeitaMaisDeUmComandoBanco()
     {
         var erro = Assert.Throws<ArgumentException>(() =>
-            new[] { "--bootstrap-schema", "--apply-migrations" }.AnalisarArgumentosPrograma());
+            new[] { "--bootstrap-schema", "--bootstrap-platform-admin" }.AnalisarArgumentosPrograma());
 
-        Assert.Equal("Escolha apenas um comando de banco por execucao.", erro.Message);
+        Assert.Equal("Escolha apenas um comando operacional por execucao.", erro.Message);
     }
 
     [Fact]

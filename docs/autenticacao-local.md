@@ -53,6 +53,17 @@ indicam configuracao incompleta ou email de outro tenant/escritorio.
 Apos criar o usuario, pode-se desabilitar BootstrapUser:Enabled e remover a senha da configuracao.
 Para remover o mecanismo futuramente, exclua Desenvolvimento/BootstrapUsuario.cs e sua chamada no Program.cs.
 
+## PlatformAdmin inicial em piloto
+
+Para criar o primeiro administrador sem iniciar a API em `Development`, configure `BootstrapUser:Enabled=true`, `BootstrapUser:Role=PlatformAdmin`, os dados do parceiro interno e uma senha privada. Aponte `ConnectionStrings:DefaultConnection`, `Database:Password` e `Jwt:Key` para o ambiente de destino e execute uma vez:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = 'Production'
+dotnet run --project src/Officio.WebApi --no-launch-profile -- --bootstrap-platform-admin
+```
+
+O comando e explicito, nao cria rota publica e encerra apos provisionar/verificar o usuario. Conflitos de e-mail, perfil, CNPJ ou razao social interrompem o fluxo sem atualizar registros existentes. Repetir com o mesmo `PlatformAdmin` ativo nao redefine sua senha. Apos sucesso, remova `BootstrapUser:Password` e desabilite o bootstrap.
+
 ## Tenant logico do TCC
 
 Use o mesmo GUID fixo para Parisotto Contabilidade em todas as inicializacoes e

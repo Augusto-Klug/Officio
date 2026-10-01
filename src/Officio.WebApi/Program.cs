@@ -17,7 +17,7 @@ builder.Services.AdicionarServicosOfficio(builder.Configuration);
 
 var app = builder.Build();
 
-if (await app.ExecutarComandoBancoAsync(argumentosPrograma.ComandoBanco))
+if (await app.ExecutarComandoProgramaAsync(argumentosPrograma.Comando))
     return;
 
 await app.PrepararBancoDesenvolvimentoAsync();
@@ -34,7 +34,6 @@ app.MapControllers();
 app.Run();
 
 public partial class Program;
-
 
 
 
