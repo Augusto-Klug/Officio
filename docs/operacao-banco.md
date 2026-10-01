@@ -20,6 +20,8 @@ dotnet run --project src/Officio.WebApi -- --apply-migrations
 
 O comando usa a conexao configurada e aplica somente migrations pendentes. A inicializacao normal da API nao migra o banco automaticamente. `--bootstrap-schema` e exclusivo para um banco vazio e nao deve ser usado para recuperar ou atualizar uma base existente.
 
+O provider SQL Server do EF Core usa a estrategia padrao de repeticao para falhas transitorias de conexao. Transacoes abertas manualmente pela aplicacao devem executar o bloco completo por `Database.CreateExecutionStrategy()` para que possam ser repetidas como uma unidade. Esse retry nao substitui testes de recuperacao do Azure SQL apos auto-pause nem uma estrategia de backup/PITR.
+
 Depois da migration, confira o historico em `__EFMigrationsHistory`, valide tabelas/dados afetados e execute smoke tests dos fluxos relevantes antes de reabrir as escritas.
 
 ## Staging local

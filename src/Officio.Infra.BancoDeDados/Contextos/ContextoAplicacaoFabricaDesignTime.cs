@@ -30,7 +30,9 @@ public sealed class ContextoAplicacaoFabricaDesignTime : IDesignTimeDbContextFac
 
         var options = new DbContextOptionsBuilder<ContextoAplicacao>()
             .UseSqlServer(connectionString, configuracao =>
-                configuracao.MigrationsAssembly(typeof(ContextoAplicacao).Assembly.FullName))
+                configuracao
+                    .MigrationsAssembly(typeof(ContextoAplicacao).Assembly.FullName)
+                    .EnableRetryOnFailure())
             .Options;
 
         return new ContextoAplicacao(options, new EmpresaAtualDesignTime(), new PublicadorEventosNulo());

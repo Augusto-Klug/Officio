@@ -28,7 +28,7 @@ Segredos da API devem entrar como referencias a secrets do Container Apps: `Conn
 ## Bloqueios antes de convidar o parceiro
 
 - **Primeiro administrador:** executar uma unica vez `--bootstrap-platform-admin` com `ASPNETCORE_ENVIRONMENT=Production`, `BootstrapUser:Enabled=true` e `BootstrapUser:Role=PlatformAdmin`. O comando cria/verifica o parceiro interno e o PlatformAdmin, encerra sem iniciar a API e nao redefine credenciais existentes. Remover `BootstrapUser:Password` e desabilitar o bootstrap apos sucesso; depois, cadastrar o parceiro cliente pela API de administracao e enviar o convite ao administrador pela rota existente.
-- **SQL apos pausa:** testar a primeira requisicao depois do auto-resume. A aplicacao ainda precisa de estrategia testada para erros transitorios de conexao nesse momento; monitorar tambem conexoes que impeçam o banco de pausar.
+- **SQL apos pausa:** o provider SQL Server do EF Core esta configurado com retry para falhas transitorias, incluindo conexoes com Azure SQL. No staging Azure, ainda e obrigatorio testar a primeira requisicao depois do auto-resume e confirmar os tempos reais de recuperacao; monitorar tambem conexoes que impeçam o banco de pausar.
 - **Banco inicial:** em um banco realmente vazio, executar a imagem da API com `--bootstrap-schema` e as mesmas configuracoes de banco/JWT. Para atualizacoes posteriores, usar `--apply-migrations` apos backup. A inicializacao normal fora de `Development` nao cria schema nem aplica migrations.
 - **Integracoes:** testar convites por SMTP, callback HTTPS com assinatura do webhook, geracao e leitura de PDFs no Blob, OCR F0, autorizacao e formulario publico de admissao. Repetir o teste de webhook depois de deixar a API ociosa.
 
