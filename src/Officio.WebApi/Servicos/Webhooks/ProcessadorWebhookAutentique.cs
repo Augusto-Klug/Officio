@@ -5,21 +5,53 @@ using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.ProcessarWebho
 namespace Officio.WebApi.Servicos.Webhooks;
 
 internal sealed class ProcessadorWebhookAutentique(
-    IFilaWebhookAutentique fila,
     IServiceScopeFactory serviceScopeFactory,
     ILogger<ProcessadorWebhookAutentique> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var item in fila.LerTodosAsync(stoppingToken))
-            await ProcessarAsync(item, stoppingToken);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await using var escopoFila = serviceScopeFactory.CreateAsyncScope();
+                var fila = escopoFila.ServiceProvider.GetRequiredService<IFilaWebhookAutentique>();
+                var item = await fila.TentarReservarProximoAsync(stoppingToken);
+                if (item is null)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                    continue;
+                }
+
+                var resultado = await ProcessarAsync(item, stoppingToken);
+                if (stoppingToken.IsCancellationRequested)
+                    break;
+
+                if (resultado.Sucesso)
+                    await fila.MarcarProcessadoAsync(item.Id, stoppingToken);
+                else
+                    await fila.RegistrarFalhaAsync(item.Id, resultado.Erro!, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Erro no ciclo de processamento da inbox de webhooks Autentique.");
+                await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+            }
+        }
     }
 
-    internal async Task ProcessarAsync(WebhookAutentiqueEnfileirado item, CancellationToken cancellationToken)
+    internal async Task<(bool Sucesso, string? Erro)> ProcessarAsync(
+        WebhookAutentiqueEnfileirado item,
+        CancellationToken cancellationToken)
     {
         using var atividade = MetricasWebhookAutentique.IniciarProcessamento(item.ContextoTrace);
         var inicio = Stopwatch.GetTimestamp();
         var sucesso = false;
+        string? erro = null;
         try
         {
             await using var escopo = serviceScopeFactory.CreateAsyncScope();
@@ -30,18 +62,26 @@ internal sealed class ProcessadorWebhookAutentique(
 
             if (!resultado.Sucesso)
             {
+                erro = resultado.Erro ?? "O servico de dominio rejeitou o evento sem informar o motivo.";
                 logger.LogWarning(
-                    "Falha ao processar webhook Autentique em segundo plano: {Erro}",
-                    resultado.Erro);
+                    "Falha ao processar webhook Autentique. EventoId={EventoId} Tentativa={Tentativa} Erro={Erro}",
+                    item.Id,
+                    item.Tentativa,
+                    erro);
             }
             sucesso = resultado.Sucesso;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            throw;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Erro ao processar webhook Autentique em segundo plano.");
+            erro = $"{ex.GetType().Name}: {ex.Message}";
+            logger.LogError(ex,
+                "Erro ao processar webhook Autentique. EventoId={EventoId} Tentativa={Tentativa}",
+                item.Id,
+                item.Tentativa);
         }
         finally
         {
@@ -51,5 +91,7 @@ internal sealed class ProcessadorWebhookAutentique(
             if (!sucesso)
                 atividade?.SetStatus(ActivityStatusCode.Error);
         }
+
+        return (sucesso, erro);
     }
 }

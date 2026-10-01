@@ -1,6 +1,7 @@
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Entidades;
+using Officio.Infra.BancoDeDados.Entidades;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
@@ -70,6 +71,7 @@ public class ContextoAplicacao(
     public DbSet<FaturamentoMensal> FaturamentosMensais => Set<FaturamentoMensal>();
     public DbSet<ConviteUsuario> ConvitesUsuario => Set<ConviteUsuario>();
     public DbSet<TokenRedefinicaoSenha> TokensRedefinicaoSenha => Set<TokenRedefinicaoSenha>();
+    public DbSet<WebhookAutentiqueEvento> WebhooksAutentique => Set<WebhookAutentiqueEvento>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

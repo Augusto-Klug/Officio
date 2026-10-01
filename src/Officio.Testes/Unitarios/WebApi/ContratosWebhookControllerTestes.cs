@@ -22,7 +22,7 @@ public class ContratosWebhookControllerTestes
     }
 
     [Fact]
-    public async Task Receber_ComAssinaturaValida_EnfileiraPayloadERetornaAccepted()
+    public async Task Receber_ComAssinaturaValida_PersistePayloadERetornaAccepted()
     {
         const string payload = """{"event":"document.finished","document":{"id":"doc-1"}}""";
         var fila = new FilaFake();
@@ -59,7 +59,10 @@ public class ContratosWebhookControllerTestes
                 ["Autentique:WebhookSecret"] = "segredo-teste"
             })
             .Build();
-        var controller = new ContratosWebhookController(fila ?? new FilaFake(), configuration);
+        var controller = new ContratosWebhookController(
+            fila ?? new FilaFake(),
+            configuration,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ContratosWebhookController>.Instance);
         var contexto = new DefaultHttpContext();
         contexto.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(payload));
         if (assinatura is not null)
@@ -88,17 +91,24 @@ public class ContratosWebhookControllerTestes
 
         public ActivityContext ContextoTraceRecebido { get; private set; }
 
-        public bool TentarEnfileirar(string payload, ActivityContext contextoTrace)
+        public Task<ResultadoRecepcaoWebhookAutentique> PersistirAsync(
+            string payload,
+            ActivityContext contextoTrace,
+            CancellationToken cancellationToken)
         {
             if (!aceita)
-                return false;
+                return Task.FromResult(ResultadoRecepcaoWebhookAutentique.Indisponivel);
 
             PayloadRecebido = payload;
             ContextoTraceRecebido = contextoTrace;
-            return true;
+            return Task.FromResult(ResultadoRecepcaoWebhookAutentique.Persistido);
         }
 
-        public IAsyncEnumerable<WebhookAutentiqueEnfileirado> LerTodosAsync(CancellationToken cancellationToken)
-            => AsyncEnumerable.Empty<WebhookAutentiqueEnfileirado>();
+        public Task<WebhookAutentiqueEnfileirado?> TentarReservarProximoAsync(CancellationToken cancellationToken)
+            => Task.FromResult<WebhookAutentiqueEnfileirado?>(null);
+
+        public Task MarcarProcessadoAsync(Guid id, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task RegistrarFalhaAsync(Guid id, string erro, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

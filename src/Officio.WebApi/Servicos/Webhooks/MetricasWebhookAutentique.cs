@@ -13,8 +13,8 @@ internal static class MetricasWebhookAutentique
     private static readonly Counter<long> Recebidos = Meter.CreateCounter<long>("officio.webhook.received");
     private static readonly Counter<long> Enfileirados = Meter.CreateCounter<long>("officio.webhook.enqueued");
     private static readonly Counter<long> Rejeitados = Meter.CreateCounter<long>("officio.webhook.rejected");
+    private static readonly Counter<long> Duplicados = Meter.CreateCounter<long>("officio.webhook.duplicates");
     private static readonly Counter<long> FalhasProcessamento = Meter.CreateCounter<long>("officio.webhook.processing.failures");
-    private static readonly UpDownCounter<long> ItensNaFila = Meter.CreateUpDownCounter<long>("officio.webhook.queue.size");
     private static readonly Histogram<double> DuracaoProcessamento = Meter.CreateHistogram<double>(
         "officio.webhook.processing.duration",
         "ms");
@@ -30,6 +30,8 @@ internal static class MetricasWebhookAutentique
         Recebidos.Add(1, new KeyValuePair<string, object?>("result", resultado));
         if (resultado == "accepted")
             Enfileirados.Add(1);
+        else if (resultado == "duplicate")
+            Duplicados.Add(1);
         else
             Rejeitados.Add(1, new KeyValuePair<string, object?>("reason", resultado));
     }
@@ -44,7 +46,4 @@ internal static class MetricasWebhookAutentique
             FalhasProcessamento.Add(1);
     }
 
-    public static void RegistrarEntradaNaFila() => ItensNaFila.Add(1);
-
-    public static void RegistrarSaidaDaFila() => ItensNaFila.Add(-1);
 }

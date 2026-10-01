@@ -42,7 +42,7 @@ public static class ExtensoesServiceCollection
         services.AddScoped<IProspectoViewModelConversor, ProspectoViewModelConversor>();
         services.AddScoped<IDocumentoViewModelConversor, DocumentoViewModelConversor>();
         services.AddScoped<IContratoViewModelConversor, ContratoViewModelConversor>();
-        services.AddSingleton<IFilaWebhookAutentique, FilaWebhookAutentique>();
+        services.AddScoped<IFilaWebhookAutentique, FilaWebhookAutentique>();
         services.AddHostedService<ProcessadorWebhookAutentique>();
 
         var jwtKey = configuration["Jwt:Key"];

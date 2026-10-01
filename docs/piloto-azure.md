@@ -17,7 +17,7 @@ O `staticwebapp.config.json` do frontend preserva rotas Vue ao recarregar pagina
 | Recurso | Configuracao inicial para o piloto |
 | --- | --- |
 | Static Web Apps | Plano Free, build de `frontend/` para `dist/`; usar o mesmo host em `Acesso__FrontendBaseUrl` e CORS. |
-| Container Apps | Plano Consumption, ingresso externo HTTPS para a porta 8080, 0,5 vCPU e 1 GiB de memoria. Limitar a uma replica enquanto o webhook usar fila em memoria. |
+| Container Apps | Plano Consumption, ingresso externo HTTPS para a porta 8080, 0,5 vCPU e 1 GiB de memoria. Uma replica minima facilita o processamento imediato dos webhooks; a inbox SQL preserva eventos durante reinicios. |
 | Azure SQL | Criar banco novo pela oferta gratuita, se disponivel, General Purpose serverless, minimo de 0,5 vCore, auto-pause de 15 minutos e limite de 32 GB. Monitorar vCore-segundos restantes; a opcao de parar ao esgotar a cota deixa a base indisponivel ate o mes seguinte. |
 | Blob Storage | Conta GPv2 com redundancia LRS, acesso Hot e containers privados. Confirmar que o upload e o download de PDFs e documentos continuam funcionando. |
 | Document Intelligence | Recurso F0, dentro do limite de 500 paginas analisadas no mes. Confirmar disponibilidade da oferta na assinatura. |
@@ -27,11 +27,36 @@ Segredos da API devem entrar como referencias a secrets do Container Apps: `Conn
 
 ## Bloqueios antes de convidar o parceiro
 
-- **Webhook duravel:** `ContratosWebhookController` responde 202 apos colocar o evento em um `Channel` em memoria. Uma revisao, reinicializacao ou escala para zero pode descartar eventos ja aceitos. Persistir o evento antes de responder 202 e processa-lo com retry/idempotencia; ate la, nao usar o fluxo real de assinatura no piloto. `minReplicas=1` diminui a frequencia de paradas, mas nao resolve perda em reinicializacoes.
 - **Primeiro administrador:** `BootstrapUsuario` so funciona em `Development`. Definir e testar uma rotina explicita, executada uma unica vez em ambiente de piloto, para criar o PlatformAdmin inicial sem habilitar `Development` na API publica. Depois, criar o parceiro e enviar o convite ao administrador pela rota existente.
 - **SQL apos pausa:** testar a primeira requisicao depois do auto-resume. A aplicacao ainda precisa de estrategia testada para erros transitorios de conexao nesse momento; monitorar tambem conexoes que impeçam o banco de pausar.
 - **Banco inicial:** em um banco realmente vazio, executar a imagem da API com `--bootstrap-schema` e as mesmas configuracoes de banco/JWT. Para atualizacoes posteriores, usar `--apply-migrations` apos backup. A inicializacao normal fora de `Development` nao cria schema nem aplica migrations.
 - **Integracoes:** testar convites por SMTP, callback HTTPS com assinatura do webhook, geracao e leitura de PDFs no Blob, OCR F0, autorizacao e formulario publico de admissao. Repetir o teste de webhook depois de deixar a API ociosa.
+
+### Inbox de webhooks Autentique
+
+A API valida a assinatura HMAC e grava o payload em `AutentiqueWebhookInbox` antes de responder `202`. O hash SHA-256 tem indice unico para que reenvios identicos sejam aceitos sem criar outra tarefa. O worker reserva os eventos no SQL, recupera leases expirados e tenta processar novamente com atraso crescente, ate oito tentativas. Payloads concluidos sao apagados da inbox; os hashes permanecem para deduplicacao. Falhas finais ficam com `Status = 3` e `UltimoErro`.
+
+Antes do onboarding, validar no staging que o evento continua pendente/processavel depois de reiniciar a API, que uma entrega duplicada nao duplica efeitos e que indisponibilidade do SQL retorna `503` para a Autentique tentar novamente. Conferir falhas finais com:
+
+```sql
+SELECT Id, HashPayload, RecebidoEm, Tentativas, UltimoErro
+FROM dbo.AutentiqueWebhookInbox
+WHERE Status = 3
+ORDER BY RecebidoEm DESC;
+```
+
+Depois de corrigir a causa de uma falha, um operador pode reenfileirar pelo `Id`:
+
+```sql
+UPDATE dbo.AutentiqueWebhookInbox
+SET Status = 0,
+    Tentativas = 0,
+    ProximaTentativaEm = SYSUTCDATETIME(),
+    BloqueadoAte = NULL,
+    UltimoErro = NULL
+WHERE Id = '<id-do-evento>'
+  AND Status = 3;
+```
 
 ## Semana de ativacao
 
