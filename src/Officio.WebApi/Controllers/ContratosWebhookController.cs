@@ -13,7 +13,8 @@ namespace Officio.WebApi.Controllers;
 [Route("api/v1/contratos/webhook/autentique")]
 public class ContratosWebhookController(
     IFilaWebhookAutentique fila,
-    IConfiguration configuration) : ControllerBase
+    IConfiguration configuration,
+    ILogger<ContratosWebhookController> logger) : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
@@ -30,13 +31,33 @@ public class ContratosWebhookController(
             return Unauthorized();
         }
 
-        if (!fila.TentarEnfileirar(payload, Activity.Current?.Context ?? default))
+        ResultadoRecepcaoWebhookAutentique resultado;
+        try
         {
-            MetricasWebhookAutentique.RegistrarRecebido("queue_full");
+            resultado = await fila.PersistirAsync(
+                payload,
+                Activity.Current?.Context ?? default,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Nao foi possivel persistir o webhook Autentique recebido.");
+            MetricasWebhookAutentique.RegistrarRecebido("storage_unavailable");
             return StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
 
-        MetricasWebhookAutentique.RegistrarRecebido("accepted");
+        if (resultado == ResultadoRecepcaoWebhookAutentique.Indisponivel)
+        {
+            MetricasWebhookAutentique.RegistrarRecebido("storage_unavailable");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+
+        MetricasWebhookAutentique.RegistrarRecebido(
+            resultado == ResultadoRecepcaoWebhookAutentique.Duplicado ? "duplicate" : "accepted");
         return Accepted();
     }
 

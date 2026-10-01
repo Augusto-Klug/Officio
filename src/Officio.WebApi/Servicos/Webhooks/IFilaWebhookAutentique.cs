@@ -2,10 +2,29 @@ using System.Diagnostics;
 
 namespace Officio.WebApi.Servicos.Webhooks;
 
-public interface IFilaWebhookAutentique
+public enum ResultadoRecepcaoWebhookAutentique
 {
-    bool TentarEnfileirar(string payload, ActivityContext contextoTrace);
-    IAsyncEnumerable<WebhookAutentiqueEnfileirado> LerTodosAsync(CancellationToken cancellationToken);
+    Persistido,
+    Duplicado,
+    Indisponivel
 }
 
-public sealed record WebhookAutentiqueEnfileirado(string Payload, ActivityContext ContextoTrace);
+public interface IFilaWebhookAutentique
+{
+    Task<ResultadoRecepcaoWebhookAutentique> PersistirAsync(
+        string payload,
+        ActivityContext contextoTrace,
+        CancellationToken cancellationToken);
+
+    Task<WebhookAutentiqueEnfileirado?> TentarReservarProximoAsync(CancellationToken cancellationToken);
+
+    Task MarcarProcessadoAsync(Guid id, CancellationToken cancellationToken);
+
+    Task RegistrarFalhaAsync(Guid id, string erro, CancellationToken cancellationToken);
+}
+
+public sealed record WebhookAutentiqueEnfileirado(
+    Guid Id,
+    string Payload,
+    ActivityContext ContextoTrace,
+    int Tentativa);

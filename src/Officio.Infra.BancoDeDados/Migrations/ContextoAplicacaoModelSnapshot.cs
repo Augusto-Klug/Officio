@@ -2951,6 +2951,60 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.ToTable("ValidacoesDocumento", (string)null);
                 });
 
+            modelBuilder.Entity("Officio.Infra.BancoDeDados.Entidades.WebhookAutentiqueEvento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("BloqueadoAte")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("HashPayload")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ProcessadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ProximaTentativaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RecebidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TraceState")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("UltimoErro")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HashPayload")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "ProximaTentativaEm", "BloqueadoAte", "RecebidoEm");
+
+                    b.ToTable("AutentiqueWebhookInbox", (string)null);
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.Admissao", b =>
                 {
                     b.HasOne("Officio.Dominio.Entidades.Empresa", "Empresa")

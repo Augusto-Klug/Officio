@@ -11,21 +11,24 @@ public sealed class FilaWebhookAutentiqueFake : IFilaWebhookAutentique
     public bool AceitarEnfileiramento { get; set; } = true;
     public IReadOnlyCollection<string> Payloads => payloads.Select(item => item.Payload).ToArray();
 
-    public bool TentarEnfileirar(string payload, ActivityContext contextoTrace)
+    public Task<ResultadoRecepcaoWebhookAutentique> PersistirAsync(
+        string payload,
+        ActivityContext contextoTrace,
+        CancellationToken cancellationToken)
     {
         if (!AceitarEnfileiramento)
-            return false;
+            return Task.FromResult(ResultadoRecepcaoWebhookAutentique.Indisponivel);
 
-        payloads.Enqueue(new WebhookAutentiqueEnfileirado(payload, contextoTrace));
-        return true;
+        payloads.Enqueue(new WebhookAutentiqueEnfileirado(Guid.NewGuid(), payload, contextoTrace, 0));
+        return Task.FromResult(ResultadoRecepcaoWebhookAutentique.Persistido);
     }
 
-    public async IAsyncEnumerable<WebhookAutentiqueEnfileirado> LerTodosAsync(
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        await Task.CompletedTask;
-        yield break;
-    }
+    public Task<WebhookAutentiqueEnfileirado?> TentarReservarProximoAsync(CancellationToken cancellationToken)
+        => Task.FromResult<WebhookAutentiqueEnfileirado?>(null);
+
+    public Task MarcarProcessadoAsync(Guid id, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task RegistrarFalhaAsync(Guid id, string erro, CancellationToken cancellationToken) => Task.CompletedTask;
 
     public void Limpar()
     {
