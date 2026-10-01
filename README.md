@@ -122,6 +122,34 @@ As credenciais iniciais do frontend serao:
 
 Troque a senha se este ambiente for compartilhado. O bootstrap nao redefine a senha de um usuario que ja existe.
 
+### Bootstrap one-shot do PlatformAdmin em piloto
+
+Em um ambiente ja inicializado, o primeiro administrador da plataforma deve ser criado por um comando explicito, sem habilitar `Development` nem expor uma rota publica. Configure `BootstrapUser__*` com os dados do parceiro interno e uma senha forte fornecida pelo cofre de segredos. `Database__Password`, `ConnectionStrings__DefaultConnection` e `Jwt__Key` tambem devem apontar para o ambiente de destino.
+
+Execute a partir da raiz do repositorio, em uma janela controlada:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = 'Production'
+$env:ConnectionStrings__DefaultConnection = '<connection string do banco de destino>'
+$env:Database__Password = '<senha do SQL no cofre de segredos>'
+$env:Jwt__Key = '<chave privada do ambiente com pelo menos 32 bytes>'
+$env:BootstrapUser__Enabled = 'true'
+$env:BootstrapUser__TenantId = '<GUID novo do parceiro interno>'
+$env:BootstrapUser__TenantNome = '<razao social do parceiro interno>'
+$env:BootstrapUser__TenantCnpj = '<CNPJ do parceiro interno>'
+$env:BootstrapUser__TenantNomeFantasia = '<nome fantasia ou vazio>'
+$env:BootstrapUser__TenantEmail = '<email do parceiro ou vazio>'
+$env:BootstrapUser__Nome = '<nome do administrador inicial>'
+$env:BootstrapUser__Email = '<email do administrador inicial>'
+$env:BootstrapUser__Password = '<senha inicial privada>'
+$env:BootstrapUser__Role = 'PlatformAdmin'
+dotnet run --project src/Officio.WebApi --no-launch-profile -- --bootstrap-platform-admin
+$env:BootstrapUser__Enabled = 'false'
+Remove-Item Env:BootstrapUser__Password
+```
+
+O processo valida o perfil e os conflitos de CNPJ/e-mail, cria o parceiro interno e o usuario `PlatformAdmin` em uma unica gravacao, e encerra sem iniciar o servidor HTTP. Repeticoes com o mesmo parceiro e um `PlatformAdmin` ativo sao idempotentes e nao redefinem a senha; conflitos falham sem alterar dados. Apos sucesso, remova `BootstrapUser__Password` e defina `BootstrapUser__Enabled=false`. Entao inicie normalmente a API em `Production`, crie o parceiro cliente pela administracao e envie o convite ao administrador desse parceiro.
+
 ### Restaurar e executar a API
 
 Restaure as dependencias:
