@@ -28,6 +28,15 @@ public sealed record RespostaObterDocumentoAutentique(
 
 public sealed record DadosObterDocumentoAutentique(DocumentoArquivoAutentique? Document);
 
-public sealed record DocumentoArquivoAutentique(string? Id, string? Name, ArquivosAutentique? Files);
+public sealed record DocumentoArquivoAutentique(
+    string? Id,
+    string? Name,
+    ArquivosAutentique? Files,
+    List<AssinaturaEstadoAutentique>? Signatures = null);
 
 public sealed record ArquivosAutentique(string? Original, string? Signed, string? Certified, string? Pades);
+
+public sealed record AssinaturaEstadoAutentique(MarcaTemporalAutentique? Signed);
+
+public sealed record MarcaTemporalAutentique(
+    [property: JsonPropertyName("created_at")] DateTime? CreatedAt);

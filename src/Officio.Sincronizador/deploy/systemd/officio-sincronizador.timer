@@ -1,0 +1,10 @@
+[Unit]
+Description=Execucao diaria da reconciliacao Autentique do Officio
+
+[Timer]
+OnCalendar=*-*-* 07:10:00
+Persistent=true
+Unit=officio-sincronizador.service
+
+[Install]
+WantedBy=timers.target

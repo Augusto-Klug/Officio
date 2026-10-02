@@ -314,34 +314,14 @@ public class ContratoServico(
 
         if (eventoConclusaoDocumento)
         {
-            var conversao = await GarantirClienteDoContratoAsync(solicitacao.Contrato, ct);
-            if (!conversao.Sucesso)
-                return Resultado<bool>.CriarFalha(conversao.Erro!);
-
-            var statusAssinado = await contratoRepositorio.ObterOuCriarStatusAssinaturaAsync(
-                "assinado",
-                "Assinado",
-                90,
+            var conclusao = await FinalizarAssinaturaAsync(
+                solicitacao,
+                evento.DocumentoId,
+                evento.OcorridoEm,
+                documentoAssinadoJaArmazenado,
                 ct);
-
-            var ocorridoEm = evento.OcorridoEm ?? DateTime.UtcNow;
-            solicitacao.MarcarConcluida(statusAssinado.Id, ocorridoEm);
-            if (!solicitacao.Contrato.AssinadoEm.HasValue)
-                solicitacao.Contrato.MarkAsSigned(ocorridoEm);
-
-            // A conclusao do contrato nao pode depender da disponibilidade imediata do arquivo.
-            await contratoRepositorio.SalvarAlteracoesAsync(ct);
-
-            if (!documentoAssinadoJaArmazenado)
-            {
-                var armazenamento = await ArmazenarPdfAssinadoAsync(
-                    solicitacao,
-                    evento.DocumentoId,
-                    ct);
-
-                if (!armazenamento.Sucesso)
-                    return Resultado<bool>.CriarFalha(armazenamento.Erro!);
-            }
+            if (!conclusao.Sucesso)
+                return conclusao;
         }
         else if (evento.Tipo is "signature.rejected" or "signature.delivery_failed")
         {
@@ -365,6 +345,142 @@ public class ContratoServico(
         }
 
         await contratoRepositorio.SalvarAlteracoesAsync(ct);
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
+    public async Task<Resultado<ResumoReconciliacaoAssinaturas>> ReconciliarAssinaturasAutentiqueAsync(
+        CancellationToken ct = default)
+    {
+        var pendencias = await contratoRepositorio.ListarSolicitacoesAssinaturaParaReconciliacaoAsync(
+            "autentique",
+            ct);
+        var concluidas = 0;
+        var aindaPendentes = 0;
+        var falhas = 0;
+
+        foreach (var pendencia in pendencias)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            try
+            {
+                var estado = await servicoAssinatura.ConsultarEstadoDocumentoAsync(pendencia.IdExterno, ct);
+                if (!estado.Sucesso)
+                {
+                    falhas++;
+                    logger.LogWarning(
+                        "Falha ao consultar assinatura pendente. ContratoId={ContratoId} Erro={Erro}",
+                        pendencia.ContratoId,
+                        estado.Mensagem);
+                    continue;
+                }
+
+                if (!estado.Concluido)
+                {
+                    aindaPendentes++;
+                    continue;
+                }
+
+                var resultado = await ReconciliarConclusaoDocumentoAutentiqueAsync(
+                    pendencia.IdExterno,
+                    estado.ConcluidoEm,
+                    ct);
+                if (resultado.Sucesso)
+                {
+                    concluidas++;
+                    continue;
+                }
+
+                falhas++;
+                logger.LogWarning(
+                    "Falha ao aplicar conclusao consultada na Autentique. ContratoId={ContratoId} Erro={Erro}",
+                    pendencia.ContratoId,
+                    resultado.Erro);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                falhas++;
+                logger.LogError(
+                    ex,
+                    "Erro ao reconciliar assinatura. ContratoId={ContratoId}",
+                    pendencia.ContratoId);
+            }
+        }
+
+        var resumo = new ResumoReconciliacaoAssinaturas(
+            pendencias.Count,
+            concluidas,
+            aindaPendentes,
+            falhas);
+        logger.LogInformation(
+            "Reconciliacao Autentique finalizada. Consultadas={Consultadas} Concluidas={Concluidas} Pendentes={Pendentes} Falhas={Falhas}",
+            resumo.Consultadas,
+            resumo.Concluidas,
+            resumo.Pendentes,
+            resumo.Falhas);
+
+        return Resultado<ResumoReconciliacaoAssinaturas>.CriarSucesso(resumo);
+    }
+
+    private async Task<Resultado<bool>> ReconciliarConclusaoDocumentoAutentiqueAsync(
+        string documentoId,
+        DateTime? concluidoEm,
+        CancellationToken ct)
+    {
+        var solicitacao = await contratoRepositorio.ObterSolicitacaoAssinaturaPorIdExternoAsync(
+            "autentique",
+            documentoId,
+            ct);
+        if (solicitacao is null)
+            return Resultado<bool>.CriarFalha("Solicitacao de assinatura nao encontrada para o documento Autentique.");
+
+        empresaAtual.SetTenant(solicitacao.TenantId);
+        var documentoAssinadoJaArmazenado = await contratoRepositorio.ExisteDocumentoAssinadoAsync(
+            solicitacao.ContratoId,
+            ct);
+
+        return await FinalizarAssinaturaAsync(
+            solicitacao,
+            documentoId,
+            concluidoEm,
+            documentoAssinadoJaArmazenado,
+            ct);
+    }
+
+    private async Task<Resultado<bool>> FinalizarAssinaturaAsync(
+        AssinaturaSolicitacao solicitacao,
+        string documentoId,
+        DateTime? ocorridoEm,
+        bool documentoAssinadoJaArmazenado,
+        CancellationToken ct)
+    {
+        var conversao = await GarantirClienteDoContratoAsync(solicitacao.Contrato, ct);
+        if (!conversao.Sucesso)
+            return Resultado<bool>.CriarFalha(conversao.Erro!);
+
+        var statusAssinado = await contratoRepositorio.ObterOuCriarStatusAssinaturaAsync(
+            "assinado",
+            "Assinado",
+            90,
+            ct);
+
+        var dataConclusao = ocorridoEm ?? DateTime.UtcNow;
+        solicitacao.MarcarConcluida(statusAssinado.Id, dataConclusao);
+        solicitacao.Contrato.MarkAsSigned(dataConclusao);
+
+        await contratoRepositorio.SalvarAlteracoesAsync(ct);
+
+        if (!documentoAssinadoJaArmazenado)
+        {
+            var armazenamento = await ArmazenarPdfAssinadoAsync(solicitacao, documentoId, ct);
+            if (!armazenamento.Sucesso)
+                return Resultado<bool>.CriarFalha(armazenamento.Erro!);
+        }
+
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -492,6 +608,7 @@ public class ContratoServico(
             tamanhoBytes);
 
         await contratoRepositorio.AdicionarDocumentoAsync(documento, ct);
+        await contratoRepositorio.SalvarAlteracoesAsync(ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 

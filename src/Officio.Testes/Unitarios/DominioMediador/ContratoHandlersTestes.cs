@@ -168,5 +168,9 @@ public class ContratoHandlersTestes
         public Task<Resultado<bool>> ProcessarWebhookAutentiqueAsync(
             string payload, CancellationToken ct = default)
             => Task.FromResult(webhook ?? throw new NotImplementedException());
+
+        public Task<Resultado<ResumoReconciliacaoAssinaturas>> ReconciliarAssinaturasAutentiqueAsync(
+            CancellationToken ct = default)
+            => throw new NotImplementedException();
     }
 }

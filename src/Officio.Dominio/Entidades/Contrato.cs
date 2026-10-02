@@ -114,10 +114,12 @@ public class Contrato : EntidadeAuditavel
 
     public void MarkAsSigned(DateTime? assinadoEm = null)
     {
+        var jaEstavaAssinado = AssinadoEm.HasValue;
         Status = StatusContrato.Ativo;
-        AssinadoEm = assinadoEm ?? DateTime.UtcNow;
+        AssinadoEm ??= assinadoEm ?? DateTime.UtcNow;
 
-        AddDomainEvent(new EventoContratoAssinado(Id, ClientId, TenantId));
+        if (!jaEstavaAssinado)
+            AddDomainEvent(new EventoContratoAssinado(Id, ClientId, TenantId));
     }
 }
 

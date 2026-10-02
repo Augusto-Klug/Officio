@@ -1,0 +1,14 @@
+[Unit]
+Description=Reconciliacao de assinaturas Autentique do Officio
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=officio
+Group=officio
+WorkingDirectory=/opt/officio
+Environment=DOTNET_ENVIRONMENT=Production
+EnvironmentFile=/etc/officio/officio.env
+ExecStart=/usr/bin/dotnet /opt/officio/Officio.Sincronizador.dll
+TimeoutStartSec=15min

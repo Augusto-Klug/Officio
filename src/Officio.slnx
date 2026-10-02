@@ -2,6 +2,7 @@
     <Folder Name="/1 - App/">
         <Project Path="Officio.WebApi/Officio.WebApi.csproj" />
         <Project Path="Officio.ViewModels/Officio.ViewModels.csproj" />
+        <Project Path="Officio.Sincronizador/Officio.Sincronizador.csproj" />
     </Folder>
     <Folder Name="/2 - Dominio/">
         <Project Path="Officio.Dominio.Mediador/Officio.Dominio.Mediador.csproj" />
