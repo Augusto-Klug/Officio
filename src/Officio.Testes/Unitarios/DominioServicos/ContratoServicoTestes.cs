@@ -349,6 +349,29 @@ public class ContratoServicoTestes
     }
 
     [Fact]
+    public async Task ProcessarWebhookAutentiqueAsync_ContratoComDataAssinaturaAnteriorVoltaParaAtivo()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (_, contrato, _) = await CriarContratoComSolicitacaoAsync(contexto, tenantId);
+        var assinaturaAnterior = new DateTime(2026, 9, 26, 18, 32, 13, DateTimeKind.Utc);
+        contrato.MarkAsSigned(assinaturaAnterior);
+        contrato.MarcarAguardandoAssinatura();
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, tenantId);
+        var payload = """
+            {"event":"document.finished","document":{"id":"doc-autentique-1"},"created_at":"2026-10-02T19:00:00Z"}
+            """;
+
+        var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(StatusContrato.Ativo, contrato.Status);
+        Assert.Equal(assinaturaAnterior, contrato.AssinadoEm);
+        Assert.Empty(contrato.EventosDominio);
+    }
+
+    [Fact]
     public async Task ProcessarWebhookAutentiqueAsync_DocumentFinishedConverteProspectoEVinculaArtefatosAoCliente()
     {
         var tenantId = Guid.NewGuid();
@@ -473,6 +496,7 @@ public class ContratoServicoTestes
         Assert.Equal("contracts", envio.Container);
         Assert.Equal([10, 20, 30], envio.Conteudo);
         Assert.Contains($"contratos/{contrato.Id}/assinaturas/contrato-final.pdf", envio.FileName);
+        contexto.ChangeTracker.Clear();
         var documento = await contexto.Documents.SingleAsync();
         Assert.Equal(contrato.Id, documento.ContratoId);
         Assert.Equal("ASSINATURA_AUTENTIQUE", documento.Origem);
@@ -895,6 +919,9 @@ public class ContratoServicoTestes
     {
         public Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default)
             => Task.FromResult(resultado ?? ResultadoAssinatura.CriarFalha("nao usado"));
+
+        public Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(string documentoId, CancellationToken ct = default)
+            => Task.FromResult(ResultadoEstadoAssinatura.CriarSucesso(false));
 
         public Task<ResultadoDocumentoAssinado> BaixarDocumentoAssinadoAsync(string documentoId, CancellationToken ct = default)
             => Task.FromResult(documentoAssinado ?? ResultadoDocumentoAssinado.CriarSucesso(

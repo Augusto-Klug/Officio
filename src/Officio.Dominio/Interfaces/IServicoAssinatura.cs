@@ -3,6 +3,7 @@ namespace Officio.Dominio.Interfaces;
 public interface IServicoAssinatura
 {
     Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default);
+    Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(string documentoId, CancellationToken ct = default);
     Task<ResultadoDocumentoAssinado> BaixarDocumentoAssinadoAsync(string documentoId, CancellationToken ct = default);
 }
 
@@ -29,6 +30,20 @@ public record ResultadoAssinatura
 }
 
 public record LinkAssinante(string Email, string Link);
+
+public record ResultadoEstadoAssinatura
+{
+    public bool Sucesso { get; init; }
+    public bool Concluido { get; init; }
+    public DateTime? ConcluidoEm { get; init; }
+    public string? Mensagem { get; init; }
+
+    public static ResultadoEstadoAssinatura CriarSucesso(bool concluido, DateTime? concluidoEm = null)
+        => new() { Sucesso = true, Concluido = concluido, ConcluidoEm = concluidoEm };
+
+    public static ResultadoEstadoAssinatura CriarFalha(string mensagem)
+        => new() { Sucesso = false, Mensagem = mensagem };
+}
 
 public record ResultadoDocumentoAssinado
 {

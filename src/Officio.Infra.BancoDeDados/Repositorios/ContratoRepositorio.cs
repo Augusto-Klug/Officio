@@ -95,6 +95,29 @@ internal class ContratoRepositorio(
                 solicitacao => solicitacao.Provedor == provedor && solicitacao.IdExterno == idExterno,
                 cancellationToken);
 
+    public Task<List<SolicitacaoAssinaturaPendente>> ListarSolicitacoesAssinaturaParaReconciliacaoAsync(
+        string provedor,
+        CancellationToken cancellationToken = default)
+        => Contexto.AssinaturaSolicitacoes
+            .IgnoreQueryFilters()
+            .Where(solicitacao =>
+                solicitacao.Provedor == provedor &&
+                solicitacao.IdExterno != null &&
+                ((solicitacao.ConcluidoEm == null &&
+                  !Contexto.AssinaturaEventos.IgnoreQueryFilters().Any(evento =>
+                      evento.AssinaturaSolicitacaoId == solicitacao.Id &&
+                      evento.TipoEvento == "signature.rejected")) ||
+                 (solicitacao.ConcluidoEm != null &&
+                 !Contexto.Documents.IgnoreQueryFilters().Any(documento =>
+                     documento.ContratoId == solicitacao.ContratoId &&
+                     documento.Origem == "ASSINATURA_AUTENTIQUE"))))
+            .OrderBy(solicitacao => solicitacao.SolicitadoEm)
+            .Select(solicitacao => new SolicitacaoAssinaturaPendente(
+                solicitacao.TenantId,
+                solicitacao.IdExterno!,
+                solicitacao.ContratoId))
+            .ToListAsync(cancellationToken);
+
     public async Task<StatusAssinatura> ObterOuCriarStatusAssinaturaAsync(
         string codigo,
         string descricao,

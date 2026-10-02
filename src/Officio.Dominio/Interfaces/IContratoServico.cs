@@ -34,4 +34,13 @@ public interface IContratoServico
     Task<Resultado<bool>> ProcessarWebhookAutentiqueAsync(
         string payload,
         CancellationToken ct = default);
+
+    Task<Resultado<ResumoReconciliacaoAssinaturas>> ReconciliarAssinaturasAutentiqueAsync(
+        CancellationToken ct = default);
 }
+
+public sealed record ResumoReconciliacaoAssinaturas(
+    int Consultadas,
+    int Concluidas,
+    int Pendentes,
+    int Falhas);

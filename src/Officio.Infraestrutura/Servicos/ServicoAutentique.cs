@@ -109,6 +109,55 @@ public class ServicoAutentique(
         }
     }
 
+    public async Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(
+        string documentoId,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(options.Value.ApiToken))
+            return ResultadoEstadoAssinatura.CriarFalha("Autentique sem ApiToken configurado.");
+
+        try
+        {
+            var resposta = await autentiqueIntegracaoCliente.ObterDocumentoAsync(
+                documentoId,
+                options.Value.ApiToken,
+                ct);
+
+            LogarErrosGraphQl(resposta?.Errors);
+            if (resposta?.Errors is { Count: > 0 })
+                return ResultadoEstadoAssinatura.CriarFalha("Autentique retornou erro ao consultar o documento.");
+
+            var assinaturas = resposta?.Data?.Document?.Signatures;
+            if (assinaturas is null || assinaturas.Count == 0)
+                return ResultadoEstadoAssinatura.CriarFalha("Autentique nao retornou os signatarios do documento.");
+
+            var concluidas = assinaturas
+                .Select(assinatura => assinatura.Signed?.CreatedAt)
+                .ToList();
+            var concluido = concluidas.All(data => data.HasValue);
+            var concluidoEm = concluido
+                ? concluidas.Max()
+                : null;
+
+            return ResultadoEstadoAssinatura.CriarSucesso(concluido, concluidoEm);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "Falha ao consultar estado do documento {DocumentoId} na Autentique.", documentoId);
+            return ResultadoEstadoAssinatura.CriarFalha("Falha de comunicacao ao consultar a Autentique.");
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Timeout ao consultar estado do documento {DocumentoId} na Autentique.", documentoId);
+            return ResultadoEstadoAssinatura.CriarFalha("Timeout ao consultar a Autentique.");
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Autentique retornou JSON inesperado para o documento {DocumentoId}.", documentoId);
+            return ResultadoEstadoAssinatura.CriarFalha("Autentique retornou resposta inesperada.");
+        }
+    }
+
     private static string CriarLinkAssinatura(string publicId)
         => $"https://app.autentique.com.br/assinatura/{publicId}";
 

@@ -18,6 +18,9 @@ public interface IContratoRepositorio
         string provedor,
         string idExterno,
         CancellationToken cancellationToken = default);
+    Task<List<SolicitacaoAssinaturaPendente>> ListarSolicitacoesAssinaturaParaReconciliacaoAsync(
+        string provedor,
+        CancellationToken cancellationToken = default);
     Task<StatusAssinatura> ObterOuCriarStatusAssinaturaAsync(
         string codigo,
         string descricao,
@@ -51,3 +54,8 @@ public interface IContratoRepositorio
     Task AdicionarAssinaturaAsync(Assinatura assinatura, CancellationToken cancellationToken = default);
     Task SalvarAlteracoesAsync(CancellationToken cancellationToken = default);
 }
+
+public sealed record SolicitacaoAssinaturaPendente(
+    Guid TenantId,
+    string IdExterno,
+    Guid ContratoId);

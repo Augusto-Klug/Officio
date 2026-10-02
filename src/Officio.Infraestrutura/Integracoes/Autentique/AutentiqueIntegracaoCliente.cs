@@ -56,6 +56,7 @@ public sealed class AutentiqueIntegracaoCliente(
                         id
                         name
                         files { original signed certified pades }
+                        signatures { signed { created_at } }
                       }
                     }
                     """,
