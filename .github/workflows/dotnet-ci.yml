@@ -28,6 +28,8 @@ jobs:
 
       - name: Build
         run: dotnet build src/Officio.slnx --configuration Release --no-restore
+        env:
+          SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
 
       - name: Test
         run: dotnet test src/Officio.slnx --configuration Release --no-build --verbosity normal

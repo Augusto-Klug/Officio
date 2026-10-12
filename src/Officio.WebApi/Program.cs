@@ -1,4 +1,6 @@
 using Officio.WebApi.Extensoes;
+using Officio.WebApi.Saude;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var argumentosPrograma = args.AnalisarArgumentosPrograma();
 var builder = WebApplication.CreateBuilder(argumentosPrograma.ArgumentosHost);
@@ -10,6 +12,8 @@ builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
 builder.Services.AddControllers();
+builder.Services.AddHealthChecks()
+    .AddCheck<VerificacaoBancoDados>("banco", tags: ["ready"]);
 builder.Services.AdicionarCorsFrontend(builder.Configuration);
 builder.Services.AdicionarOpenApiOfficio();
 builder.Services.AdicionarObservabilidade(builder.Configuration);
@@ -30,6 +34,14 @@ app.UseCors();
 app.UsarMiddlewaresOfficio();
 
 app.MapControllers();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 app.Run();
 
