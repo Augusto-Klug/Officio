@@ -4,6 +4,8 @@
 .codex
 artifacts
 frontend
+!frontend/
+!frontend/**
 docs
 **/.env
 src/.env
@@ -16,4 +18,5 @@ src/.env
 **/bin-test
 **/secrets.json
 **/*.pfx
+**/*.lic
 **/*.bak

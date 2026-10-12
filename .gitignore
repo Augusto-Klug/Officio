@@ -354,6 +354,8 @@ ASALocalRun/
 src/.superpowers/
 src/docs/superpowers/**/*.md
 src/.env
+deploy/servidor-teste.env
+**/sixlabors.lic
 
 # BeatPulse healthcheck temp database
 healthchecksdb
