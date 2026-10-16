@@ -36,6 +36,13 @@ public class Socio : EntidadeAuditavel
             ClientId = clientId
         };
     }
+
+    public void AtualizarDados(string nome, string? cpf, decimal participacao)
+    {
+        Nome = nome.Trim();
+        Cpf = DocumentoFiscal.SomenteDigitos(cpf);
+        Participacao = participacao;
+    }
 }
 
 

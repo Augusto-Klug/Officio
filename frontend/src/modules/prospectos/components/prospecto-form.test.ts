@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { formatarCep, formatarCnpj, formatarCpf, limparPayload, novoProspecto, validarProspecto } from './prospecto-form'
+import { formatarCep, formatarCnpj, formatarCpf, limparPayload, montarFormularioProspecto, novoProspecto, validarProspecto } from './prospecto-form'
 
 describe('formulário de prospecto', () => {
+  it('preenche a edicao sem perder identificadores de socios ou percentual e normaliza data/opcionais', () => {
+    const dados = { ...novoProspecto(), razaoSocial: 'Empresa', cnpj: '99093538000155',
+      cep: '89010000', dataAbertura: '2020-01-10T00:00:00',
+      socios: [{ id: 'socio-1', nome: 'Ana', cpf: '11789299900', participacao: 10 }] }
+    const formulario = montarFormularioProspecto(dados)
+    expect(formulario).toMatchObject({ cnpj: '99.093.538/0001-55', cep: '89010-000',
+      dataAbertura: '2020-01-10', email: '',
+      socios: [{ id: 'socio-1', cpf: '117.892.999-00', participacao: 10 }] })
+    expect(limparPayload({ ...dados, ...formulario }).socios).toEqual(dados.socios)
+    formulario.socios[0]!.nome = 'Editado'
+    expect(dados.socios[0]!.nome).toBe('Ana')
+  })
+
   it('aplica máscaras sem aceitar caracteres excedentes', () => {
     expect(formatarCnpj('12345678000190abc')).toBe('12.345.678/0001-90')
     expect(formatarCpf('12345678909')).toBe('123.456.789-09')

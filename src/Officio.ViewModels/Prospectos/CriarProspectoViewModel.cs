@@ -34,6 +34,7 @@ public class CriarProspectoViewModel
 
 public class CriarSocioViewModel
 {
+    public Guid? Id { get; set; }
     public string Nome { get; set; } = string.Empty;
     public string? Cpf { get; set; }
     public decimal Participacao { get; set; }

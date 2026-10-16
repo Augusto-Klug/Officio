@@ -30,7 +30,16 @@ public record CriarProspectoRequisicao(
     string? InscricaoMunicipal = null,
     string? TipoEmpresa = null);
 
-public record CriarSocioRequisicao(string Nome, string? Cpf, decimal Participacao);
+public record CriarSocioRequisicao(string Nome, string? Cpf, decimal Participacao, Guid? Id = null);
+
+public record ProspectoDetalheDto(Guid Id, string Status, CriarProspectoRequisicao Dados);
+
+public static class ProspectoErros
+{
+    public const string NaoEncontrado = "Prospecto nao encontrado.";
+    public const string ForaDaEtapaInicial = "Somente prospectos em negociacao, ainda sem conversao ou empresa vinculada, podem ser editados ou excluidos.";
+    public const string PossuiVinculos = "O prospecto possui orcamentos, contratos ou outros registros vinculados e nao pode ser excluido.";
+}
 
 public record ProspectoCriadoResultado(Guid Id, string RazaoSocial);
 

@@ -1,9 +1,35 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { RegimeTributario, type CriarProspectoPayload } from '../types/prospecto'
-import { criarProspecto, normalizeProspectoCriado, normalizeProspectos } from './prospectos.service'
+import { prospectoNaEtapaInicial, RegimeTributario, type CriarProspectoPayload } from '../types/prospecto'
+import { atualizarProspecto, criarProspecto, excluirProspecto, normalizeProspectoCriado, normalizeProspectos, obterProspecto } from './prospectos.service'
 
 afterEach(() => vi.restoreAllMocks())
+
+describe('manutencao de prospectos', () => {
+  it.each(['Convertido', 'PropostaEnviada', 'Perdido', 'Inativo', null])('oculta a manutencao no status %s', (status) => {
+    expect(prospectoNaEtapaInicial({ status })).toBe(false)
+  })
+
+  it('habilita a manutencao apenas na etapa inicial', () => {
+    expect(prospectoNaEtapaInicial({ status: 'EmNegociacao' })).toBe(true)
+  })
+
+  it('consulta o cadastro completo e usa os endpoints de atualizacao e exclusao', async () => {
+    const payload: CriarProspectoPayload = { razaoSocial: 'Revisada', cnpj: null, regimeTributario: null, socios: [] }
+    const detail = { id: 'p1', status: 'EmNegociacao', dados: payload }
+    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: detail })
+    const put = vi.spyOn(http, 'put').mockResolvedValue({ status: 204 })
+    const remove = vi.spyOn(http, 'delete').mockResolvedValue({ status: 204 })
+    const controller = new AbortController()
+
+    await expect(obterProspecto('p1', controller.signal)).resolves.toEqual(detail)
+    await atualizarProspecto('p1', payload)
+    await excluirProspecto('p1')
+    expect(get).toHaveBeenCalledWith('/v1/prospectos/ObterPorId/p1', { signal: controller.signal })
+    expect(put).toHaveBeenCalledWith('/v1/prospectos/Atualizar/p1', payload)
+    expect(remove).toHaveBeenCalledWith('/v1/prospectos/Excluir/p1')
+  })
+})
 
 describe('normalização do contrato de prospectos', () => {
   it('interpreta o PagedResult efetivamente retornado pelo endpoint', () => {

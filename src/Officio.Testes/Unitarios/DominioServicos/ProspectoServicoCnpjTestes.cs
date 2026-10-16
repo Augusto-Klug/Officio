@@ -244,6 +244,38 @@ public class ProspectoServicoCnpjTestes
         Assert.Equal(prospecto.Id, Assert.Single(resultado.Valor!.Data).Id);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AtualizarAsync_ComCepInvalidoOuMunicipioDivergente_NaoAlteraCadastro(bool municipioDivergente)
+    {
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(Guid.NewGuid());
+        await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            empresaAtual, new PublicadorEventosFake());
+        var prospecto = Prospecto.Create(empresaAtual.TenantId, "Cadastro original", "99093538000155", null);
+        db.Prospects.Add(prospecto);
+        await db.SaveChangesAsync();
+        var cep = municipioDivergente
+            ? new EnderecoCepLocalidade("89010000", "Rua", null, "Centro", "Blumenau", "SC", "4202404")
+            : null;
+        var servicos = new ServiceCollection();
+        servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
+        servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
+        servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(Resultado<EnderecoCepLocalidade?>.CriarSucesso(cep)));
+        servicos.AdicionarServicos(new ConfigurationBuilder().Build());
+        await using var provedor = servicos.BuildServiceProvider();
+
+        var resultado = await provedor.GetRequiredService<IProspectoServico>().AtualizarAsync(
+            prospecto.Id, new("Nao salvar", "99093538000155", null, [], Cep: "89010000", MunicipioCodigoIbge: "4205407"));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Equal(municipioDivergente ? LocalidadeErros.MunicipioDivergenteDoCep : LocalidadeErros.CepInvalido, resultado.Erro);
+        Assert.Equal("Cadastro original", prospecto.RazaoSocial);
+        Assert.Null(prospecto.Cep);
+    }
+
     private sealed class ConsultaMunicipioIbgeFake : IConsultaMunicipioIbge
     {
         public Task<MunicipioIbge?> ObterPorNomeUfAsync(
