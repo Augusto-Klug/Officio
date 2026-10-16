@@ -15,6 +15,7 @@ public class OrcamentoViewModelConversorTestes
     {
         var prospectoId = Guid.Parse("b29a9417-2109-4bc7-a6c3-d0a461965fab");
         var itemCatalogoId = Guid.Parse("c3f836ec-ae27-408d-a319-557e1a661678");
+        var itemOrcamentoId = Guid.Parse("84cffec2-9728-4831-8f58-02c1c523ee26");
         var viewModel = new CriarOrcamentoViewModel
         {
             ProspectoId = prospectoId,
@@ -26,6 +27,7 @@ public class OrcamentoViewModelConversorTestes
                 new CriarItemOrcamentoViewModel
                 {
                     ItemCatalogoOrcamentoId = itemCatalogoId,
+                    ItemOrcamentoId = itemOrcamentoId,
                     Descricao = "Escrituracao contabil",
                     Secao = SecaoItemOrcamentoViewModel.ServicosInclusos,
                     Tipo = TipoItemOrcamentoViewModel.ItemMonetario,
@@ -43,6 +45,7 @@ public class OrcamentoViewModelConversorTestes
         Assert.Equal("Orcamento mensal", comando.Titulo);
         var item = Assert.Single(comando.Itens);
         Assert.Equal(itemCatalogoId, item.ItemCatalogoOrcamentoId);
+        Assert.Equal(itemOrcamentoId, item.ItemOrcamentoId);
         Assert.Equal("Escrituracao contabil", item.Descricao);
         Assert.Equal(SecaoItemOrcamento.ServicosInclusos, item.Secao);
         Assert.Equal(TipoItemOrcamento.ItemMonetario, item.Tipo);

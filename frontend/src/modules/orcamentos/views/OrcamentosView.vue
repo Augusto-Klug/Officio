@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import Button from 'primevue/button'
 import Checkbox from 'primevue/checkbox'
@@ -19,8 +19,8 @@ import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import OrcamentoDetalheDialog from '../components/OrcamentoDetalheDialog.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCurrency } from '../../../utils/format'
-import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
-import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type CriarOrcamentoPayload, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
+import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, listarCatalogoOrcamento, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
+import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,8 +40,13 @@ const editingId = ref('')
 const saving = ref(false)
 const formError = ref('')
 const form = ref(novoFormulario())
+const catalogo = ref<ItemCatalogoOrcamento[]>([])
+const catalogLoading = ref(false)
+const catalogError = ref('')
+const catalogoAtivoCount = computed(() => catalogo.value.filter((item) => item.ativo).length)
 const conversion = ref({ dataInicio: hojeLocal(), dataFim: '', renovacaoAutomatica: true, clausulasExtras: '' })
 let controller: AbortController | undefined
+let catalogController: AbortController | undefined
 
 function novoFormulario(): CriarOrcamentoPayload {
   return {
@@ -74,6 +79,7 @@ function abrirCriacao() {
   form.value = novoFormulario()
   formError.value = ''
   createOpen.value = true
+  void carregarCatalogo(false)
 }
 
 async function abrirDetalhe(item: Orcamento) {
@@ -98,6 +104,7 @@ function abrirEdicao(item: Orcamento) {
     itens: [...item.itens]
       .sort((a, b) => a.ordem - b.ordem)
       .map((itemOrcamento, index) => ({
+        itemOrcamentoId: itemOrcamento.id,
         itemCatalogoOrcamentoId: itemOrcamento.itemCatalogoOrcamentoId ?? undefined,
         descricao: itemOrcamento.descricao,
         secao: secaoPorNome[itemOrcamento.secao] ?? 2,
@@ -111,19 +118,53 @@ function abrirEdicao(item: Orcamento) {
   formError.value = ''
   detailOpen.value = false
   createOpen.value = true
+  void carregarCatalogo(true)
 }
 
 function adicionarItem() {
   form.value.itens.push({ descricao: '', secao: 2, tipo: 2, naturezaCobranca: 2, quantidade: 1, valorUnitario: 0, ordem: form.value.itens.length + 1 })
 }
 
-function atualizarTipo(item: NovoItemOrcamento, tipo: number) {
-  item.tipo = tipo
-  if (tipo !== 2) item.naturezaCobranca = 1
+async function carregarCatalogo(incluirInativos: boolean) {
+  catalogController?.abort()
+  const currentController = new AbortController()
+  catalogController = currentController
+  catalogLoading.value = true
+  catalogError.value = ''
+  try {
+    catalogo.value = await listarCatalogoOrcamento(incluirInativos, currentController.signal)
+  } catch (cause) {
+    if (!axios.isCancel(cause)) catalogError.value = normalizeError(cause).message
+  } finally {
+    if (catalogController === currentController) catalogLoading.value = false
+  }
 }
 
-function opcoesNatureza(item: NovoItemOrcamento) {
-  return item.tipo === 2 ? [...naturezaCobrancaOptions] : [naturezaCobrancaOptions[0]]
+function opcoesCatalogo(item: NovoItemOrcamento) {
+  return catalogo.value
+    .filter((catalogItem) => catalogItem.ativo || catalogItem.id === item.itemCatalogoOrcamentoId)
+    .map((catalogItem) => ({ ...catalogItem, desativado: !catalogItem.ativo }))
+}
+
+function selecionarItemCatalogo(item: NovoItemOrcamento, id: string) {
+  if (id === item.itemCatalogoOrcamentoId) return
+  const catalogItem = catalogo.value.find((entry) => entry.id === id && entry.ativo)
+  if (!catalogItem) return
+  item.itemOrcamentoId = undefined
+  item.itemCatalogoOrcamentoId = catalogItem.id
+  item.descricao = catalogItem.descricao
+  item.secao = secaoPorNome[catalogItem.secao] ?? 1
+  item.tipo = tipoPorNome[catalogItem.tipo] ?? 1
+  item.naturezaCobranca = naturezaCobrancaPorNome[catalogItem.naturezaCobranca] ?? 1
+  item.valorUnitario = catalogItem.valorReferencia ?? 0
+}
+
+function precoReferencia(item: NovoItemOrcamento): number | null {
+  return catalogo.value.find((catalogItem) => catalogItem.id === item.itemCatalogoOrcamentoId)?.valorReferencia ?? null
+}
+
+function labelOpcao(options: readonly { label: string; value: number }[], value: number) {
+  return options.find((option) => option.value === value)?.label ?? ''
 }
 
 function removerItem(index: number) {
@@ -134,6 +175,15 @@ function removerItem(index: number) {
 
 async function salvar() {
   formError.value = ''
+  if (form.value.itens.some((item) => !item.itemCatalogoOrcamentoId && !item.itemOrcamentoId)) {
+    formError.value = 'Selecione um serviço do catálogo para cada novo item.'
+    return
+  }
+  const catalogIds = form.value.itens.map((item) => item.itemCatalogoOrcamentoId).filter((id): id is string => !!id)
+  if (new Set(catalogIds).size !== catalogIds.length) {
+    formError.value = 'Cada serviço pode ser adicionado uma vez. Ajuste a quantidade para incluir mais unidades.'
+    return
+  }
   if (!form.value.titulo.trim()) { formError.value = 'Informe o título do orçamento.'; return }
   if (form.value.diaVencimento < 1 || form.value.diaVencimento > 31) { formError.value = 'O dia de vencimento deve estar entre 1 e 31.'; return }
   if (form.value.itens.some((item) => !item.descricao.trim() || item.quantidade < 1 || item.valorUnitario < 0)) {
@@ -210,7 +260,7 @@ function severity(status: string) {
 }
 
 watch(prospectoId, () => void load(), { immediate: true })
-onBeforeUnmount(() => controller?.abort())
+onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
 </script>
 
 <template>
@@ -240,14 +290,30 @@ onBeforeUnmount(() => controller?.abort())
       <Message v-if="formError" severity="error" :closable="false">{{ formError }}</Message>
       <div class="form-grid two-columns"><div class="field"><label for="budget-title">Título</label><InputText id="budget-title" v-model="form.titulo" /></div><div class="field"><label for="budget-due">Dia de vencimento</label><InputNumber input-id="budget-due" v-model="form.diaVencimento" :min="1" :max="31" /></div></div>
       <div class="field"><label for="budget-notes">Observações</label><Textarea id="budget-notes" v-model="form.observacoes" rows="2" auto-resize /></div>
-      <div class="form-section-heading"><div><h3>Itens</h3><p>Serviços e valores que compõem a proposta.</p></div><Button label="Adicionar item" icon="pi pi-plus" text type="button" @click="adicionarItem" /></div>
-      <div v-for="(item, index) in form.itens" :key="index" class="budget-item-row">
-        <div class="field item-description"><label :for="`item-description-${index}`">Descrição</label><InputText :id="`item-description-${index}`" v-model="item.descricao" /></div>
-        <div class="field item-section"><label :for="`item-section-${index}`">Seção</label><Select :input-id="`item-section-${index}`" v-model="item.secao" :options="[...secaoOptions]" option-label="label" option-value="value" /></div>
-        <div class="field item-type"><label :for="`item-type-${index}`">Tipo</label><Select :input-id="`item-type-${index}`" :model-value="item.tipo" :options="[...tipoOptions]" option-label="label" option-value="value" @update:model-value="atualizarTipo(item, $event)" /></div>
-        <div class="field item-billing"><label :for="`item-billing-${index}`">Cobrança</label><Select :input-id="`item-billing-${index}`" v-model="item.naturezaCobranca" :options="opcoesNatureza(item)" option-label="label" option-value="value" /></div>
-        <div class="field quantity-field"><label :for="`item-quantity-${index}`">Qtd.</label><InputNumber :input-id="`item-quantity-${index}`" v-model="item.quantidade" :min="1" /></div>
-        <div class="field value-field"><label :for="`item-value-${index}`">Valor</label><InputNumber :input-id="`item-value-${index}`" v-model="item.valorUnitario" mode="currency" currency="BRL" locale="pt-BR" :min="0" /></div>
+      <div class="form-section-heading"><div><h3>Itens</h3><p>Serviços e valores que compõem a proposta.</p></div><Button label="Adicionar item" icon="pi pi-plus" text type="button" :disabled="catalogLoading || catalogoAtivoCount === 0" @click="adicionarItem" /></div>
+      <Message v-if="catalogError" severity="error" :closable="false">{{ catalogError }}</Message>
+      <Message v-else-if="!catalogLoading && catalogoAtivoCount === 0" severity="info" :closable="false">
+        O catálogo não tem serviços ativos. <RouterLink :to="{ name: 'catalogo-orcamento' }">Cadastrar serviços</RouterLink>
+      </Message>
+      <div v-for="(item, index) in form.itens" :key="item.itemOrcamentoId ?? item.itemCatalogoOrcamentoId ?? index" class="budget-item-row catalog-budget-row">
+        <div v-if="item.itemOrcamentoId && !item.itemCatalogoOrcamentoId" class="legacy-budget-item">
+          <span>Item histórico</span><strong>{{ item.descricao }}</strong>
+          <small>{{ labelOpcao(secaoOptions, item.secao) }} | {{ labelOpcao(tipoOptions, item.tipo) }} | sem vínculo ao catálogo</small>
+        </div>
+        <div v-else class="field item-picker">
+          <label :for="`item-catalog-${index}`">Serviço</label>
+          <Select :input-id="`item-catalog-${index}`" :model-value="item.itemCatalogoOrcamentoId" :options="opcoesCatalogo(item)" option-label="descricao" option-value="id" option-disabled="desativado" :loading="catalogLoading" placeholder="Selecione um serviço" @update:model-value="selecionarItemCatalogo(item, $event)">
+            <template #option="{ option }"><span>{{ option.descricao }} <small v-if="!option.ativo">(inativo)</small></span></template>
+          </Select>
+          <small v-if="item.itemCatalogoOrcamentoId" class="catalog-item-summary">{{ labelOpcao(secaoOptions, item.secao) }} | {{ labelOpcao(tipoOptions, item.tipo) }} | {{ labelOpcao(naturezaCobrancaOptions, item.naturezaCobranca) }}</small>
+        </div>
+        <div class="field quantity-field"><label :for="`item-quantity-catalog-${index}`">Qtd.</label><InputNumber :input-id="`item-quantity-catalog-${index}`" v-model="item.quantidade" :min="1" /></div>
+        <div v-if="item.tipo === tipoPorNome.ItemMonetario" class="field catalog-price">
+          <label :for="`item-price-catalog-${index}`">Preço unitário</label>
+          <InputNumber :input-id="`item-price-catalog-${index}`" v-model="item.valorUnitario" mode="currency" currency="BRL" locale="pt-BR" :min="0" :max-fraction-digits="2" />
+          <small v-if="precoReferencia(item) !== null" class="catalog-price-reference">Referência: {{ formatCurrency(precoReferencia(item) ?? 0) }}</small>
+        </div>
+        <div v-else class="catalog-price"><span>Preço unitário</span><strong>Não monetário</strong></div>
         <Button icon="pi pi-trash" text severity="danger" type="button" :disabled="form.itens.length === 1" aria-label="Remover item" @click="removerItem(index)" />
       </div>
     </form>
@@ -264,3 +330,28 @@ onBeforeUnmount(() => controller?.abort())
     <template #footer><BaseButton label="Cancelar" variant="text" @click="convertOpen = false" /><BaseButton label="Gerar contrato" type="submit" form="contract-form" :loading="saving" /></template>
   </Dialog>
 </template>
+
+<style scoped>
+.catalog-budget-row {
+  grid-template-columns: minmax(0, 1fr) minmax(84px, 110px) minmax(145px, 170px) 36px;
+  align-items: start;
+}
+
+.item-picker { min-width: 0; }
+.catalog-item-summary,
+.legacy-budget-item small,
+.legacy-budget-item > span,
+.catalog-price > span { color: var(--officio-muted); font-size: 12px; }
+.catalog-item-summary { display: block; margin-top: 6px; }
+.legacy-budget-item,
+.catalog-price { display: grid; gap: 6px; min-width: 0; }
+.legacy-budget-item strong { overflow-wrap: anywhere; }
+.catalog-price-reference { font-size: 11px; }
+.catalog-price > .p-inputnumber,
+.catalog-price :deep(.p-inputnumber-input) { width: 100%; min-width: 0; }
+
+@media (max-width: 700px) {
+  .catalog-budget-row { grid-template-columns: minmax(0, 1fr); }
+  .catalog-budget-row > button { justify-self: end; }
+}
+</style>

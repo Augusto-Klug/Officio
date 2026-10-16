@@ -45,8 +45,8 @@ public class OrcamentoHandlersTestes
         Assert.Equal(itemCatalogo.Descricao, item.Descricao);
         Assert.Equal(itemCatalogo.Secao, item.Secao);
         Assert.Equal(itemCatalogo.Tipo, item.Tipo);
-        Assert.Equal(itemCatalogo.ValorReferencia, item.ValorUnitario);
-        Assert.Equal(1000m, item.ValorTotal);
+        Assert.Equal(999m, item.ValorUnitario);
+        Assert.Equal(1998m, item.ValorTotal);
     }
 
     [Fact]
@@ -80,6 +80,35 @@ public class OrcamentoHandlersTestes
     }
 
     [Fact]
+    public async Task CriarOrcamento_ComPrecoNegativo_Falha()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var itemCatalogo = ItemCatalogoOrcamento.Criar(
+            tenantId,
+            "Escrituracao contabil",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            500m);
+        contexto.Prospects.Add(prospecto);
+        contexto.BudgetCatalogItems.Add(itemCatalogo);
+        await contexto.SaveChangesAsync();
+        var handler = CriarHandler(contexto, tenantId);
+
+        var resultado = await handler.Handle(new CriarOrcamentoComando(
+            prospecto.Id,
+            "Proposta mensal",
+            10,
+            null,
+            [new CriarItemOrcamentoDto(itemCatalogo.Id, null, null, null, 1, -1m, 1)]), CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("negativo", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(contexto.Budgets);
+    }
+
+    [Fact]
     public async Task AtualizarOrcamento_QuandoAceito_Falha()
     {
         var tenantId = Guid.NewGuid();
@@ -104,7 +133,7 @@ public class OrcamentoHandlersTestes
     }
 
     [Fact]
-    public async Task AtualizarOrcamento_ComItemCatalogoExistente_PreservaSnapshotEnviado()
+    public async Task AtualizarOrcamento_ComItemCatalogoExistente_PreservaMetadadosEAtualizaPreco()
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
@@ -116,16 +145,17 @@ public class OrcamentoHandlersTestes
             TipoItemOrcamento.ItemMonetario,
             500m);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
+        var itemHistorico = ItemOrcamento.CriarSnapshot(
             tenantId,
             orcamento.Id,
             itemCatalogo.Id,
             "Descricao historica",
             SecaoItemOrcamento.ServicosInclusos,
-            TipoItemOrcamento.ServicoDescricao,
+            TipoItemOrcamento.ItemMonetario,
             1,
-            0m,
-            1));
+            500m,
+            1);
+        orcamento.AdicionarItem(itemHistorico);
         itemCatalogo.Desativar();
         contexto.Prospects.Add(prospecto);
         contexto.BudgetCatalogItems.Add(itemCatalogo);
@@ -146,16 +176,64 @@ public class OrcamentoHandlersTestes
                 TipoItemOrcamento.ItemMonetario,
                 2,
                 750m,
-                1)]), CancellationToken.None);
+                1,
+                NaturezaCobrancaItemOrcamento.HonorarioMensal,
+                itemHistorico.Id)]), CancellationToken.None);
 
         Assert.True(resultado.Sucesso);
         contexto.ChangeTracker.Clear();
         var itemAtualizado = await contexto.BudgetItems.SingleAsync();
-        Assert.Equal("Descricao ajustada", itemAtualizado.Descricao);
-        Assert.Equal(SecaoItemOrcamento.ServicosSeparados, itemAtualizado.Secao);
+        Assert.Equal("Descricao historica", itemAtualizado.Descricao);
+        Assert.Equal(SecaoItemOrcamento.ServicosInclusos, itemAtualizado.Secao);
         Assert.Equal(TipoItemOrcamento.ItemMonetario, itemAtualizado.Tipo);
         Assert.Equal(750m, itemAtualizado.ValorUnitario);
         Assert.Equal(1500m, itemAtualizado.ValorTotal);
+        Assert.Equal(2, itemAtualizado.Quantidade);
+    }
+
+    [Fact]
+    public async Task AtualizarOrcamento_ComPrecoNegativo_FalhaSemAlterarItem()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var itemCatalogo = ItemCatalogoOrcamento.Criar(
+            tenantId,
+            "Escrituracao contabil",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            500m);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
+        var item = ItemOrcamento.CriarSnapshot(
+            tenantId,
+            orcamento.Id,
+            itemCatalogo.Id,
+            itemCatalogo.Descricao,
+            itemCatalogo.Secao,
+            itemCatalogo.Tipo,
+            1,
+            500m,
+            1);
+        orcamento.AdicionarItem(item);
+        contexto.Prospects.Add(prospecto);
+        contexto.BudgetCatalogItems.Add(itemCatalogo);
+        contexto.Budgets.Add(orcamento);
+        await contexto.SaveChangesAsync();
+        contexto.ChangeTracker.Clear();
+        var handler = new AtualizarOrcamentoHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(new AtualizarOrcamentoComando(
+            orcamento.Id,
+            "Proposta mensal",
+            10,
+            null,
+            [new CriarItemOrcamentoDto(itemCatalogo.Id, null, null, null, 1, -1m, 1, null, item.Id)]), CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("negativo", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+        contexto.ChangeTracker.Clear();
+        var itemPersistido = await contexto.BudgetItems.SingleAsync();
+        Assert.Equal(500m, itemPersistido.ValorUnitario);
     }
 
     [Fact]

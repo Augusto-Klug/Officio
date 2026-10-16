@@ -28,7 +28,7 @@ public interface IOrcamentoServico
         AlterarAtivoItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<Resultado<List<CatalogoOrcamentoDto>>> ListarCatalogoAsync(CancellationToken ct = default);
+    Task<Resultado<List<CatalogoOrcamentoDto>>> ListarCatalogoAsync(bool incluirInativos = false, CancellationToken ct = default);
 
     Task<Resultado<bool>> AlterarStatusAsync(
         AlterarStatusOrcamentoRequisicao requisicao,

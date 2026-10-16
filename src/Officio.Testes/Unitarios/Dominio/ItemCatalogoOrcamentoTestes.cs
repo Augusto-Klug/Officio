@@ -52,4 +52,17 @@ public class ItemCatalogoOrcamentoTestes
 
         Assert.Contains("monetarios", excecao.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Criar_ItemMonetarioSemValorReferencia_Rejeita()
+    {
+        var excecao = Assert.Throws<ArgumentException>(() => ItemCatalogoOrcamento.Criar(
+            Guid.NewGuid(),
+            "Honorarios mensais",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            null));
+
+        Assert.Contains("valor de referencia", excecao.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

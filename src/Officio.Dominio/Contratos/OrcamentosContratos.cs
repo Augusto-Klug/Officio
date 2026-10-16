@@ -24,7 +24,8 @@ public record ItemOrcamentoRequisicao(
     int Quantidade,
     decimal ValorUnitario,
     int Ordem,
-    NaturezaCobrancaItemOrcamento? NaturezaCobranca = null);
+    NaturezaCobrancaItemOrcamento? NaturezaCobranca = null,
+    Guid? ItemOrcamentoId = null);
 
 public record CriarItemCatalogoOrcamentoRequisicao(
     string Descricao,

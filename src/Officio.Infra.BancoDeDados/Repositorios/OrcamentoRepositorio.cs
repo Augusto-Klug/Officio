@@ -24,9 +24,9 @@ internal class OrcamentoRepositorio(ContextoAplicacao contexto)
         => Contexto.BudgetCatalogItems
             .FirstOrDefaultAsync(item => item.Id == itemId, cancellationToken);
 
-    public Task<List<ItemCatalogoOrcamento>> ObterCatalogoAtivoAsync(CancellationToken cancellationToken = default)
+    public Task<List<ItemCatalogoOrcamento>> ObterCatalogoAsync(bool incluirInativos, CancellationToken cancellationToken = default)
         => Contexto.BudgetCatalogItems
-            .Where(item => item.Ativo)
+            .Where(item => incluirInativos || item.Ativo)
             .OrderBy(item => item.Secao)
             .ThenBy(item => item.Descricao)
             .ToListAsync(cancellationToken);

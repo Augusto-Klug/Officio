@@ -15,6 +15,7 @@ const platformAdmin = hasRole('PlatformAdmin')
         <RouterLink to="/dashboard" class="nav-item" @click="$emit('navigate')"><i class="pi pi-chart-bar" aria-hidden="true" />Visao geral</RouterLink>
         <p class="nav-section nav-section-spaced">COMERCIAL</p>
         <RouterLink to="/prospectos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-users" aria-hidden="true" />Prospectos</RouterLink>
+        <RouterLink to="/catalogo-orcamento" class="nav-item" @click="$emit('navigate')"><i class="pi pi-list" aria-hidden="true" />Itens do orçamento</RouterLink>
         <RouterLink to="/clientes" class="nav-item" @click="$emit('navigate')"><i class="pi pi-building" aria-hidden="true" />Clientes</RouterLink>
         <RouterLink to="/contratos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-file" aria-hidden="true" />Contratos</RouterLink>
         <RouterLink to="/faturamentos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-receipt" aria-hidden="true" />Faturamento</RouterLink>

@@ -65,6 +65,9 @@ public class ItemCatalogoOrcamento : EntidadeAuditavel
         if (string.IsNullOrWhiteSpace(descricao))
             throw new ArgumentException("Descricao do item de catalogo e obrigatoria.", nameof(descricao));
 
+        if (tipo == TipoItemOrcamento.ItemMonetario && !valorReferencia.HasValue)
+            throw new ArgumentException("Item monetario deve possuir valor de referencia.", nameof(valorReferencia));
+
         if (valorReferencia < 0)
             throw new ArgumentException("Valor de referencia nao pode ser negativo.", nameof(valorReferencia));
 

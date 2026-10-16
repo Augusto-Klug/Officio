@@ -23,7 +23,8 @@ public class AtualizarOrcamentoHandler(IOrcamentoServico orcamentoServico)
                 item.Quantidade,
                 item.ValorUnitario,
                 item.Ordem,
-                item.NaturezaCobranca)).ToList());
+                item.NaturezaCobranca,
+                item.ItemOrcamentoId)).ToList());
 
         return await orcamentoServico.AtualizarAsync(requisicao, ct);
     }

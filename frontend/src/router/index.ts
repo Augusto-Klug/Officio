@@ -14,6 +14,7 @@ export const router = createRouter({
       path: '/', component: () => import('../components/layout/AppLayout.vue'), meta: { requiresAuth: true },
       children: [
         { path: '', redirect: () => defaultAuthenticatedRoute() },
+        { path: 'catalogo-orcamento', name: 'catalogo-orcamento', component: () => import('../modules/orcamentos/views/CatalogoOrcamentoView.vue'), meta: { title: 'Itens do orçamento' } },
         { path: 'dashboard', name: 'dashboard', component: () => import('../modules/dashboard/views/DashboardView.vue'), meta: { title: 'Visao geral' } },
         { path: 'prospectos', name: 'prospectos', component: () => import('../modules/prospectos/views/ProspectosView.vue'), meta: { title: 'Prospectos' } },
         { path: 'prospectos/:prospectoId/orcamentos', name: 'orcamentos-prospecto', component: () => import('../modules/orcamentos/views/OrcamentosView.vue'), meta: { title: 'Orçamentos' } },
@@ -45,7 +46,7 @@ onUnauthorized(() => {
 
 export function safeRedirect(value: unknown): string {
   // Restringe o retorno pós-login às áreas autenticadas conhecidas.
-  if (typeof value !== 'string' || !/^\/(?:dashboard|prospectos|clientes|admissoes|contratos|faturamentos|acessos|admin\/parceiros)(?:\/|\?|$)/.test(value)) return defaultAuthenticatedRoute()
+  if (typeof value !== 'string' || !/^\/(?:dashboard|prospectos|catalogo-orcamento|clientes|admissoes|contratos|faturamentos|acessos|admin\/parceiros)(?:\/|\?|$)/.test(value)) return defaultAuthenticatedRoute()
   if (value.startsWith('/admin/') && !hasRole('PlatformAdmin')) return defaultAuthenticatedRoute()
   if (value.startsWith('/acessos') && !hasRole('Admin')) return defaultAuthenticatedRoute()
   return value

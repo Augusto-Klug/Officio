@@ -1,10 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, normalizeOrcamentos, obterOrcamento } from './orcamentos.service'
+import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, listarCatalogoOrcamento, normalizeCatalogoOrcamento, normalizeOrcamentos, obterOrcamento } from './orcamentos.service'
 
 afterEach(() => vi.restoreAllMocks())
 
 describe('contrato HTTP de orçamentos', () => {
+  it('normalizes the service catalog and includes inactive items on request', async () => {
+    const catalogItem = { id: 'catalog-1', descricao: 'Monthly accounting', secao: 'Honorarios', tipo: 'ItemMonetario', naturezaCobranca: 'HonorarioMensal', valorReferencia: 500, ativo: false }
+    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: [catalogItem] })
+
+    expect(normalizeCatalogoOrcamento([catalogItem])).toEqual([catalogItem])
+    await expect(listarCatalogoOrcamento(true)).resolves.toEqual([catalogItem])
+    expect(get).toHaveBeenCalledWith('/v1/orcamentos/Catalogo', { params: { incluirInativos: true }, signal: undefined })
+  })
+
   it('normaliza a lista e seus itens', () => {
     const result = normalizeOrcamentos([{
       id: 'orc-1', prospectoId: 'pro-1', titulo: 'Proposta mensal', status: 'Rascunho',

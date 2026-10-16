@@ -10,7 +10,7 @@ namespace Officio.Testes.Unitarios.InfraBancoDeDados;
 public class OrcamentoRepositorioTestes
 {
     [Fact]
-    public async Task ObterCatalogoAtivoAsync_RetornaSomenteItensAtivosDoTenantAtual()
+    public async Task ObterCatalogoAsync_FiltraInativosEIncluiQuandoSolicitado()
     {
         var tenantIdAtual = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantIdAtual);
@@ -38,10 +38,14 @@ public class OrcamentoRepositorioTestes
         contexto.ChangeTracker.Clear();
         var repositorio = new OrcamentoRepositorio(contexto);
 
-        var resultado = await repositorio.ObterCatalogoAtivoAsync();
+        var resultado = await repositorio.ObterCatalogoAsync(false);
 
         var item = Assert.Single(resultado);
         Assert.Equal(itemAtivo.Id, item.Id);
+
+        var incluindoInativos = await repositorio.ObterCatalogoAsync(true);
+        Assert.Equal(2, incluindoInativos.Count);
+        Assert.Contains(incluindoInativos, item => item.Id == itemInativo.Id && !item.Ativo);
     }
 
     [Fact]
