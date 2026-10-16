@@ -568,9 +568,7 @@ public class ContratoServico(
     }
 
     private static bool EhEventoConclusaoDocumento(EventoWebhookAutentique evento)
-        => string.Equals(evento.Tipo, "document.finished", StringComparison.OrdinalIgnoreCase)
-            || (string.Equals(evento.Tipo, "document.updated", StringComparison.OrdinalIgnoreCase)
-                && evento.DocumentoFinalizado);
+        => string.Equals(evento.Tipo, "document.finished", StringComparison.OrdinalIgnoreCase);
 
     private async Task<Resultado<bool>> ArmazenarPdfAssinadoAsync(
         AssinaturaSolicitacao solicitacao,

@@ -567,11 +567,13 @@ public class ContratoServicoTestes
     }
 
     [Fact]
-    public async Task ProcessarWebhookAutentiqueAsync_DocumentUpdatedFinalizadoComDataDocumento_AtivaContrato()
+    public async Task ProcessarWebhookAutentiqueAsync_DocumentUpdatedComDadosDeAssinatura_NaoAtivaContrato()
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var (_, contrato, _) = await CriarContratoComSolicitacaoAsync(contexto, tenantId);
+        contrato.MarcarAguardandoAssinatura();
+        await contexto.SaveChangesAsync();
         var armazenamento = new ServicoArmazenamentoFake();
         var assinatura = new ServicoAssinaturaFake(
             documentoAssinado: ResultadoDocumentoAssinado.CriarSucesso(
@@ -604,10 +606,10 @@ public class ContratoServicoTestes
         var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
 
         Assert.True(resultado.Sucesso, resultado.Erro);
-        Assert.Equal(StatusContrato.Ativo, contrato.Status);
-        Assert.NotNull(contrato.AssinadoEm);
-        Assert.Single(contexto.Documents);
-        Assert.Single(armazenamento.Envios);
+        Assert.Equal(StatusContrato.AguardandoAssinatura, contrato.Status);
+        Assert.Null(contrato.AssinadoEm);
+        Assert.Empty(contexto.Documents);
+        Assert.Empty(armazenamento.Envios);
     }
 
     [Fact]
