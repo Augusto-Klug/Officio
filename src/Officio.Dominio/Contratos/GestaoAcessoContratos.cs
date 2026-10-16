@@ -10,6 +10,8 @@ public record CriarParceiroAdministradorRequisicao(
 
 public record CriarConviteUsuarioRequisicao(string Nome, string Email, string Perfil);
 
+public record ConvidarAdministradorParceiroRequisicao(string Nome, string Email);
+
 public record AceitarConviteRequisicao(string Token, string Senha);
 
 public record RedefinirSenhaRequisicao(string Token, string Senha);

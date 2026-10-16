@@ -1,6 +1,8 @@
 services:
   sql-server:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "127.0.0.1:1435:1433"
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer

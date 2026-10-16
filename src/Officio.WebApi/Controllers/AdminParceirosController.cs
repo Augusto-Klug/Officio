@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Seguranca;
 using Officio.Dominio.Mediador.Funcionalidades.Parceiros.Comandos.CriarParceiroAdministrador;
 using Officio.Dominio.Mediador.Funcionalidades.Parceiros.Comandos.AlterarStatusParceiro;
+using Officio.Dominio.Mediador.Funcionalidades.Parceiros.Comandos.ConvidarAdministradorParceiro;
 using Officio.Dominio.Mediador.Funcionalidades.Parceiros.Comandos.ReenviarConviteAdministrador;
 using Officio.Dominio.Mediador.Funcionalidades.Parceiros.Consultas.ListarParceiros;
 using Officio.ViewModels.Parceiros;
@@ -52,6 +53,17 @@ public class AdminParceirosController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
         => Resultado(await mediator.Send(
             new AlterarStatusParceiroComando(parceiroId, viewModel.Ativo), cancellationToken));
+
+    [HttpPost("{parceiroId:guid}/administrador/convites")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> ConvidarAdministrador(
+        Guid parceiroId,
+        [FromBody] ConvidarAdministradorParceiroViewModel viewModel,
+        CancellationToken cancellationToken)
+        => Resultado(await mediator.Send(
+            new ConvidarAdministradorParceiroComando(parceiroId, viewModel.Nome, viewModel.Email),
+            cancellationToken));
 
     [HttpPost("{parceiroId:guid}/administrador/reenviar-convite")]
     [ProducesResponseType(200)]

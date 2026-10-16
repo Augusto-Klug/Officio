@@ -45,3 +45,13 @@ export async function alterarStatusParceiro(id: string, ativo: boolean): Promise
 export async function reenviarConviteAdministrador(id: string): Promise<void> {
   await http.post(`/v1/admin/parceiros/${id}/administrador/reenviar-convite`)
 }
+
+export async function convidarAdministradorParceiro(
+  id: string,
+  administrador: { nome: string; email: string },
+): Promise<void> {
+  await http.post(`/v1/admin/parceiros/${id}/administrador/convites`, {
+    nome: administrador.nome.trim(),
+    email: administrador.email.trim(),
+  })
+}

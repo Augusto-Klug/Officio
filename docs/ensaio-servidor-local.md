@@ -21,7 +21,7 @@ notepad deploy/servidor-teste.env
 
 Preencha `Database__Password`, `Jwt__Key` e `ConnectionStrings__AzureBlobStorage`. Configure as credenciais de integracao conforme os testes planejados. `Acesso__FrontendBaseUrl` deve apontar para a URL publica planejada (`https://officio.app.br`); frontend e API compartilham a mesma origem, portanto CORS nao e necessario. O arquivo real e ignorado pelo Git.
 
-ImageSharp 4 exige chave Six Labors no build Release. Solicite uma [chave comunitaria, se elegivel](https://licensing.sixlabors.com/) ou uma [licenca comercial](https://sixlabors.com/pricing/) e grave o **conteudo completo** da licenca em `deploy/sixlabors.lic`. Inclua os projetos `Officio.Dominio.Servicos` e `Officio.Testes` na solicitacao caso a chave comunitaria seja limitada por assembly. Esse arquivo e ignorado pelo Git e pelo contexto Docker; Compose o fornece apenas como segredo temporario durante `dotnet publish`. Nao adicione a chave ao `.env`, a argumentos de build ou a logs. Sem a licenca, o build Debug funciona, mas o build Release da API falha. Para build Release fora do Docker, defina `$env:SIXLABORS_LICENSE_KEY` com o conteudo completo da licenca ou use `dotnet build -c Release -p:SixLaborsLicenseFile=C:\caminho\para\sixlabors.lic`. Configure tambem o secret `SIXLABORS_LICENSE_KEY` no repositorio GitHub para o workflow `.NET CI`.
+ImageSharp 4 exige uma licenca Six Labors no build Release. Grave o conteudo completo da licenca em `deploy/sixlabors.lic`; o arquivo e ignorado pelo Git e pelo contexto Docker, e o Compose o monta apenas como segredo temporario durante `dotnet publish`. Nao adicione a chave ao `.env`, a argumentos de build ou a logs. Para build Release fora do Docker, defina `$env:SIXLABORS_LICENSE_KEY` com o conteudo completo da licenca ou use `dotnet build -c Release -p:SixLaborsLicenseFile=C:\caminho\para\sixlabors.lic`. O workflow `.NET CI` recebe o secret `SIXLABORS_LICENSE_KEY` do repositorio.
 
 ## Inicializar o banco e os servicos
 
@@ -40,7 +40,13 @@ O bootstrap e somente para banco novo e vazio. Nao o execute sobre uma base com 
 docker compose --env-file deploy/servidor-teste.env -f docker-compose.servidor-teste.yml run --rm api --apply-migrations
 ```
 
-O site fica em `http://localhost:8080`; as chamadas do browser usam `/api/v1` na mesma origem. A API responde apenas dentro da rede do Compose. O SQL Server nao publica a porta 1433.
+Para o primeiro acesso, preencha no arquivo local os campos `BootstrapUser__TenantId`, `BootstrapUser__TenantNome`, `BootstrapUser__TenantCnpj`, `BootstrapUser__Nome`, `BootstrapUser__Email`, `BootstrapUser__Password` e `BootstrapUser__Role=PlatformAdmin`. Opcionalmente, informe nome fantasia e e-mail do parceiro. Altere `BootstrapUser__Enabled` para `true` somente durante o comando abaixo; depois retorne para `false` antes de iniciar a API:
+
+```powershell
+docker compose --env-file deploy/servidor-teste.env -f docker-compose.servidor-teste.yml run --rm api --bootstrap-platform-admin
+```
+
+O site fica em `http://localhost:8080`; as chamadas do browser usam `/api/v1` na mesma origem. A API responde apenas dentro da rede do Compose. Para administracao local pelo SSMS, o SQL Server publica a porta do host `127.0.0.1:1435`, encaminhada para a porta `1433` do container. A porta fica acessivel somente no proprio Windows, nao na rede externa.
 
 ## Recuperacao e verificacao
 

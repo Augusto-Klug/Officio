@@ -138,6 +138,53 @@ public class GestaoAcessoServicoTestes
         Assert.Equal(2, email.Quantidade);
     }
 
+    [Fact]
+    public async Task AdministracaoPlataforma_ConvidaAdminParaParceiroExistente()
+    {
+        var parceiro = Parceiro.Criar("11222333000144", "Contabilidade Teste Ltda");
+        await using var contexto = CriarContexto(Guid.Empty);
+        contexto.Parceiros.Add(parceiro);
+        await contexto.SaveChangesAsync();
+        var email = new EmailFake();
+        var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), email);
+
+        var resultado = await servico.ConvidarAdministradorParceiroAsync(
+            parceiro.Id,
+            new("Ana Administradora", "ANA@CONTABILIDADE.TEST"));
+
+        Assert.True(resultado.Sucesso);
+        var convite = Assert.Single(await contexto.ConvitesUsuario.IgnoreQueryFilters().ToListAsync());
+        Assert.Equal(parceiro.Id, convite.TenantId);
+        Assert.Equal("Admin", convite.Perfil);
+        Assert.Equal("ana@contabilidade.test", convite.Email);
+        Assert.Contains("/ativar-conta?token=", Assert.Single(email.Mensagens).Corpo);
+
+        var token = email.ObterTokenDoUltimoLink();
+        var aceite = await servico.AceitarConviteAsync(new(token, "senha-segura-123"));
+        var usuario = Assert.Single(await contexto.Users.IgnoreQueryFilters().ToListAsync());
+        Assert.True(aceite.Sucesso);
+        Assert.Equal(parceiro.Id, usuario.TenantId);
+        Assert.Equal("Admin", usuario.Role);
+    }
+
+    [Fact]
+    public async Task AdministracaoPlataforma_NaoCriaConviteDuplicadoParaMesmoParceiro()
+    {
+        var parceiro = Parceiro.Criar("11222333000144", "Contabilidade Teste Ltda");
+        await using var contexto = CriarContexto(Guid.Empty);
+        contexto.Parceiros.Add(parceiro);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), new EmailFake());
+
+        var primeiro = await servico.ConvidarAdministradorParceiroAsync(parceiro.Id, new("Ana", "ana@test.local"));
+        var duplicado = await servico.ConvidarAdministradorParceiroAsync(parceiro.Id, new("Ana", "ANA@TEST.LOCAL"));
+
+        Assert.True(primeiro.Sucesso);
+        Assert.False(duplicado.Sucesso);
+        Assert.Equal("Ja existe um convite pendente para este e-mail neste parceiro.", duplicado.Erro);
+        Assert.Single(await contexto.ConvitesUsuario.IgnoreQueryFilters().ToListAsync());
+    }
+
     private static GestaoAcessoServico CriarServico(
         ContextoAplicacao contexto,
         IEmpresaAtual empresaAtual,
