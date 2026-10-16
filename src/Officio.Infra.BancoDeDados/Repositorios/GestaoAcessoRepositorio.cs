@@ -33,7 +33,7 @@ public class GestaoAcessoRepositorio(ContextoAplicacao contexto) : IGestaoAcesso
         Guid tenantId,
         string email,
         CancellationToken ct = default)
-        => contexto.ConvitesUsuario.FirstOrDefaultAsync(
+        => contexto.ConvitesUsuario.IgnoreQueryFilters().FirstOrDefaultAsync(
             convite => convite.TenantId == tenantId &&
                        convite.Email == email &&
                        convite.AceitoEm == null &&

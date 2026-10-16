@@ -8,6 +8,7 @@ public interface IGestaoAcessoServico
     Task<Resultado<ParceiroOnboardingDto>> CriarParceiroAdministradorAsync(CriarParceiroAdministradorRequisicao requisicao, CancellationToken ct = default);
     Task<Resultado<List<ParceiroPlataformaDto>>> ListarParceirosAsync(CancellationToken ct = default);
     Task<Resultado<bool>> AlterarStatusParceiroAsync(Guid parceiroId, bool ativo, CancellationToken ct = default);
+    Task<Resultado<ConviteCriadoDto>> ConvidarAdministradorParceiroAsync(Guid parceiroId, ConvidarAdministradorParceiroRequisicao requisicao, CancellationToken ct = default);
     Task<Resultado<ConviteCriadoDto>> ReenviarConviteAdministradorAsync(Guid parceiroId, CancellationToken ct = default);
     Task<Resultado<List<UsuarioGestaoDto>>> ListarUsuariosAsync(CancellationToken ct = default);
     Task<Resultado<List<ConviteUsuarioDto>>> ListarConvitesAsync(CancellationToken ct = default);

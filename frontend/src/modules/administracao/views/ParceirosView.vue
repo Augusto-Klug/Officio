@@ -13,7 +13,7 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatDate } from '../../../utils/format'
-import { alterarStatusParceiro, criarParceiro, listarParceiros, reenviarConviteAdministrador } from '../services/parceiros.service'
+import { alterarStatusParceiro, convidarAdministradorParceiro, criarParceiro, listarParceiros, reenviarConviteAdministrador } from '../services/parceiros.service'
 import type { ParceiroPlataforma } from '../types/parceiro'
 
 const parceiros = ref<ParceiroPlataforma[]>([])
@@ -23,15 +23,21 @@ const success = ref('')
 const search = ref('')
 const createOpen = ref(false)
 const confirmOpen = ref(false)
+const adminInviteOpen = ref(false)
 const selected = ref<ParceiroPlataforma | null>(null)
+const invitePartner = ref<ParceiroPlataforma | null>(null)
 const savingId = ref<string | null>(null)
 const saving = ref(false)
+const invitingAdmin = ref(false)
 const dialogError = ref('')
+const inviteError = ref('')
 const razaoSocial = ref('')
 const nomeFantasia = ref('')
 const cnpj = ref('')
 const adminNome = ref('')
 const adminEmail = ref('')
+const inviteAdminNome = ref('')
+const inviteAdminEmail = ref('')
 let controller: AbortController | undefined
 
 const filtered = computed(() => {
@@ -69,6 +75,35 @@ async function resend(item: ParceiroPlataforma) {
   try { await reenviarConviteAdministrador(item.id); success.value = `Convite reenviado para ${item.administradorEmail}.` }
   catch (cause) { error.value = normalizeError(cause).message }
   finally { savingId.value = null }
+}
+function openAdminInvite(item: ParceiroPlataforma) {
+  invitePartner.value = item
+  inviteAdminNome.value = ''
+  inviteAdminEmail.value = ''
+  inviteError.value = ''
+  adminInviteOpen.value = true
+}
+async function submitAdminInvite() {
+  if (!invitePartner.value || invitingAdmin.value) return
+  if (!inviteAdminNome.value.trim() || !inviteAdminEmail.value.trim()) {
+    inviteError.value = 'Informe o nome e o e-mail do administrador.'
+    return
+  }
+  invitingAdmin.value = true
+  inviteError.value = ''
+  try {
+    await convidarAdministradorParceiro(invitePartner.value.id, {
+      nome: inviteAdminNome.value,
+      email: inviteAdminEmail.value,
+    })
+    success.value = `Convite de administrador enviado para ${inviteAdminEmail.value.trim()}.`
+    adminInviteOpen.value = false
+    await load()
+  } catch (cause) {
+    inviteError.value = normalizeError(cause).message
+  } finally {
+    invitingAdmin.value = false
+  }
 }
 function requestStatus(item: ParceiroPlataforma) { selected.value = item; dialogError.value = ''; confirmOpen.value = true }
 async function confirmStatus() {
@@ -109,7 +144,7 @@ onBeforeUnmount(() => controller?.abort())
       <Column field="ativo" header="Situação"><template #body="{ data }"><StatusBadge :label="data.ativo ? 'Ativo' : 'Suspenso'" :severity="data.ativo ? 'success' : 'danger'" /></template></Column>
       <Column field="administradorEmail" header="Primeiro administrador"><template #body="{ data }"><div class="company-cell"><strong>{{ data.administradorEmail || 'Não informado' }}</strong><span>{{ data.quantidadeUsuarios }} {{ data.quantidadeUsuarios === 1 ? 'usuário' : 'usuários' }}</span></div></template></Column>
       <Column field="criadaEm" header="Cadastro"><template #body="{ data }"><span class="muted">{{ formatDate(data.criadaEm) }}</span></template></Column>
-      <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton v-if="data.administradorEmail" label="Reenviar convite" icon="pi pi-send" variant="text" :loading="savingId === data.id" @click="resend(data)" /><BaseButton :label="data.ativo ? 'Suspender' : 'Reativar'" :icon="data.ativo ? 'pi pi-ban' : 'pi pi-check'" variant="text" :disabled="!!savingId" @click="requestStatus(data)" /></div></template></Column>
+      <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton label="Convidar administrador" icon="pi pi-user-plus" variant="text" :disabled="!!savingId || !data.ativo" @click="openAdminInvite(data)" /><BaseButton v-if="data.administradorEmail" label="Reenviar convite" icon="pi pi-send" variant="text" :loading="savingId === data.id" @click="resend(data)" /><BaseButton :label="data.ativo ? 'Suspender' : 'Reativar'" :icon="data.ativo ? 'pi pi-ban' : 'pi pi-check'" variant="text" :disabled="!!savingId" @click="requestStatus(data)" /></div></template></Column>
       <template #empty><div class="empty-state"><i class="pi pi-building" /><h3>Nenhum parceiro encontrado</h3><p>{{ search ? 'Revise os termos da busca.' : 'Cadastre o primeiro parceiro para iniciar o onboarding.' }}</p><BaseButton v-if="!search" label="Cadastrar parceiro" icon="pi pi-plus" @click="openCreate" /></div></template>
     </DataTable>
   </BaseCard>
@@ -128,6 +163,18 @@ onBeforeUnmount(() => controller?.abort())
       </div></fieldset>
     </form>
     <template #footer><BaseButton label="Cancelar" variant="text" :disabled="saving" @click="createOpen = false" /><BaseButton label="Criar e convidar" icon="pi pi-send" type="submit" form="company-form" :loading="saving" /></template>
+  </Dialog>
+
+  <Dialog v-model:visible="adminInviteOpen" modal header="Convidar administrador" class="workflow-dialog" :style="{ width: 'min(560px, 94vw)' }">
+    <form id="admin-invite-form" class="dialog-form" @submit.prevent="submitAdminInvite">
+      <Message v-if="inviteError" severity="error" :closable="false">{{ inviteError }}</Message>
+      <p v-if="invitePartner" class="confirmation-copy">O convite será para administrar {{ invitePartner.razaoSocial }}. A pessoa receberá um e-mail para ativar a conta e definir a senha.</p>
+      <div class="form-grid">
+        <BaseInput id="partner-admin-name" v-model="inviteAdminNome" label="Nome completo" autocomplete="name" required :disabled="invitingAdmin" />
+        <BaseInput id="partner-admin-email" v-model="inviteAdminEmail" label="E-mail" type="email" autocomplete="email" required :disabled="invitingAdmin" />
+      </div>
+    </form>
+    <template #footer><BaseButton label="Cancelar" variant="text" :disabled="invitingAdmin" @click="adminInviteOpen = false" /><BaseButton label="Enviar convite" icon="pi pi-send" type="submit" form="admin-invite-form" :loading="invitingAdmin" /></template>
   </Dialog>
 
   <Dialog v-model:visible="confirmOpen" modal :header="selected?.ativo ? 'Suspender parceiro' : 'Reativar parceiro'" class="workflow-dialog" :style="{ width: 'min(460px, 94vw)' }">

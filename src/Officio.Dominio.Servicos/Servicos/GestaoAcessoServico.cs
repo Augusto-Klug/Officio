@@ -103,6 +103,38 @@ public class GestaoAcessoServico(
         return Resultado<bool>.CriarSucesso(true);
     }
 
+    public async Task<Resultado<ConviteCriadoDto>> ConvidarAdministradorParceiroAsync(
+        Guid parceiroId,
+        ConvidarAdministradorParceiroRequisicao requisicao,
+        CancellationToken ct = default)
+    {
+        var parceiro = await repositorio.ObterParceiroAsync(parceiroId, ct);
+        if (parceiro is null)
+            return Resultado<ConviteCriadoDto>.CriarFalha("Parceiro nao encontrado.");
+        if (!parceiro.Ativo)
+            return Resultado<ConviteCriadoDto>.CriarFalha("Nao e possivel convidar um administrador para um parceiro suspenso.");
+
+        var email = NormalizarEmail(requisicao.Email);
+        if (await repositorio.UsuarioExistePorEmailAsync(email, ct))
+            return Resultado<ConviteCriadoDto>.CriarFalha("Ja existe um usuario com este e-mail.");
+        if (await repositorio.ObterConvitePendentePorEmailAsync(parceiroId, email, ct) is not null)
+            return Resultado<ConviteCriadoDto>.CriarFalha("Ja existe um convite pendente para este e-mail neste parceiro.");
+
+        var token = GerarToken();
+        var convite = ConviteUsuario.Criar(
+            parceiroId,
+            requisicao.Nome.Trim(),
+            email,
+            PerfisAcesso.Admin,
+            GerarHashToken(token),
+            DateTime.UtcNow.AddHours(ObterHoras("Acesso:ConviteExpiracaoHoras", 48)));
+
+        await repositorio.AdicionarAsync(convite, ct);
+        await repositorio.SalvarAlteracoesAsync(ct);
+        await EnviarConviteAsync(convite, token, ct);
+        return Resultado<ConviteCriadoDto>.CriarSucesso(new(convite.Id, convite.Email, convite.ExpiraEm));
+    }
+
     public async Task<Resultado<ConviteCriadoDto>> ReenviarConviteAdministradorAsync(
         Guid parceiroId,
         CancellationToken ct = default)
