@@ -19,7 +19,7 @@ import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import OrcamentoDetalheDialog from '../components/OrcamentoDetalheDialog.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCurrency } from '../../../utils/format'
-import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, listarCatalogoOrcamento, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
+import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, excluirOrcamento, listarCatalogoOrcamento, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
 import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
 
 const route = useRoute()
@@ -35,7 +35,9 @@ const detailLoadingId = ref('')
 const createOpen = ref(false)
 const detailOpen = ref(false)
 const convertOpen = ref(false)
+const deleteOpen = ref(false)
 const selected = ref<Orcamento | null>(null)
+const deleteTarget = ref<Orcamento | null>(null)
 const editingId = ref('')
 const saving = ref(false)
 const formError = ref('')
@@ -217,6 +219,30 @@ async function aceitar(item: Orcamento) {
   finally { actionId.value = '' }
 }
 
+function solicitarExclusao(item: Orcamento) {
+  if (item.status !== 'Rascunho' || actionId.value || detailLoadingId.value) return
+  deleteTarget.value = item
+  deleteOpen.value = true
+}
+
+async function confirmarExclusao() {
+  if (!deleteTarget.value || actionId.value) return
+  const item = deleteTarget.value
+  actionId.value = item.id
+  error.value = ''
+  try {
+    await excluirOrcamento(item.id)
+    deleteOpen.value = false
+    deleteTarget.value = null
+    success.value = 'Orçamento em rascunho excluído.'
+    await load()
+  } catch (cause) {
+    error.value = normalizeError(cause).message
+  } finally {
+    actionId.value = ''
+  }
+}
+
 function abrirConversao(item: Orcamento) {
   selected.value = item
   formError.value = ''
@@ -278,12 +304,17 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
       <Column field="status" header="Status"><template #body="{ data }"><StatusBadge :label="data.status" :severity="severity(data.status)" /></template></Column>
       <Column field="valorTotal" header="Valor"><template #body="{ data }"><span class="numeric">{{ formatCurrency(data.valorTotal) }}</span></template></Column>
       <Column field="diaVencimento" header="Vencimento"><template #body="{ data }">Dia {{ data.diaVencimento }}</template></Column>
-      <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton label="Visualizar" icon="pi pi-eye" variant="text" :loading="detailLoadingId === data.id" :disabled="!!actionId || (!!detailLoadingId && detailLoadingId !== data.id)" @click="abrirDetalhe(data)" /><BaseButton v-if="podeEditar(data.status)" label="Editar" icon="pi pi-pencil" variant="text" :disabled="!!actionId || !!detailLoadingId" @click="abrirEdicao(data)" /><BaseButton v-if="podeAceitar(data.status)" label="Aceitar" icon="pi pi-check" variant="text" :loading="actionId === data.id" :disabled="!!detailLoadingId || (!!actionId && actionId !== data.id)" @click="aceitar(data)" /><BaseButton v-if="data.status === 'Aceito'" label="Gerar contrato" icon="pi pi-file" variant="secondary" :disabled="!!actionId || !!detailLoadingId" @click="abrirConversao(data)" /></div></template></Column>
+      <Column header="Ações"><template #body="{ data }"><div class="budget-row-actions"><BaseButton label="Visualizar" icon="pi pi-eye" variant="text" :loading="detailLoadingId === data.id" :disabled="!!actionId || (!!detailLoadingId && detailLoadingId !== data.id)" @click="abrirDetalhe(data)" /><BaseButton v-if="podeEditar(data.status)" label="Editar" icon="pi pi-pencil" variant="text" :disabled="!!actionId || !!detailLoadingId" @click="abrirEdicao(data)" /><BaseButton v-if="data.status === 'Rascunho'" label="Excluir" icon="pi pi-trash" variant="text" :loading="actionId === data.id" :disabled="!!detailLoadingId || (!!actionId && actionId !== data.id)" @click="solicitarExclusao(data)" /><BaseButton v-if="podeAceitar(data.status)" label="Aceitar" icon="pi pi-check" variant="text" :loading="actionId === data.id" :disabled="!!detailLoadingId || (!!actionId && actionId !== data.id)" @click="aceitar(data)" /><BaseButton v-if="data.status === 'Aceito'" label="Gerar contrato" icon="pi pi-file" variant="text" :disabled="!!actionId || !!detailLoadingId" @click="abrirConversao(data)" /></div></template></Column>
       <template #empty><div class="empty-state"><i class="pi pi-file-edit" /><h3>Nenhum orçamento criado</h3><p>Crie a primeira proposta comercial para este prospecto.</p><BaseButton label="Novo orçamento" icon="pi pi-plus" @click="abrirCriacao" /></div></template>
     </DataTable>
   </BaseCard>
 
   <OrcamentoDetalheDialog v-model:visible="detailOpen" :orcamento="selected" :busy="!!actionId" @editar="abrirEdicao" @aceitar="aceitar" @converter="abrirConversao" />
+
+  <Dialog v-model:visible="deleteOpen" modal header="Excluir orçamento em rascunho" class="workflow-dialog" :style="{ width: 'min(480px, 94vw)' }">
+    <p class="confirmation-copy">O orçamento <strong>{{ deleteTarget?.titulo || 'sem título' }}</strong> e seus itens serão excluídos permanentemente. Apenas orçamentos em rascunho podem ser removidos.</p>
+    <template #footer><BaseButton label="Manter orçamento" variant="text" :disabled="!!actionId" @click="deleteOpen = false" /><Button label="Excluir rascunho" icon="pi pi-trash" severity="danger" :loading="actionId === deleteTarget?.id" @click="confirmarExclusao" /></template>
+  </Dialog>
 
   <Dialog v-model:visible="createOpen" modal :header="editingId ? 'Editar orçamento' : 'Novo orçamento'" class="workflow-dialog" :style="{ width: 'min(760px, 94vw)' }">
     <form id="budget-form" class="dialog-form" @submit.prevent="salvar">
@@ -336,6 +367,9 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
   grid-template-columns: minmax(0, 1fr) minmax(84px, 110px) minmax(145px, 170px) 36px;
   align-items: start;
 }
+
+.budget-row-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.budget-row-actions :deep(.base-button.p-button) { min-height: 32px; padding: 4px 8px; font-size: 13px; font-weight: 600; }
 
 .item-picker { min-width: 0; }
 .catalog-item-summary,

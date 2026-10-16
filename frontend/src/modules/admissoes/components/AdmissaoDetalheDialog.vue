@@ -5,11 +5,10 @@ import BaseButton from '../../../components/base/BaseButton.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { formatCurrency, formatDate } from '../../../utils/format'
 import type { AdmissaoDetalhe } from '../types/admissao'
-import AdmissaoDocumentosSection from './AdmissaoDocumentosSection.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 const props = defineProps<{ admissao: AdmissaoDetalhe | null; loading?: boolean }>()
-defineEmits<{ editar: []; concluir: []; cancelar: []; atualizado: []; gerarLink: [] }>()
+defineEmits<{ editar: []; concluir: []; cancelar: [] }>()
 
 const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.admissao?.status === 'CANCELADA')
 const severity = computed(() => {
@@ -66,14 +65,11 @@ function informar(value: string | number | null | undefined): string {
         <p v-else class="muted">Nenhum dependente informado.</p>
       </section>
 
-      <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal" @atualizado="$emit('atualizado')" />
-
       <section v-if="admissao.observacoes" class="detail-section"><h3>Observações</h3><p>{{ admissao.observacoes }}</p></section>
     </div>
     <template #footer>
       <BaseButton label="Fechar" variant="text" @click="visible = false" />
       <BaseButton v-if="admissao && !terminal" label="Cancelar admissão" icon="pi pi-ban" variant="secondary" @click="$emit('cancelar')" />
-      <BaseButton v-if="admissao && !terminal" label="Ficha digital" icon="pi pi-link" variant="secondary" @click="$emit('gerarLink')" />
       <BaseButton v-if="admissao && !terminal" label="Editar" icon="pi pi-pencil" variant="secondary" @click="$emit('editar')" />
       <BaseButton v-if="admissao && !terminal" label="Concluir" icon="pi pi-check" @click="$emit('concluir')" />
     </template>

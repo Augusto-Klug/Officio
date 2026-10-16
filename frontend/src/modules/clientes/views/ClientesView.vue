@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import Column from 'primevue/column'
@@ -10,6 +10,7 @@ import Message from 'primevue/message'
 import Select from 'primevue/select'
 import BaseButton from '../../../components/base/BaseButton.vue'
 import BaseCard from '../../../components/base/BaseCard.vue'
+import BaseInput from '../../../components/base/BaseInput.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
@@ -34,6 +35,7 @@ const saving = ref(false)
 const dialogError = ref('')
 let controller: AbortController | undefined
 let generation = 0
+let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 const situacoes = [
   { label: 'Todos', value: null },
@@ -43,6 +45,7 @@ const situacoes = [
 const localizacao = computed(() => detalhe.value && [detalhe.value.cidade, detalhe.value.uf].filter(Boolean).join(' / '))
 
 async function load(options: { background?: boolean; reportErrors?: boolean } = {}) {
+  if (searchTimer) clearTimeout(searchTimer)
   const { background = false, reportErrors = true } = options
   const request = ++generation
   controller?.abort()
@@ -58,6 +61,11 @@ async function load(options: { background?: boolean; reportErrors?: boolean } = 
   } catch (cause) {
     if (request === generation && reportErrors && !axios.isCancel(cause)) error.value = normalizeError(cause).message
   } finally { if (request === generation && !background) loading.value = false }
+}
+
+function agendarBusca() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => void load(), 350)
 }
 
 async function refreshData(reason: PageRefreshReason) {
@@ -105,8 +113,14 @@ function abrirAdmissoes(clienteId: string) {
   void router.push({ name: 'admissoes', query: { clienteId } })
 }
 
+watch(busca, agendarBusca)
+watch(situacao, () => void load())
 void load()
-onBeforeUnmount(() => { ++generation; controller?.abort() })
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+  ++generation
+  controller?.abort()
+})
 </script>
 
 <template>
@@ -116,10 +130,9 @@ onBeforeUnmount(() => { ++generation; controller?.abort() })
   <Message v-if="success" severity="success" :closable="true" class="page-message" @close="success = ''">{{ success }}</Message>
   <Message v-if="error" severity="error" :closable="false" class="page-message">{{ error }}</Message>
   <BaseCard class="data-card">
-    <form class="filters" role="search" @submit.prevent="() => load()">
-      <div class="field"><label for="client-search">Buscar cliente</label><InputText id="client-search" v-model="busca" placeholder="Razão social, CNPJ ou CPF" /></div>
+    <form class="filters" role="search" aria-label="Filtrar clientes" @submit.prevent="() => load()">
+      <BaseInput id="client-search" v-model="busca" label="Buscar cliente" type="search" placeholder="Razão social ou CNPJ" autocomplete="off" />
       <div class="field"><label for="client-status">Situação</label><Select input-id="client-status" v-model="situacao" :options="situacoes" option-label="label" option-value="value" /></div>
-      <BaseButton label="Buscar" icon="pi pi-search" type="submit" :loading="loading" />
     </form>
     <div class="list-heading"><h2>Carteira de clientes</h2><span>{{ loading ? 'Carregando…' : `${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}` }}</span></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando clientes…</p></div>

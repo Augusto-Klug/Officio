@@ -167,8 +167,8 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
         <Column header="Ações"><template #body="{ data }"><div class="prospect-actions">
           <BaseButton label="Orçamentos" icon="pi pi-file-edit" variant="text" @click="abrirOrcamentos(data.id, data.razaoSocial)" />
           <template v-if="prospectoNaEtapaInicial(data)">
-            <BaseButton icon="pi pi-pencil" variant="text" :aria-label="`Editar ${data.razaoSocial}`" title="Editar prospecto" @click="abrirEdicao(data)" />
-            <BaseButton icon="pi pi-trash" variant="text" :aria-label="`Excluir ${data.razaoSocial}`" title="Excluir prospecto" @click="solicitarExclusao(data)" />
+            <BaseButton label="Editar" icon="pi pi-pencil" variant="text" :aria-label="`Editar ${data.razaoSocial}`" @click="abrirEdicao(data)" />
+            <BaseButton label="Excluir" icon="pi pi-trash" variant="text" :aria-label="`Excluir ${data.razaoSocial}`" @click="solicitarExclusao(data)" />
           </template>
         </div></template></Column>
         <template #empty><div class="empty-state"><i class="pi pi-users" aria-hidden="true" /><h3>{{ filtered ? 'Nenhum resultado encontrado' : 'Nenhum prospecto por aqui' }}</h3><p>{{ filtered ? 'Tente outra busca ou remova os filtros aplicados.' : 'Os prospectos cadastrados no escritório aparecerão nesta lista.' }}</p><BaseButton v-if="filtered" label="Limpar filtros" variant="secondary" @click="clearFilters" /></div></template>
@@ -193,7 +193,8 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
 </template>
 
 <style scoped>
-.prospect-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.prospect-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.prospect-actions :deep(.base-button.p-button) { min-height: 32px; padding: 4px 8px; font-size: 13px; font-weight: 600; }
 .confirmation-copy { overflow-wrap: anywhere; }
 :deep(.prospects-table th:first-child) { width: 30%; }
 :deep(.prospects-table th:nth-child(2)) { width: 19%; }

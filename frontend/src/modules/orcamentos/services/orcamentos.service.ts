@@ -106,6 +106,10 @@ export async function atualizarOrcamento(id: string, payload: AtualizarOrcamento
   return requiredString(data)
 }
 
+export async function excluirOrcamento(id: string): Promise<void> {
+  await http.delete(`/v1/orcamentos/Excluir/${id}`)
+}
+
 export async function aceitarOrcamento(id: string): Promise<void> {
   await http.post(`/v1/orcamentos/Aceitar/${id}`)
 }

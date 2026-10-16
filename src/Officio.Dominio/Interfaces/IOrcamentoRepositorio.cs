@@ -11,5 +11,6 @@ public interface IOrcamentoRepositorio
     Task AdicionarAsync(Orcamento orcamento, CancellationToken cancellationToken = default);
     Task AdicionarItensAsync(IEnumerable<ItemOrcamento> itens, CancellationToken cancellationToken = default);
     Task AdicionarItemCatalogoAsync(ItemCatalogoOrcamento item, CancellationToken cancellationToken = default);
+    Task RemoverAsync(Orcamento orcamento, CancellationToken cancellationToken = default);
     Task SalvarAlteracoesAsync(CancellationToken cancellationToken = default);
 }

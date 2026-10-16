@@ -12,6 +12,8 @@ public interface IOrcamentoServico
 
     Task<Resultado<OrcamentoDto>> ObterPorIdAsync(Guid orcamentoId, CancellationToken ct = default);
 
+    Task<Resultado<bool>> ExcluirAsync(Guid orcamentoId, CancellationToken ct = default);
+
     Task<Resultado<List<OrcamentoDto>>> ObterPorProspectoAsync(
         Guid prospectoId,
         CancellationToken ct = default);
