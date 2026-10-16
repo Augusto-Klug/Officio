@@ -11,5 +11,5 @@ public class ListarCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServico)
     public async Task<Resultado<List<CatalogoOrcamentoDto>>> Handle(
         ListarCatalogoOrcamentoConsulta request,
         CancellationToken ct)
-        => await orcamentoServico.ListarCatalogoAsync(ct);
+        => await orcamentoServico.ListarCatalogoAsync(request.IncluirInativos, ct);
 }

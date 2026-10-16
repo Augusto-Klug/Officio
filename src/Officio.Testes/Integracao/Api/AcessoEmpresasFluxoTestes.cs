@@ -67,6 +67,17 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         var prospectoId = Guid.Parse(
             (await criacaoProspecto.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.GetValue<string>());
 
+        var criacaoItemCatalogo = await cliente.PostAsJsonAsync("/api/v1/orcamentos/CriarItemCatalogo", new
+        {
+            descricao = "Honorarios contabeis",
+            secao = 2,
+            tipo = 2,
+            naturezaCobranca = 2,
+            valorReferencia = 500m
+        });
+        Assert.Equal(HttpStatusCode.Created, criacaoItemCatalogo.StatusCode);
+        var itemCatalogoId = await criacaoItemCatalogo.Content.ReadFromJsonAsync<Guid>();
+
         var criacaoOrcamento = await cliente.PostAsJsonAsync("/api/v1/orcamentos/Criar", new
         {
             prospectoId,
@@ -77,6 +88,7 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
             {
                 new
                 {
+                    itemCatalogoOrcamentoId = itemCatalogoId,
                     descricao = "Honorarios contabeis",
                     secao = 2,
                     tipo = 2,

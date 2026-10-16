@@ -66,7 +66,8 @@ internal static class OrcamentoViewModelConversor
             item.Quantidade,
             item.ValorUnitario,
             item.Ordem,
-            ConverterNatureza(item.NaturezaCobranca, item.Secao, item.Tipo))).ToList();
+            ConverterNatureza(item.NaturezaCobranca, item.Secao, item.Tipo),
+            item.ItemOrcamentoId)).ToList();
 
     private static NaturezaCobrancaItemOrcamento ConverterNatureza(
         NaturezaCobrancaItemOrcamentoViewModel? natureza,

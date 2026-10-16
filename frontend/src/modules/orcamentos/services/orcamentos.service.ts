@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { AtualizarOrcamentoPayload, ConverterContratoPayload, CriarOrcamentoPayload, ItemOrcamento, Orcamento } from '../types/orcamento'
+import type { AtualizarOrcamentoPayload, ConverterContratoPayload, CriarOrcamentoPayload, ItemCatalogoOrcamento, ItemCatalogoOrcamentoPayload, ItemOrcamento, Orcamento } from '../types/orcamento'
 
 function numberValue(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('A API retornou um valor numérico inválido.')
@@ -21,6 +21,27 @@ function normalizeItem(value: unknown): ItemOrcamento {
     valorTotal: numberValue(field(item, 'valorTotal')),
     ordem: numberValue(field(item, 'ordem')),
   }
+}
+
+function normalizeItemCatalogo(value: unknown): ItemCatalogoOrcamento {
+  const item = record(value)
+  const valorReferencia = field(item, 'valorReferencia')
+  const ativo = field(item, 'ativo')
+  if (ativo !== true && ativo !== false) throw new Error('A API retornou o status do item de catálogo inválido.')
+  return {
+    id: requiredString(field(item, 'id')),
+    descricao: requiredString(field(item, 'descricao')),
+    secao: requiredString(field(item, 'secao')),
+    tipo: requiredString(field(item, 'tipo')),
+    naturezaCobranca: requiredString(field(item, 'naturezaCobranca')),
+    valorReferencia: valorReferencia === null ? null : numberValue(valorReferencia),
+    ativo,
+  }
+}
+
+export function normalizeCatalogoOrcamento(value: unknown): ItemCatalogoOrcamento[] {
+  if (!Array.isArray(value)) throw new Error('A API retornou o catálogo de orçamento em formato inesperado.')
+  return value.map(normalizeItemCatalogo)
 }
 
 export function normalizeOrcamento(value: unknown): Orcamento {
@@ -53,6 +74,26 @@ export async function listarOrcamentos(prospectoId: string, signal?: AbortSignal
 export async function obterOrcamento(id: string): Promise<Orcamento> {
   const { data } = await http.get<unknown>(`/v1/orcamentos/ObterPorId/${id}`)
   return normalizeOrcamento(data)
+}
+
+export async function listarCatalogoOrcamento(incluirInativos = false, signal?: AbortSignal): Promise<ItemCatalogoOrcamento[]> {
+  const { data } = await http.get<unknown>('/v1/orcamentos/Catalogo', { params: { incluirInativos }, signal })
+  return normalizeCatalogoOrcamento(data)
+}
+
+export async function criarItemCatalogoOrcamento(payload: ItemCatalogoOrcamentoPayload): Promise<string> {
+  const { data } = await http.post<unknown>('/v1/orcamentos/CriarItemCatalogo', payload)
+  return requiredString(data)
+}
+
+export async function atualizarItemCatalogoOrcamento(id: string, payload: ItemCatalogoOrcamentoPayload): Promise<string> {
+  const { data } = await http.put<unknown>(`/v1/orcamentos/AtualizarItemCatalogo/${id}`, payload)
+  return requiredString(data)
+}
+
+export async function alterarAtivoItemCatalogoOrcamento(id: string, ativo: boolean): Promise<void> {
+  const action = ativo ? 'AtivarItemCatalogo' : 'DesativarItemCatalogo'
+  await http.patch(`/v1/orcamentos/${action}/${id}`)
 }
 
 export async function criarOrcamento(payload: CriarOrcamentoPayload): Promise<string> {

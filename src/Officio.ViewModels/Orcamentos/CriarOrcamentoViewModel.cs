@@ -13,6 +13,7 @@ public class CriarOrcamentoViewModel
 
 public class CriarItemOrcamentoViewModel
 {
+    public Guid? ItemOrcamentoId { get; set; }
     public Guid? ItemCatalogoOrcamentoId { get; set; }
     public string? Descricao { get; set; }
     public SecaoItemOrcamentoViewModel? Secao { get; set; }

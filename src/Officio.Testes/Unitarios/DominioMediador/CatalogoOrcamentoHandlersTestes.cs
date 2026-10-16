@@ -52,6 +52,12 @@ public class CatalogoOrcamentoHandlersTestes
         var item = Assert.Single(resultado.Valor!);
         Assert.Equal(itemAtivo.Valor, item.Id);
         Assert.True(item.Ativo);
+
+        var incluindoInativos = await handler.Handle(
+            new ListarCatalogoOrcamentoConsulta(IncluirInativos: true),
+            CancellationToken.None);
+        Assert.Equal(2, incluindoInativos.Valor!.Count);
+        Assert.Contains(incluindoInativos.Valor, catalogo => catalogo.Id == itemInativo.Valor && !catalogo.Ativo);
     }
 
     [Fact]

@@ -139,9 +139,11 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     [HttpGet]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    public async Task<IActionResult> Catalogo(CancellationToken cancellationToken)
+    public async Task<IActionResult> Catalogo(
+        [FromQuery] bool incluirInativos,
+        CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(new ListarCatalogoOrcamentoConsulta(), cancellationToken);
+        var resultado = await mediator.Send(new ListarCatalogoOrcamentoConsulta(incluirInativos), cancellationToken);
 
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }

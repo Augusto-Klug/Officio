@@ -11,6 +11,24 @@ export interface ItemOrcamento {
   ordem: number
 }
 
+export interface ItemCatalogoOrcamento {
+  id: string
+  descricao: string
+  secao: string
+  tipo: string
+  naturezaCobranca: string
+  valorReferencia: number | null
+  ativo: boolean
+}
+
+export interface ItemCatalogoOrcamentoPayload {
+  descricao: string
+  secao: number
+  tipo: number
+  naturezaCobranca: number
+  valorReferencia: number | null
+}
+
 export interface Orcamento {
   id: string
   prospectoId: string
@@ -24,6 +42,7 @@ export interface Orcamento {
 }
 
 export interface NovoItemOrcamento {
+  itemOrcamentoId?: string
   itemCatalogoOrcamentoId?: string
   descricao: string
   secao: number
