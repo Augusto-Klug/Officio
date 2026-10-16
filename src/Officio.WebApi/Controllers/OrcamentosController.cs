@@ -1,9 +1,11 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ExcluirOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
 using Officio.ViewModels.Contratos;
@@ -73,6 +75,21 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
         var resultado = await mediator.Send(comando!, cancellationToken);
 
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(409)]
+    public async Task<IActionResult> Excluir(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ExcluirOrcamentoComando(id), cancellationToken);
+        if (resultado.Sucesso)
+            return NoContent();
+
+        return resultado.Erro == OrcamentoErros.NaoEncontrado
+            ? NotFound(resultado.Erro)
+            : Conflict(resultado.Erro);
     }
 
     [HttpPatch("{id:guid}")]

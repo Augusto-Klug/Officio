@@ -42,4 +42,7 @@ internal class OrcamentoRepositorio(ContextoAplicacao contexto)
 
     public Task AdicionarItemCatalogoAsync(ItemCatalogoOrcamento item, CancellationToken cancellationToken = default)
         => AdicionarAsync<ItemCatalogoOrcamento>(item, cancellationToken);
+
+    public Task RemoverAsync(Orcamento orcamento, CancellationToken cancellationToken = default)
+        => RemoverAsync<Orcamento>(orcamento, cancellationToken);
 }

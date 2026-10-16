@@ -135,7 +135,7 @@ onBeforeUnmount(() => controller?.abort())
   </div>
 
   <BaseCard class="data-card">
-    <div class="filters platform-filters"><div class="field"><label for="company-search">Buscar parceiro</label><InputText id="company-search" v-model="search" placeholder="Razão social, nome fantasia ou CNPJ" /></div></div>
+    <div class="filters platform-filters"><BaseInput id="company-search" v-model="search" label="Buscar parceiro" type="search" placeholder="Razão social, nome fantasia ou CNPJ" autocomplete="off" /></div>
     <div class="list-heading"><h2>Parceiros da plataforma</h2><span>{{ filtered.length }} {{ filtered.length === 1 ? 'parceiro' : 'parceiros' }}</span></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando parceiros...</p></div>
     <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="load" /></div>

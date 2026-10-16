@@ -88,6 +88,21 @@ public class OrcamentoServico(
             : Resultado<OrcamentoDto>.CriarSucesso(MapearOrcamento(orcamento));
     }
 
+    public async Task<Resultado<bool>> ExcluirAsync(Guid orcamentoId, CancellationToken ct = default)
+    {
+        var orcamento = await repositorio.ObterPorIdComItensAsync(orcamentoId, ct);
+        if (orcamento is null)
+            return Resultado<bool>.CriarFalha(OrcamentoErros.NaoEncontrado);
+
+        if (orcamento.Status != StatusOrcamento.Rascunho)
+            return Resultado<bool>.CriarFalha(OrcamentoErros.SomenteRascunhoPodeSerExcluido);
+
+        await repositorio.RemoverAsync(orcamento, ct);
+        await repositorio.SalvarAlteracoesAsync(ct);
+
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
     public async Task<Resultado<Guid>> CriarItemCatalogoAsync(
         CriarItemCatalogoOrcamentoRequisicao requisicao,
         CancellationToken ct = default)

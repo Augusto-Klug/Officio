@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
-import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
 import Select from 'primevue/select'
 import BaseButton from '../../../components/base/BaseButton.vue'
 import BaseCard from '../../../components/base/BaseCard.vue'
+import BaseInput from '../../../components/base/BaseInput.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
@@ -25,6 +25,7 @@ const actionId = ref('')
 const error = ref('')
 const success = ref('')
 let controller: AbortController | undefined
+let generation = 0
 
 const statusOptions = [
   { label: 'Todas', value: '' }, { label: 'Aberto', value: 'ABERTO' },
@@ -51,20 +52,31 @@ function statusLabel(status: string) {
 }
 
 async function carregar() {
+  const request = ++generation
   controller?.abort()
-  controller = new AbortController()
+  const currentController = new AbortController()
+  controller = currentController
+  if (!competencia.value) {
+    faturamentos.value = []
+    resumo.value = resumoVazio()
+    loading.value = false
+    error.value = ''
+    return
+  }
   loading.value = true
   error.value = ''
   try {
     const [lista, resumoCompetencia] = await Promise.all([
-      listarFaturamentos(competencia.value, situacao.value, controller.signal),
-      obterResumoFaturamento(competencia.value, controller.signal),
+      listarFaturamentos(competencia.value, situacao.value, currentController.signal),
+      obterResumoFaturamento(competencia.value, currentController.signal),
     ])
-    faturamentos.value = lista
-    resumo.value = resumoCompetencia
+    if (request === generation) {
+      faturamentos.value = lista
+      resumo.value = resumoCompetencia
+    }
   }
-  catch (cause) { if (!controller.signal.aborted) error.value = normalizeError(cause).message }
-  finally { if (!controller.signal.aborted) loading.value = false }
+  catch (cause) { if (request === generation && !currentController.signal.aborted) error.value = normalizeError(cause).message }
+  finally { if (request === generation) loading.value = false }
 }
 
 async function recalcular() {
@@ -121,8 +133,8 @@ async function alterar(item: FaturamentoMensal, acao: 'fechar' | 'cancelar') {
   finally { actionId.value = '' }
 }
 
-void carregar()
-onBeforeUnmount(() => controller?.abort())
+watch([competencia, situacao], () => void carregar(), { immediate: true })
+onBeforeUnmount(() => { ++generation; controller?.abort() })
 </script>
 
 <template>
@@ -136,11 +148,10 @@ onBeforeUnmount(() => controller?.abort())
   <Message v-if="success" severity="success" :closable="true" class="page-message" @close="success = ''">{{ success }}</Message>
   <Message v-if="error" severity="error" :closable="false" class="page-message">{{ error }}</Message>
 
-  <form class="filters billing-filters" @submit.prevent="carregar">
-    <div class="field"><label for="billing-period">Competência</label><InputText id="billing-period" v-model="competencia" type="month" required /></div>
+  <div class="filters billing-filters" role="search" aria-label="Filtrar faturamentos">
+    <BaseInput id="billing-period" v-model="competencia" label="Competência" type="month" required />
     <div class="field"><label for="billing-status">Situação</label><Select input-id="billing-status" v-model="situacao" :options="statusOptions" option-label="label" option-value="value" /></div>
-    <BaseButton label="Aplicar" icon="pi pi-filter" variant="secondary" type="submit" :loading="loading" />
-  </form>
+  </div>
 
   <div class="billing-summary" aria-label="Resumo da competência">
     <div><span>Valor ativo</span><strong class="numeric">{{ formatCurrency(resumo.valorTotalAtivo) }}</strong></div>
