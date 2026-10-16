@@ -20,31 +20,9 @@ internal class ProspectoServico(
     {
         var cnpj = DocumentoFiscal.SomenteDigitos(requisicao.Cnpj);
 
-        if (!string.IsNullOrWhiteSpace(requisicao.Cep))
-        {
-            var resultadoCep = await localidadeServico.ConsultarCepAsync(requisicao.Cep, ct);
-            if (resultadoCep.Sucesso && resultadoCep.Valor is null)
-                return Resultado<ProspectoCriadoDto>.CriarFalha(LocalidadeErros.CepInvalido);
-
-            if (resultadoCep.Sucesso &&
-                !string.IsNullOrWhiteSpace(requisicao.MunicipioCodigoIbge) &&
-                !string.Equals(
-                    resultadoCep.Valor!.MunicipioCodigoIbge,
-                    requisicao.MunicipioCodigoIbge.Trim(),
-                    StringComparison.Ordinal))
-            {
-                return Resultado<ProspectoCriadoDto>.CriarFalha(LocalidadeErros.MunicipioDivergenteDoCep);
-            }
-        }
-
-        if (cnpj is not null)
-        {
-            var existe = await prospectoRepositorio.ExisteComCnpjAsync(cnpj, ct);
-
-            if (existe)
-                return Resultado<ProspectoCriadoDto>.CriarFalha(
-                    "JÃ¡ existe um prospecto ou cliente com este CNPJ.");
-        }
+        var cadastro = await ValidarCadastroAsync(requisicao, null, ct);
+        if (!cadastro.Sucesso)
+            return Resultado<ProspectoCriadoDto>.CriarFalha(cadastro.Erro!);
 
         var prospecto = Prospecto.Create(
             empresaAtual.TenantId,
@@ -52,41 +30,7 @@ internal class ProspectoServico(
             cnpj,
             requisicao.RegimeTributario);
 
-        prospecto.AtualizarDadosCadastrais(
-            requisicao.NomeFantasia,
-            requisicao.Cpf,
-            requisicao.PorteEmpresa,
-            requisicao.CnaePrincipal,
-            requisicao.DataAbertura,
-            requisicao.Email,
-            requisicao.Telefone,
-            requisicao.Whatsapp,
-            requisicao.NomeContato,
-            requisicao.Cep,
-            requisicao.Logradouro,
-            requisicao.Numero,
-            requisicao.Complemento,
-            requisicao.Bairro,
-            requisicao.Cidade,
-            requisicao.Uf,
-            requisicao.Origem,
-            requisicao.ResponsavelId,
-            requisicao.InscricaoEstadual,
-            requisicao.InscricaoMunicipal,
-            requisicao.TipoEmpresa);
-
-        if (!string.IsNullOrWhiteSpace(requisicao.MunicipioCodigoIbge))
-        {
-            var municipio = await prospectoRepositorio.ObterMunicipioPorCodigoIbgeAsync(
-                requisicao.MunicipioCodigoIbge.Trim(),
-                ct);
-
-            if (municipio is null)
-                return Resultado<ProspectoCriadoDto>.CriarFalha(
-                    "Municipio invalido. Selecione novamente o municipio do endereco.");
-
-            prospecto.VincularMunicipio(municipio.Id, municipio.Nome, municipio.Estado.Sigla);
-        }
+        AplicarDadosCadastrais(prospecto, requisicao, cadastro.Valor);
 
         await prospectoRepositorio.AdicionarAsync(prospecto, ct);
 
@@ -109,6 +53,120 @@ internal class ProspectoServico(
 
         return Resultado<ProspectoCriadoDto>.CriarSucesso(
             new ProspectoCriadoDto(prospecto.Id, prospecto.RazaoSocial));
+    }
+
+    public async Task<Resultado<ProspectoDetalheDto>> ObterPorIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(id, ct);
+        if (prospecto is null)
+            return Resultado<ProspectoDetalheDto>.CriarFalha(ProspectoErros.NaoEncontrado);
+
+        var dados = new CriarProspectoRequisicao(
+            prospecto.RazaoSocial, prospecto.Cnpj, prospecto.RegimeTributario,
+            prospecto.Socios.Select(s => new CriarSocioRequisicao(s.Nome, s.Cpf, s.Participacao, s.Id)).ToArray(),
+            NomeFantasia: prospecto.NomeFantasia, Cpf: prospecto.Cpf,
+            PorteEmpresa: prospecto.PorteEmpresa, CnaePrincipal: prospecto.CnaePrincipal,
+            DataAbertura: prospecto.DataAbertura, Email: prospecto.Email, Telefone: prospecto.Telefone,
+            Whatsapp: prospecto.Whatsapp, NomeContato: prospecto.NomeContato, Cep: prospecto.Cep,
+            Logradouro: prospecto.Logradouro, Numero: prospecto.Numero, Complemento: prospecto.Complemento,
+            Bairro: prospecto.Bairro, Cidade: prospecto.Cidade, Uf: prospecto.Uf,
+            MunicipioCodigoIbge: prospecto.Municipio?.CodigoIbge, Origem: prospecto.Origem,
+            ResponsavelId: prospecto.ResponsavelId, InscricaoEstadual: prospecto.InscricaoEstadual,
+            InscricaoMunicipal: prospecto.InscricaoMunicipal, TipoEmpresa: prospecto.TipoEmpresa);
+        return Resultado<ProspectoDetalheDto>.CriarSucesso(new(id, prospecto.Status.ToString(), dados));
+    }
+
+    public async Task<Resultado<bool>> AtualizarAsync(Guid id, CriarProspectoRequisicao requisicao, CancellationToken ct = default)
+    {
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(id, ct);
+        if (prospecto is null)
+            return Resultado<bool>.CriarFalha(ProspectoErros.NaoEncontrado);
+        if (!prospecto.EstaNaEtapaInicial())
+            return Resultado<bool>.CriarFalha(ProspectoErros.ForaDaEtapaInicial);
+
+        var cadastro = await ValidarCadastroAsync(requisicao, id, ct);
+        if (!cadastro.Sucesso)
+            return Resultado<bool>.CriarFalha(cadastro.Erro!);
+
+        var socios = requisicao.Socios;
+        var ids = socios?.Where(s => s.Id.HasValue).Select(s => s.Id!.Value).ToArray() ?? [];
+        if (ids.Distinct().Count() != ids.Length || ids.Any(socioId => prospecto.Socios.All(s => s.Id != socioId)))
+            return Resultado<bool>.CriarFalha("Socio invalido para este prospecto.");
+
+        var removidos = socios is null ? [] : prospecto.Socios.Where(s => !ids.Contains(s.Id)).ToArray();
+        if (await prospectoRepositorio.SociosPossuemDocumentosAsync(removidos.Select(s => s.Id).ToArray(), ct))
+            return Resultado<bool>.CriarFalha("Nao e possivel remover socios com documentos vinculados.");
+
+        prospecto.AtualizarIdentificacao(requisicao.RazaoSocial, requisicao.Cnpj, requisicao.RegimeTributario);
+        AplicarDadosCadastrais(prospecto, requisicao, cadastro.Valor);
+        prospectoRepositorio.RemoverSocios(removidos);
+        if (socios is not null)
+        {
+            foreach (var socio in socios)
+            {
+                if (socio.Id.HasValue)
+                    prospecto.Socios.Single(s => s.Id == socio.Id).AtualizarDados(socio.Nome, socio.Cpf, socio.Participacao);
+                else
+                    await prospectoRepositorio.AdicionarSocioAsync(
+                        Socio.Create(prospecto.TenantId, socio.Nome.Trim(), socio.Cpf, socio.Participacao, prospectId: id), ct);
+            }
+        }
+        await prospectoRepositorio.SalvarAlteracoesAsync(ct);
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
+    public async Task<Resultado<bool>> ExcluirAsync(Guid id, CancellationToken ct = default)
+    {
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(id, ct);
+        if (prospecto is null)
+            return Resultado<bool>.CriarFalha(ProspectoErros.NaoEncontrado);
+        if (!prospecto.EstaNaEtapaInicial())
+            return Resultado<bool>.CriarFalha(ProspectoErros.ForaDaEtapaInicial);
+        if (await prospectoRepositorio.PossuiVinculosAsync(id, ct))
+            return Resultado<bool>.CriarFalha(ProspectoErros.PossuiVinculos);
+
+        prospectoRepositorio.Remover(prospecto);
+        await prospectoRepositorio.SalvarAlteracoesAsync(ct);
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
+    private async Task<Resultado<Municipio?>> ValidarCadastroAsync(
+        CriarProspectoRequisicao requisicao, Guid? ignorarId, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(requisicao.Cep))
+        {
+            var cep = await localidadeServico.ConsultarCepAsync(requisicao.Cep, ct);
+            if (cep.Sucesso && cep.Valor is null)
+                return Resultado<Municipio?>.CriarFalha(LocalidadeErros.CepInvalido);
+            if (cep.Sucesso && !string.IsNullOrWhiteSpace(requisicao.MunicipioCodigoIbge)
+                && cep.Valor!.MunicipioCodigoIbge != requisicao.MunicipioCodigoIbge.Trim())
+                return Resultado<Municipio?>.CriarFalha(LocalidadeErros.MunicipioDivergenteDoCep);
+        }
+
+        var cnpj = DocumentoFiscal.SomenteDigitos(requisicao.Cnpj);
+        if (cnpj is not null && await prospectoRepositorio.ExisteComCnpjAsync(cnpj, ct, ignorarId))
+            return Resultado<Municipio?>.CriarFalha("Ja existe um prospecto ou cliente com este CNPJ.");
+
+        Municipio? municipio = null;
+        if (!string.IsNullOrWhiteSpace(requisicao.MunicipioCodigoIbge))
+        {
+            municipio = await prospectoRepositorio.ObterMunicipioPorCodigoIbgeAsync(requisicao.MunicipioCodigoIbge.Trim(), ct);
+            if (municipio is null)
+                return Resultado<Municipio?>.CriarFalha("Municipio invalido. Selecione novamente o municipio do endereco.");
+        }
+        return Resultado<Municipio?>.CriarSucesso(municipio);
+    }
+
+    private static void AplicarDadosCadastrais(Prospecto prospecto, CriarProspectoRequisicao requisicao, Municipio? municipio)
+    {
+        prospecto.AtualizarDadosCadastrais(
+            requisicao.NomeFantasia, requisicao.Cpf, requisicao.PorteEmpresa, requisicao.CnaePrincipal,
+            requisicao.DataAbertura, requisicao.Email, requisicao.Telefone, requisicao.Whatsapp,
+            requisicao.NomeContato, requisicao.Cep, requisicao.Logradouro, requisicao.Numero,
+            requisicao.Complemento, requisicao.Bairro, requisicao.Cidade, requisicao.Uf, requisicao.Origem,
+            requisicao.ResponsavelId, requisicao.InscricaoEstadual, requisicao.InscricaoMunicipal, requisicao.TipoEmpresa);
+        if (municipio is not null)
+            prospecto.VincularMunicipio(municipio.Id, municipio.Nome, municipio.Estado.Sigla);
     }
 
     public async Task<Resultado<Guid>> ConverterParaClienteAsync(

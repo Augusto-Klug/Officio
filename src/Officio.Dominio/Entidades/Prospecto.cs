@@ -105,6 +105,21 @@ public class Prospecto : EntidadeAuditavel
     public void UpdateStatus(StatusProspecto newStatus)
         => Status = newStatus;
 
+    public bool EstaNaEtapaInicial()
+        => Status == StatusProspecto.EmNegociacao && ClientId is null && ConvertidoEm is null && EmpresaId is null;
+
+    public void AtualizarIdentificacao(string razaoSocial, string? cnpj, RegimeTributario? regime)
+    {
+        if (!EstaNaEtapaInicial())
+            throw new InvalidOperationException("Somente prospectos na etapa inicial podem ser editados.");
+
+        RazaoSocial = razaoSocial.Trim();
+        Cnpj = DocumentoFiscal.SomenteDigitos(cnpj);
+        RegimeTributario = regime;
+        TipoProspect = Cnpj is null ? "NOVA_EMPRESA" : "EMPRESA_EXISTENTE";
+        MunicipioId = null;
+    }
+
     public void AtualizarDadosCadastrais(
         string? nomeFantasia,
         string? cpf,

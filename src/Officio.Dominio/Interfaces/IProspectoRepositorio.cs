@@ -5,7 +5,11 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IProspectoRepositorio
 {
-    Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default);
+    Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default, Guid? ignorarProspectoId = null);
+    Task<bool> PossuiVinculosAsync(Guid prospectoId, CancellationToken cancellationToken = default);
+    Task<bool> SociosPossuemDocumentosAsync(IReadOnlyCollection<Guid> sociosIds, CancellationToken cancellationToken = default);
+    void RemoverSocios(IEnumerable<Socio> socios);
+    void Remover(Prospecto prospecto);
     Task<Prospecto?> ObterComSociosAsync(Guid prospectoId, CancellationToken cancellationToken = default);
     Task<Cliente?> ObterClientePorProspectoAsync(Guid prospectoId, CancellationToken cancellationToken = default);
     Task<Empresa?> ObterEmpresaPorCnpjAsync(string cnpj, CancellationToken cancellationToken = default);

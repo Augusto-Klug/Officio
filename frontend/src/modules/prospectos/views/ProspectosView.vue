@@ -6,6 +6,8 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Paginator, { type PageState } from 'primevue/paginator'
 import Message from 'primevue/message'
+import Dialog from 'primevue/dialog'
+import Button from 'primevue/button'
 import BaseButton from '../../../components/base/BaseButton.vue'
 import BaseInput from '../../../components/base/BaseInput.vue'
 import BaseSelect from '../../../components/base/BaseSelect.vue'
@@ -13,8 +15,8 @@ import BaseCard from '../../../components/base/BaseCard.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import ProspectoStatus from '../components/ProspectoStatus.vue'
 import ProspectoCadastroDialog from '../components/ProspectoCadastroDialog.vue'
-import { listarProspectos } from '../services/prospectos.service'
-import { statusOptions, type ProspectosPagina } from '../types/prospecto'
+import { excluirProspecto, listarProspectos } from '../services/prospectos.service'
+import { prospectoNaEtapaInicial, statusOptions, type Prospecto, type ProspectosPagina } from '../types/prospecto'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatDate } from '../../../utils/format'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
@@ -27,6 +29,12 @@ const loading = ref(true)
 const error = ref('')
 const result = ref<ProspectosPagina | null>(null)
 const cadastroOpen = ref(false)
+const prospectoEdicaoId = ref<string | null>(null)
+const exclusaoOpen = ref(false)
+const prospectoExclusao = ref<Prospecto | null>(null)
+const excluindo = ref(false)
+const exclusaoErro = ref('')
+const sucesso = ref('')
 const pagina = computed(() => Math.max(1, Number.parseInt(String(route.query.pagina || '1'), 10) || 1))
 const filtered = computed(() => !!(route.query.busca || route.query.status || route.query.responsavelId))
 let controller: AbortController | undefined
@@ -84,7 +92,41 @@ function scheduleSearch() {
 }
 function prospectoCriado() {
   cadastroOpen.value = false
+  sucesso.value = 'Prospecto cadastrado.'
   void router.replace({ query: {} }).then(() => load())
+}
+function abrirCadastro() {
+  prospectoEdicaoId.value = null
+  cadastroOpen.value = true
+}
+function abrirEdicao(prospecto: Prospecto) {
+  prospectoEdicaoId.value = prospecto.id
+  cadastroOpen.value = true
+}
+function prospectoAtualizado() {
+  cadastroOpen.value = false
+  sucesso.value = 'Prospecto atualizado.'
+  void load()
+}
+function solicitarExclusao(prospecto: Prospecto) {
+  prospectoExclusao.value = prospecto
+  exclusaoErro.value = ''
+  exclusaoOpen.value = true
+}
+async function confirmarExclusao() {
+  if (!prospectoExclusao.value || excluindo.value) return
+  excluindo.value = true
+  exclusaoErro.value = ''
+  try {
+    await excluirProspecto(prospectoExclusao.value.id)
+    exclusaoOpen.value = false
+    sucesso.value = 'Prospecto excluído.'
+    await load()
+  } catch (cause) {
+    exclusaoErro.value = normalizeError(cause).message
+  } finally {
+    excluindo.value = false
+  }
 }
 function abrirOrcamentos(id: string, nome: string) {
   void router.push({ name: 'orcamentos-prospecto', params: { prospectoId: id }, query: { nome } })
@@ -101,9 +143,10 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
 <template>
   <PageHeader title="Prospectos" description="Acompanhe as oportunidades comerciais do seu escritório.">
     <BaseButton label="Atualizar" icon="pi pi-refresh" variant="secondary" :loading="refreshing" @click="refreshNow" />
-    <BaseButton label="Novo prospecto" icon="pi pi-plus" @click="cadastroOpen = true" />
+    <BaseButton label="Novo prospecto" icon="pi pi-plus" @click="abrirCadastro" />
   </PageHeader>
 
+  <Message v-if="sucesso" severity="success" :closable="true" aria-live="polite" @close="sucesso = ''">{{ sucesso }}</Message>
   <BaseCard class="prospects-card">
     <form class="filters" role="search" aria-label="Filtrar prospectos" @submit.prevent="applyFilters">
       <BaseInput id="busca" v-model="busca" label="Buscar prospecto" name="busca" type="search" autocomplete="off" placeholder="Razão social ou CNPJ…" @update:model-value="scheduleSearch" />
@@ -121,7 +164,13 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
         <Column field="status" header="Status"><template #body="{ data }"><ProspectoStatus :status="data.status" /></template></Column>
         <Column field="responsavel" header="Responsável"><template #body="{ data }"><span :class="{ muted: !data.responsavel }">{{ data.responsavel || 'Não atribuído' }}</span></template></Column>
         <Column field="criadoEm" header="Criado em"><template #body="{ data }"><span class="numeric">{{ formatDate(data.criadoEm) }}</span></template></Column>
-        <Column header="Ações"><template #body="{ data }"><BaseButton label="Orçamentos" icon="pi pi-file-edit" variant="text" @click="abrirOrcamentos(data.id, data.razaoSocial)" /></template></Column>
+        <Column header="Ações"><template #body="{ data }"><div class="prospect-actions">
+          <BaseButton label="Orçamentos" icon="pi pi-file-edit" variant="text" @click="abrirOrcamentos(data.id, data.razaoSocial)" />
+          <template v-if="prospectoNaEtapaInicial(data)">
+            <BaseButton icon="pi pi-pencil" variant="text" :aria-label="`Editar ${data.razaoSocial}`" title="Editar prospecto" @click="abrirEdicao(data)" />
+            <BaseButton icon="pi pi-trash" variant="text" :aria-label="`Excluir ${data.razaoSocial}`" title="Excluir prospecto" @click="solicitarExclusao(data)" />
+          </template>
+        </div></template></Column>
         <template #empty><div class="empty-state"><i class="pi pi-users" aria-hidden="true" /><h3>{{ filtered ? 'Nenhum resultado encontrado' : 'Nenhum prospecto por aqui' }}</h3><p>{{ filtered ? 'Tente outra busca ou remova os filtros aplicados.' : 'Os prospectos cadastrados no escritório aparecerão nesta lista.' }}</p><BaseButton v-if="filtered" label="Limpar filtros" variant="secondary" @click="clearFilters" /></div></template>
       </DataTable>
       <div v-if="result.totalRegistros > 0" class="pagination-footer">
@@ -131,5 +180,22 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
     </template>
   </BaseCard>
   <p class="list-footnote">20 prospectos por página</p>
-  <ProspectoCadastroDialog v-model:visible="cadastroOpen" @criado="prospectoCriado" />
+  <ProspectoCadastroDialog v-model:visible="cadastroOpen" :prospecto-id="prospectoEdicaoId" @criado="prospectoCriado" @atualizado="prospectoAtualizado" />
+  <Dialog v-model:visible="exclusaoOpen" modal header="Excluir prospecto" :style="{ width: 'min(460px, calc(100vw - 24px))' }"
+    :closable="!excluindo" :close-on-escape="!excluindo" :draggable="false">
+    <Message v-if="exclusaoErro" severity="error" :closable="false" role="alert">{{ exclusaoErro }}</Message>
+    <p class="confirmation-copy">Excluir <strong>{{ prospectoExclusao?.razaoSocial }}</strong>? O cadastro e os sócios serão removidos. Esta ação não pode ser desfeita.</p>
+    <template #footer>
+      <BaseButton label="Cancelar" variant="text" :disabled="excluindo" @click="exclusaoOpen = false" />
+      <Button label="Excluir prospecto" icon="pi pi-trash" severity="danger" :loading="excluindo" :disabled="excluindo" @click="confirmarExclusao" />
+    </template>
+  </Dialog>
 </template>
+
+<style scoped>
+.prospect-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.confirmation-copy { overflow-wrap: anywhere; }
+:deep(.prospects-table th:first-child) { width: 30%; }
+:deep(.prospects-table th:nth-child(2)) { width: 19%; }
+:deep(.prospects-table th:last-child) { width: 210px; }
+</style>

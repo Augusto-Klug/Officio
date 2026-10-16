@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { CriarProspectoPayload, ProspectoCriado, ProspectosFiltro, ProspectosPagina } from '../types/prospecto'
+import type { CriarProspectoPayload, ProspectoCriado, ProspectoDetalhe, ProspectosFiltro, ProspectosPagina } from '../types/prospecto'
 
 function integer(value: unknown, minimum: number): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum) throw new Error('A API retornou uma paginação inválida.')
@@ -46,4 +46,17 @@ export function normalizeProspectoCriado(value: unknown): ProspectoCriado {
 export async function criarProspecto(payload: CriarProspectoPayload): Promise<ProspectoCriado> {
   const { data } = await http.post<unknown>('/v1/prospectos/Criar', payload)
   return normalizeProspectoCriado(data)
+}
+
+export async function obterProspecto(id: string, signal?: AbortSignal): Promise<ProspectoDetalhe> {
+  const { data } = await http.get<ProspectoDetalhe>(`/v1/prospectos/ObterPorId/${id}`, { signal })
+  return data
+}
+
+export async function atualizarProspecto(id: string, payload: CriarProspectoPayload): Promise<void> {
+  await http.put(`/v1/prospectos/Atualizar/${id}`, payload)
+}
+
+export async function excluirProspecto(id: string): Promise<void> {
+  await http.delete(`/v1/prospectos/Excluir/${id}`)
 }

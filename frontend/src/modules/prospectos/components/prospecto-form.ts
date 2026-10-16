@@ -35,6 +35,21 @@ export function novoProspecto(): CriarProspectoPayload {
   }
 }
 
+export function montarFormularioProspecto(dados: CriarProspectoPayload = novoProspecto()) {
+  return {
+    razaoSocial: dados.razaoSocial, nomeFantasia: dados.nomeFantasia || '', cnpj: formatarCnpj(dados.cnpj || ''),
+    inscricaoEstadual: dados.inscricaoEstadual || '', inscricaoMunicipal: dados.inscricaoMunicipal || '',
+    tipoEmpresa: dados.tipoEmpresa || '', regimeTributario: dados.regimeTributario,
+    porteEmpresa: dados.porteEmpresa || '', cnaePrincipal: dados.cnaePrincipal || '',
+    dataAbertura: dados.dataAbertura?.slice(0, 10) || '', email: dados.email || '',
+    telefone: dados.telefone || '', whatsapp: dados.whatsapp || '', nomeContato: dados.nomeContato || '',
+    cep: formatarCep(dados.cep || ''), logradouro: dados.logradouro || '', numero: dados.numero || '',
+    complemento: dados.complemento || '', bairro: dados.bairro || '', cidade: dados.cidade || '',
+    uf: dados.uf || '', municipioCodigoIbge: dados.municipioCodigoIbge || '', origem: dados.origem || '',
+    socios: dados.socios.map((socio) => ({ ...socio, cpf: formatarCpf(socio.cpf || '') })),
+  }
+}
+
 function vazio(value: string | null): boolean {
   return !value?.trim()
 }

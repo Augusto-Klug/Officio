@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.ConverterParaCliente;
+using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.AtualizarProspecto;
+using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.ExcluirProspecto;
+using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ObterProspectoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ObterProspectos;
 using Officio.ViewModels.Prospectos;
 using Officio.WebApi.Conversores;
@@ -58,6 +61,48 @@ public class ProspectosController(
             _ => BadRequest(resultado.Erro)
         };
     }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(ProspectoDetalheDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ObterProspectoPorIdConsulta(id), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : NotFound(resultado.Erro);
+    }
+
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> Atualizar(Guid id, [FromBody] CriarProspectoViewModel viewModel, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(
+            new AtualizarProspectoComando(id, prospectoViewModelConversor.ParaComando(viewModel).Requisicao), cancellationToken);
+        return resultado.Sucesso ? NoContent() : FalhaAlteracao(resultado.Erro!);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Excluir(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ExcluirProspectoComando(id), cancellationToken);
+        return resultado.Sucesso ? NoContent() : FalhaAlteracao(resultado.Erro!);
+    }
+
+    private IActionResult FalhaAlteracao(string erro) => erro switch
+    {
+        ProspectoErros.NaoEncontrado => NotFound(erro),
+        ProspectoErros.ForaDaEtapaInicial or ProspectoErros.PossuiVinculos => Conflict(erro),
+        LocalidadeErros.CepInvalido or LocalidadeErros.MunicipioDivergenteDoCep => UnprocessableEntity(erro),
+        LocalidadeErros.ConsultaCepIndisponivel => StatusCode(StatusCodes.Status503ServiceUnavailable, erro),
+        _ => BadRequest(erro)
+    };
 
     [HttpPost("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status201Created)]

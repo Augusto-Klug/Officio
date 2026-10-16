@@ -9,9 +9,9 @@ namespace Officio.Infra.BancoDeDados.Repositorios;
 internal class ProspectoRepositorio(
     ContextoAplicacao contexto) : RepositorioBase<ContextoAplicacao, Guid>(contexto), IProspectoRepositorio
 {
-    public async Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default)
+    public async Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default, Guid? ignorarProspectoId = null)
         => await VerificarExistenciaAsync<Prospecto>(
-            p => p.Cnpj != null && p.Cnpj
+            p => (!ignorarProspectoId.HasValue || p.Id != ignorarProspectoId.Value) && p.Cnpj != null && p.Cnpj
                 .Replace(".", "")
                 .Replace("/", "")
                 .Replace("-", "") == cnpj,
@@ -20,7 +20,30 @@ internal class ProspectoRepositorio(
     public async Task<Prospecto?> ObterComSociosAsync(Guid prospectoId, CancellationToken cancellationToken = default)
         => await Contexto.Prospects
             .Include(p => p.Socios)
+            .Include(p => p.Municipio).ThenInclude(m => m!.Estado)
             .FirstOrDefaultAsync(p => p.Id == prospectoId, cancellationToken);
+
+    public async Task<bool> PossuiVinculosAsync(Guid prospectoId, CancellationToken cancellationToken = default)
+        => await Contexto.Budgets.AnyAsync(x => x.ProspectId == prospectoId, cancellationToken)
+            || await Contexto.Contracts.AnyAsync(x => x.ProspectId == prospectoId, cancellationToken)
+            || await Contexto.Clients.AnyAsync(x => x.ProspectOrigemId == prospectoId, cancellationToken)
+            || await Contexto.Documents.AnyAsync(x => x.ProspectId == prospectoId, cancellationToken)
+            || await Contexto.FormulariosAbertura.AnyAsync(x => x.ProspectId == prospectoId, cancellationToken)
+            || await SociosPossuemDocumentosAsync(
+                await Contexto.Socios.Where(x => x.ProspectId == prospectoId).Select(x => x.Id).ToListAsync(cancellationToken),
+                cancellationToken);
+
+    public Task<bool> SociosPossuemDocumentosAsync(IReadOnlyCollection<Guid> sociosIds, CancellationToken cancellationToken = default)
+        => Contexto.Documents.AnyAsync(x => x.SocioId.HasValue && sociosIds.Contains(x.SocioId.Value), cancellationToken);
+
+    public void RemoverSocios(IEnumerable<Socio> socios) => Contexto.Socios.RemoveRange(socios);
+
+    public void Remover(Prospecto prospecto)
+    {
+        Contexto.ProspectoPessoas.RemoveRange(Contexto.ProspectoPessoas.Where(x => x.ProspectId == prospecto.Id));
+        Contexto.Socios.RemoveRange(prospecto.Socios);
+        Contexto.Prospects.Remove(prospecto);
+    }
 
     public Task<Cliente?> ObterClientePorProspectoAsync(
         Guid prospectoId,

@@ -8,24 +8,23 @@ import BaseButton from '../../../components/base/BaseButton.vue'
 import BaseInput from '../../../components/base/BaseInput.vue'
 import { normalizeError } from '../../../api/errors'
 import { consultarCep, listarEstados, listarMunicipios } from '../services/localidades.service'
-import { criarProspecto } from '../services/prospectos.service'
+import { atualizarProspecto, criarProspecto, obterProspecto } from '../services/prospectos.service'
 import type { EstadoLocalidade, MunicipioLocalidade } from '../types/localidade'
-import { regimeTributarioOptions, type ProspectoCriado, type RegimeTributario } from '../types/prospecto'
-import { formatarCep, formatarCnpj, formatarCpf, limparPayload, novoProspecto, somenteDigitos, validarProspecto, type ProspectoFormErrors } from './prospecto-form'
+import { prospectoNaEtapaInicial, regimeTributarioOptions, type CriarProspectoPayload, type ProspectoCriado } from '../types/prospecto'
+import { formatarCep, formatarCnpj, formatarCpf, limparPayload, montarFormularioProspecto, novoProspecto, somenteDigitos, validarProspecto, type ProspectoFormErrors } from './prospecto-form'
 
-const props = defineProps<{ visible: boolean }>()
+const props = defineProps<{ visible: boolean; prospectoId?: string | null }>()
 const emit = defineEmits<{
   'update:visible': [value: boolean]
   criado: [prospecto: ProspectoCriado]
+  atualizado: [prospecto: ProspectoCriado]
 }>()
 const dialogVisible = computed({ get: () => props.visible, set: (value) => emit('update:visible', value) })
-const form = reactive({
-  razaoSocial: '', nomeFantasia: '', cnpj: '', inscricaoEstadual: '', inscricaoMunicipal: '', tipoEmpresa: '',
-  regimeTributario: null as RegimeTributario | null, porteEmpresa: '', cnaePrincipal: '', dataAbertura: '',
-  email: '', telefone: '', whatsapp: '', nomeContato: '', cep: '', logradouro: '', numero: '', bairro: '',
-  complemento: '', cidade: '', uf: '', municipioCodigoIbge: '', origem: '',
-  socios: [] as Array<{ nome: string; cpf: string; participacao: number }>,
-})
+const form = reactive(montarFormularioProspecto())
+const dadosOriginais = ref<CriarProspectoPayload | null>(null)
+const carregandoCadastro = ref(false)
+const cadastroPronto = ref(false)
+let cadastroController: AbortController | undefined
 const errors = ref<ProspectoFormErrors>({})
 const submitError = ref('')
 const loading = ref(false)
@@ -54,30 +53,8 @@ const municipioOptions = computed(() => municipios.value.map((municipio) => ({
 const enderecoAvisoSeveridade = computed(() => cepStatus.value === 'indisponivel' ? 'error' : 'secondary')
 
 function reset() {
-  form.razaoSocial = ''
-  form.nomeFantasia = ''
-  form.cnpj = ''
-  form.inscricaoEstadual = ''
-  form.inscricaoMunicipal = ''
-  form.tipoEmpresa = ''
-  form.regimeTributario = null
-  form.porteEmpresa = ''
-  form.cnaePrincipal = ''
-  form.dataAbertura = ''
-  form.email = ''
-  form.telefone = ''
-  form.whatsapp = ''
-  form.nomeContato = ''
-  form.cep = ''
-  form.logradouro = ''
-  form.numero = ''
-  form.complemento = ''
-  form.bairro = ''
-  form.cidade = ''
-  form.uf = ''
-  form.municipioCodigoIbge = ''
-  form.origem = ''
-  form.socios = []
+  Object.assign(form, montarFormularioProspecto())
+  dadosOriginais.value = null
   errors.value = {}
   submitError.value = ''
   enderecoAviso.value = ''
@@ -147,7 +124,7 @@ function alterarMunicipio(codigoIbge: string | null) {
   form.cidade = municipios.value.find((item) => item.codigoIbge === codigoIbge)?.nome || ''
 }
 
-async function preencherEnderecoPorCep(cep: string) {
+async function preencherEnderecoPorCep(cep: string, preservarEndereco = false) {
   if (cepTimer) {
     clearTimeout(cepTimer)
     cepTimer = undefined
@@ -167,10 +144,11 @@ async function preencherEnderecoPorCep(cep: string) {
     const endereco = await consultarCep(cep, controller.signal)
     if (controller.signal.aborted) return
 
-    form.logradouro = endereco.logradouro || ''
-    form.bairro = endereco.bairro || ''
+    if (!preservarEndereco || !form.logradouro) form.logradouro = endereco.logradouro || ''
+    if (!preservarEndereco || !form.bairro) form.bairro = endereco.bairro || ''
     form.uf = endereco.uf
     await carregarMunicipios(endereco.uf, endereco.municipioCodigoIbge)
+    if (controller.signal.aborted) return
     cepStatus.value = 'valido'
     localidadeBloqueadaPeloCep.value = true
     enderecoAviso.value = endereco.logradouro
@@ -199,6 +177,7 @@ async function preencherEnderecoPorCep(cep: string) {
 }
 
 watch(() => somenteDigitos(form.cep), (cep) => {
+  if (carregandoCadastro.value || !props.visible) return
   if (cepTimer) clearTimeout(cepTimer)
   cepController?.abort()
   enderecoAviso.value = ''
@@ -213,13 +192,40 @@ watch(() => somenteDigitos(form.cep), (cep) => {
 })
 
 async function handleShow() {
-  errors.value = {}
-  submitError.value = ''
-  enderecoAviso.value = ''
-  await carregarEstados()
+  cadastroController?.abort()
+  const controller = new AbortController()
+  cadastroController = controller
+  carregandoCadastro.value = true
+  cadastroPronto.value = false
+  reset()
+  try {
+    await carregarEstados()
+    if (props.prospectoId) {
+      const prospecto = await obterProspecto(props.prospectoId, controller.signal)
+      if (controller.signal.aborted) return
+      if (!prospectoNaEtapaInicial(prospecto)) throw new Error('Este prospecto já saiu da etapa inicial e não pode ser editado.')
+      dadosOriginais.value = prospecto.dados
+      Object.assign(form, montarFormularioProspecto(prospecto.dados))
+      await carregarMunicipios(form.uf, form.municipioCodigoIbge)
+    }
+    await nextTick()
+    if (controller.signal.aborted) return
+    cadastroPronto.value = true
+    if (form.cep) await preencherEnderecoPorCep(somenteDigitos(form.cep), true)
+  } catch (cause) {
+    if (!controller.signal.aborted) submitError.value = normalizeError(cause).message
+  } finally {
+    if (cadastroController === controller) carregandoCadastro.value = false
+  }
 }
 
-onBeforeUnmount(cancelarConsultasEndereco)
+function handleHide() {
+  cadastroController?.abort()
+  cancelarConsultasEndereco()
+  cadastroPronto.value = false
+}
+
+onBeforeUnmount(handleHide)
 
 async function focusFirstInvalid() {
   await nextTick()
@@ -230,6 +236,7 @@ async function focusFirstInvalid() {
 function montarPayload() {
   return limparPayload({
     ...novoProspecto(),
+    ...dadosOriginais.value,
     razaoSocial: form.razaoSocial,
     nomeFantasia: form.nomeFantasia,
     cnpj: form.cnpj,
@@ -258,6 +265,7 @@ function montarPayload() {
 }
 
 async function submit() {
+  if (loading.value || carregandoCadastro.value || !cadastroPronto.value) return
   submitError.value = ''
   let payload = montarPayload()
   errors.value = validarProspecto(payload)
@@ -282,8 +290,12 @@ async function submit() {
   payload = montarPayload()
   loading.value = true
   try {
-    const prospecto = await criarProspecto(payload)
-    emit('criado', prospecto)
+    if (props.prospectoId) {
+      await atualizarProspecto(props.prospectoId, payload)
+      emit('atualizado', { id: props.prospectoId, razaoSocial: payload.razaoSocial })
+    } else {
+      emit('criado', await criarProspecto(payload))
+    }
     reset()
     dialogVisible.value = false
   } catch (cause) {
@@ -295,12 +307,14 @@ async function submit() {
 </script>
 
 <template>
-  <Dialog v-model:visible="dialogVisible" modal header="Cadastrar prospecto" class="prospect-dialog"
+  <Dialog v-model:visible="dialogVisible" modal :header="props.prospectoId ? 'Editar prospecto' : 'Cadastrar prospecto'" class="prospect-dialog"
     :style="{ width: 'min(760px, calc(100vw - 24px))' }" :closable="!loading" :close-on-escape="!loading"
-    :draggable="false" aria-describedby="prospect-dialog-description" @show="handleShow">
-    <p id="prospect-dialog-description" class="dialog-description">Cadastre os dados comerciais usados na proposta e na futura conversão em cliente.</p>
-    <form id="prospect-form" class="prospect-form" novalidate @submit.prevent="submit">
-      <Message v-if="submitError" severity="error" :closable="false" role="alert">{{ submitError }}</Message>
+    :draggable="false" aria-describedby="prospect-dialog-description" @show="handleShow" @hide="handleHide">
+    <p id="prospect-dialog-description" class="dialog-description">{{ props.prospectoId ? 'Atualize os dados comerciais deste prospecto.' : 'Cadastre os dados comerciais usados na proposta e na futura conversão em cliente.' }}</p>
+    <Message v-if="submitError" severity="error" :closable="false" role="alert">{{ submitError }}</Message>
+    <p v-if="carregandoCadastro" role="status" aria-live="polite">Carregando cadastro...</p>
+    <BaseButton v-else-if="!cadastroPronto" label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="handleShow" />
+    <form v-else id="prospect-form" class="prospect-form" novalidate @submit.prevent="submit">
       <div class="prospect-company-grid">
         <BaseInput id="razaoSocial" v-model="form.razaoSocial" label="Razão social *" name="razaoSocial" autocomplete="organization" maxlength="300" :error="fieldError('razaoSocial')" class="company-name-field" />
         <BaseInput id="cnpj" :model-value="form.cnpj" label="CNPJ" name="cnpj" inputmode="numeric" autocomplete="off" placeholder="00.000.000/0000-00" maxlength="18" :error="fieldError('cnpj')" @update:model-value="form.cnpj = formatarCnpj($event)" />
@@ -368,7 +382,7 @@ async function submit() {
         <p v-else class="empty-partners">Nenhum sócio adicionado.</p>
       </section>
     </form>
-    <template #footer><BaseButton label="Cancelar" variant="text" :disabled="loading" @click="close" /><BaseButton label="Cadastrar prospecto" icon="pi pi-check" type="submit" form="prospect-form" :loading="loading" :disabled="loading || cepLoading || cepStatus === 'pendente' || cepStatus === 'invalido'" /></template>
+    <template #footer><BaseButton label="Cancelar" variant="text" :disabled="loading" @click="close" /><BaseButton :label="props.prospectoId ? 'Salvar alterações' : 'Cadastrar prospecto'" icon="pi pi-check" type="submit" form="prospect-form" :loading="loading" :disabled="loading || carregandoCadastro || !cadastroPronto || cepLoading || cepStatus === 'pendente' || cepStatus === 'invalido'" /></template>
   </Dialog>
 </template>
 

@@ -31,6 +31,7 @@ export enum RegimeTributario {
 }
 
 export interface CriarSocioPayload {
+  id?: string
   nome: string
   cpf: string | null
   participacao: number
@@ -40,6 +41,8 @@ export interface CriarProspectoPayload {
   razaoSocial: string
   nomeFantasia?: string | null
   cnpj: string | null
+  cpf?: string | null
+  responsavelId?: string | null
   inscricaoEstadual?: string | null
   inscricaoMunicipal?: string | null
   tipoEmpresa?: string | null
@@ -66,6 +69,16 @@ export interface CriarProspectoPayload {
 export interface ProspectoCriado {
   id: string
   razaoSocial: string
+}
+
+export interface ProspectoDetalhe {
+  id: string
+  status: string
+  dados: CriarProspectoPayload
+}
+
+export function prospectoNaEtapaInicial(prospecto: Pick<Prospecto, 'status'>): boolean {
+  return prospecto.status === 'EmNegociacao'
 }
 
 export const regimeTributarioOptions = [
