@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Infra.BancoDeDados.Contextos;
 
@@ -17,12 +18,16 @@ internal class ContratoRepositorio(
 
     public Task<List<Contrato>> ListarAsync(
         Guid? empresaId = null,
+        StatusContrato? status = null,
         CancellationToken cancellationToken = default)
     {
         var consulta = Contexto.Contracts.AsQueryable();
 
         if (empresaId.HasValue)
             consulta = consulta.Where(contrato => contrato.EmpresaId == empresaId.Value);
+
+        if (status.HasValue)
+            consulta = consulta.Where(contrato => contrato.Status == status.Value);
 
         return consulta
             .AsNoTracking()
@@ -31,6 +36,24 @@ internal class ContratoRepositorio(
             .OrderByDescending(contrato => contrato.CriadoEm)
             .ToListAsync(cancellationToken);
     }
+
+    public Task<List<Contrato>> ListarAtivosPorEmpresaAsync(
+        Guid empresaId,
+        CancellationToken cancellationToken = default)
+        => Contexto.Contracts
+            .Where(contrato => contrato.EmpresaId == empresaId && contrato.Status == StatusContrato.Ativo)
+            .OrderByDescending(contrato => contrato.AssinadoEm)
+            .ToListAsync(cancellationToken);
+
+    public Task<List<Contrato>> ListarContratosExpiradosAsync(
+        DateTime antesDe,
+        CancellationToken cancellationToken = default)
+        => Contexto.Contracts
+            .IgnoreQueryFilters()
+            .Where(contrato => contrato.Status == StatusContrato.Ativo
+                && contrato.DataFim.HasValue
+                && contrato.DataFim.Value < antesDe)
+            .ToListAsync(cancellationToken);
 
     public Task<List<Empresa>> ListarEmpresasComContratoAsync(CancellationToken cancellationToken = default)
         => Contexto.Empresas

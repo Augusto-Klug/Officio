@@ -58,6 +58,7 @@ public class ContratoRepositorioTestes
         var conjuntoB = CriarContratoAceito(tenantId);
         conjuntoA.Prospecto.VincularEmpresa(empresaA.Id);
         conjuntoA.Contrato.VincularEmpresa(empresaA.Id);
+        conjuntoA.Contrato.MarkAsSigned(new DateTime(2026, 9, 2));
         conjuntoB.Prospecto.VincularEmpresa(empresaB.Id);
         conjuntoB.Contrato.VincularEmpresa(empresaB.Id);
         contexto.Empresas.AddRange(empresaA, empresaB);
@@ -77,7 +78,7 @@ public class ContratoRepositorioTestes
         contexto.ChangeTracker.Clear();
         var repositorio = new ContratoRepositorio(contexto);
 
-        var contratos = await repositorio.ListarAsync(empresaA.Id);
+        var contratos = await repositorio.ListarAsync(empresaA.Id, StatusContrato.Ativo);
         var empresas = await repositorio.ListarEmpresasComContratoAsync();
         var idsComPdf = await repositorio.ListarIdsComDocumentoAssinadoAsync(
             [conjuntoA.Contrato.Id, conjuntoB.Contrato.Id]);
@@ -95,7 +96,7 @@ public class ContratoRepositorioTestes
             tenantId, orcamento.Id, null, "Honorarios",
             SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario, 1, 500m, 1));
         orcamento.Aceitar();
-        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, new DateTime(2026, 9, 1), null, true, null);
+        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, new DateTime(2026, 9, 1), null, null);
         return (prospecto, orcamento, contrato);
     }
 

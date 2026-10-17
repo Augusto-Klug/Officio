@@ -19,13 +19,6 @@ public class ComponenteTermos(DadosPdfContrato data) : IComponent
 
             col.Item().PaddingTop(6).Text(vigencia).FontSize(9);
 
-            if (data.RenovacaoAuto)
-                col.Item().PaddingTop(4).Text(
-                    "O presente contrato será renovado automaticamente ao final da vigência, " +
-                    "salvo manifestação expressa em contrário por qualquer das partes com " +
-                    "antecedência mínima de 30 (trinta) dias.")
-                    .FontSize(9).FontColor(Colors.Grey.Darken2);
-
             col.Item().PaddingTop(12).Element(SectionTitle("5. DAS OBRIGAÇÕES"));
 
             foreach (var (num, texto) in GetDefaultClauses())

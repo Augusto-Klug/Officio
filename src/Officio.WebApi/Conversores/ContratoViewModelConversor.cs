@@ -28,6 +28,6 @@ internal static class ContratoOrcamentoViewModelConversor
             orcamentoId,
             viewModel.DataInicio,
             viewModel.DataFim,
-            viewModel.RenovacaoAutomatica,
+            viewModel.ConfirmarSubstituicaoContratoAtivo,
             viewModel.ClausulasExtras);
 }

@@ -19,7 +19,6 @@ public class Contrato : EntidadeAuditavel
     public int DiaVencimento { get; private set; }
     public DateTime DataInicio { get; private set; }
     public DateTime? DataFim { get; private set; }
-    public bool RenovacaoAutomatica { get; private set; }
     public string? ClausulasExtras { get; private set; }
     public string? PdfPath { get; private set; }
     public DateTime? AssinadoEm { get; private set; }
@@ -39,7 +38,7 @@ public class Contrato : EntidadeAuditavel
 
     private Contrato() { }
 
-    public static Contrato CreateFromBudget(Orcamento budget, Guid clientId, DateTime dataInicio, DateTime? dataFim, bool renovacaoAutomatica, string? clausulasExtras)
+    public static Contrato CreateFromBudget(Orcamento budget, Guid clientId, DateTime dataInicio, DateTime? dataFim, string? clausulasExtras)
     {
         return new Contrato
         {
@@ -51,7 +50,6 @@ public class Contrato : EntidadeAuditavel
             DiaVencimento = budget.DiaVencimento,
             DataInicio = dataInicio,
             DataFim = dataFim,
-            RenovacaoAutomatica = renovacaoAutomatica,
             ClausulasExtras = clausulasExtras,
             Numero = $"CTR-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString()[..4].ToUpper()}"
         };
@@ -62,7 +60,6 @@ public class Contrato : EntidadeAuditavel
         Prospecto prospecto,
         DateTime dataInicio,
         DateTime? dataFim,
-        bool renovacaoAutomatica,
         string? clausulasExtras)
     {
         if (orcamento.ProspectId != prospecto.Id)
@@ -78,7 +75,6 @@ public class Contrato : EntidadeAuditavel
             DiaVencimento = orcamento.DiaVencimento,
             DataInicio = dataInicio,
             DataFim = dataFim,
-            RenovacaoAutomatica = renovacaoAutomatica,
             ClausulasExtras = clausulasExtras,
             Status = StatusContrato.Rascunho,
             Numero = $"CTR-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString()[..4].ToUpper()}"
@@ -89,6 +85,12 @@ public class Contrato : EntidadeAuditavel
 
     public void MarcarAguardandoAssinatura()
         => Status = StatusContrato.AguardandoAssinatura;
+
+    public void Encerrar()
+    {
+        if (Status == StatusContrato.Ativo)
+            Status = StatusContrato.Encerrado;
+    }
 
     public void VincularCliente(Guid clientId)
     {
@@ -114,6 +116,9 @@ public class Contrato : EntidadeAuditavel
 
     public void MarkAsSigned(DateTime? assinadoEm = null)
     {
+        if (AssinadoEm.HasValue && (Status is StatusContrato.Encerrado or StatusContrato.Cancelado))
+            return;
+
         var jaEstavaAssinado = AssinadoEm.HasValue;
         Status = StatusContrato.Ativo;
         AssinadoEm ??= assinadoEm ?? DateTime.UtcNow;

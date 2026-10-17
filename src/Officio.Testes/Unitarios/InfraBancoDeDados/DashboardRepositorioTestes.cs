@@ -75,7 +75,6 @@ public class DashboardRepositorioTestes
             prospecto,
             new DateTime(2026, 1, 1),
             null,
-            true,
             null);
         contrato.VincularCliente(cliente.Id);
         contrato.MarkAsSigned(new DateTime(2026, 1, 2));

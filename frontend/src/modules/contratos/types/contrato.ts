@@ -10,7 +10,6 @@ export interface Contrato {
   diaVencimento: number
   dataInicio: string
   dataFim: string | null
-  renovacaoAutomatica: boolean
   clausulasExtras: string | null
   pdfGerado: boolean
   pdfAssinadoDisponivel: boolean

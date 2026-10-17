@@ -26,7 +26,6 @@ public record DadosPdfContrato
 
     public required DateOnly DataInicio { get; init; }
     public DateOnly? DataFim { get; init; }
-    public required bool RenovacaoAuto { get; init; }
     public string? ClausulasExtras { get; init; }
 }
 

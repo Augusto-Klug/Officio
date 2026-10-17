@@ -9,7 +9,7 @@ describe('contrato HTTP de contratos', () => {
     id: 'con-1', numero: 'CTR-2026-0001', prospectoId: 'pro-1', clienteId: null,
     orcamentoId: 'orc-1', razaoSocial: 'Empresa Teste', status: 'AguardandoAssinatura',
     valorTotal: 500, diaVencimento: 10, dataInicio: '2026-09-19T00:00:00', dataFim: null,
-    renovacaoAutomatica: true, clausulasExtras: null, pdfGerado: true,
+    clausulasExtras: null, pdfGerado: true,
     pdfAssinadoDisponivel: false, assinadoEm: null,
   }
 
@@ -25,17 +25,17 @@ describe('contrato HTTP de contratos', () => {
     expect(() => normalizeContratos([{ ...contract, pdfGerado: 'sim' }])).toThrow('indicador inválido')
   })
 
-  it('envia o filtro de empresa e normaliza as opcoes disponiveis', async () => {
+  it('envia os filtros de empresa e status e normaliza as opcoes disponiveis', async () => {
     const get = vi.spyOn(http, 'get')
       .mockResolvedValueOnce({ data: [contract] })
       .mockResolvedValueOnce({ data: [{ id: 'emp-1', razaoSocial: 'Empresa Teste', cnpj: '11222333000144' }] })
 
-    await expect(listarContratos('emp-1')).resolves.toHaveLength(1)
+    await expect(listarContratos('emp-1', undefined, 'Ativo')).resolves.toHaveLength(1)
     await expect(listarEmpresasContrato()).resolves.toEqual([
       { id: 'emp-1', razaoSocial: 'Empresa Teste', cnpj: '11222333000144' },
     ])
     expect(get).toHaveBeenNthCalledWith(1, '/v1/contratos/Listar', {
-      params: { empresaId: 'emp-1' },
+      params: { empresaId: 'emp-1', status: 'Ativo' },
       signal: undefined,
     })
     expect(get).toHaveBeenNthCalledWith(2, '/v1/contratos/ListarEmpresas', { signal: undefined })

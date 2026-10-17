@@ -71,7 +71,7 @@ public class ModelagemEntidadesOfficioTestes
             1));
         orcamento.Aceitar();
 
-        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.UtcNow.Date, null, true, null);
+        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.UtcNow.Date, null, null);
 
         Assert.Equal(orcamento.Id, contrato.BudgetId);
         Assert.Equal(orcamento.ValorTotal, contrato.ValorTotal);

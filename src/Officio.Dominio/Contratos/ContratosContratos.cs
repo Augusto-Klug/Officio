@@ -22,7 +22,7 @@ public record ConverterOrcamentoContratoRequisicao(
     Guid OrcamentoId,
     DateTime DataInicio,
     DateTime? DataFim,
-    bool RenovacaoAutomatica,
+    bool ConfirmarSubstituicaoContratoAtivo,
     string? ClausulasExtras);
 
 public record ContratoResultado(
@@ -37,6 +37,5 @@ public record ContratoResultado(
     int DiaVencimento,
     DateTime DataInicio,
     DateTime? DataFim,
-    bool RenovacaoAutomatica,
     string? ClausulasExtras,
     bool PdfGerado);

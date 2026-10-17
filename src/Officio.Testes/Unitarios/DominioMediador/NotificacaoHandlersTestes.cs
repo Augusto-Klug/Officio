@@ -222,7 +222,7 @@ public class NotificacaoHandlersTestes
         var prospecto = Prospecto.Create(tenantId, "Empresa", "11222333000144", null);
         var cliente = Cliente.CreateFromProspect(prospecto);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta", 10, null);
-        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, DateTime.UtcNow, null, true, null);
+        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, DateTime.UtcNow, null, null);
         contexto.AddRange(usuario, prospecto, cliente, orcamento, contrato);
         await contexto.SaveChangesAsync();
         var handler = new NotificarContratoAssinadoHandler(CriarServico(contexto, usuario.Id));

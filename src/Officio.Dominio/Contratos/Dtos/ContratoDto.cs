@@ -12,7 +12,6 @@ public record ContratoDto(
     int DiaVencimento,
     DateTime DataInicio,
     DateTime? DataFim,
-    bool RenovacaoAutomatica,
     string? ClausulasExtras,
     bool PdfGerado,
     bool PdfAssinadoDisponivel,

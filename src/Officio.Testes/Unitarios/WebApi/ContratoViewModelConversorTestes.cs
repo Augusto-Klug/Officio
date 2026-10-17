@@ -13,7 +13,7 @@ public class ContratoViewModelConversorTestes
         {
             DataInicio = new DateTime(2026, 9, 1),
             DataFim = new DateTime(2027, 9, 1),
-            RenovacaoAutomatica = true,
+            ConfirmarSubstituicaoContratoAtivo = true,
             ClausulasExtras = "Clausula"
         };
 
@@ -22,7 +22,7 @@ public class ContratoViewModelConversorTestes
         Assert.Equal(orcamentoId, comando.OrcamentoId);
         Assert.Equal(viewModel.DataInicio, comando.DataInicio);
         Assert.Equal(viewModel.DataFim, comando.DataFim);
-        Assert.True(comando.RenovacaoAutomatica);
+        Assert.True(comando.ConfirmarSubstituicaoContratoAtivo);
         Assert.Equal("Clausula", comando.ClausulasExtras);
     }
 }

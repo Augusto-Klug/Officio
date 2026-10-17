@@ -223,7 +223,7 @@ public class FaturamentoServicoTestes
                 NaturezaCobrancaItemOrcamento.NaoRecorrente));
         }
         var contrato = Contrato.CriarDeOrcamento(
-            orcamento, prospecto, new DateTime(2026, 1, 1), null, true, null);
+            orcamento, prospecto, new DateTime(2026, 1, 1), null, null);
         contrato.VincularCliente(cliente.Id);
         contrato.MarkAsSigned(new DateTime(2026, 1, 2));
 

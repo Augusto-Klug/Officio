@@ -16,7 +16,7 @@ public class ConverterOrcamentoParaContratoHandler(IContratoServico contratoServ
             request.OrcamentoId,
             request.DataInicio,
             request.DataFim,
-            request.RenovacaoAutomatica,
+            request.ConfirmarSubstituicaoContratoAtivo,
             request.ClausulasExtras);
 
         return await contratoServico.ConverterOrcamentoAsync(requisicao, ct);

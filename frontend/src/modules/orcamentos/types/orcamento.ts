@@ -66,8 +66,15 @@ export type AtualizarOrcamentoPayload = Omit<CriarOrcamentoPayload, 'prospectoId
 export interface ConverterContratoPayload {
   dataInicio: string
   dataFim?: string
-  renovacaoAutomatica: boolean
+  confirmarSubstituicaoContratoAtivo: boolean
   clausulasExtras?: string
+}
+
+export interface ContratoAtivoResumo {
+  id: string
+  numero: string
+  dataInicio: string
+  dataFim: string | null
 }
 
 export const secaoOptions = [

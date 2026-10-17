@@ -109,7 +109,7 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         {
             dataInicio = new DateTime(2026, 10, 1),
             dataFim = (DateTime?)null,
-            renovacaoAutomatica = true,
+            confirmarSubstituicaoContratoAtivo = false,
             clausulasExtras = "Contrato criado pelo teste de integracao."
         });
         Assert.True(
