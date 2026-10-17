@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { AtualizarOrcamentoPayload, ConverterContratoPayload, CriarOrcamentoPayload, ItemCatalogoOrcamento, ItemCatalogoOrcamentoPayload, ItemOrcamento, Orcamento } from '../types/orcamento'
+import type { AtualizarOrcamentoPayload, ContratoAtivoResumo, ConverterContratoPayload, CriarOrcamentoPayload, ItemCatalogoOrcamento, ItemCatalogoOrcamentoPayload, ItemOrcamento, Orcamento } from '../types/orcamento'
 
 function numberValue(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('A API retornou um valor numérico inválido.')
@@ -112,6 +112,20 @@ export async function excluirOrcamento(id: string): Promise<void> {
 
 export async function aceitarOrcamento(id: string): Promise<void> {
   await http.post(`/v1/orcamentos/Aceitar/${id}`)
+}
+
+export async function listarContratosAtivosParaConversao(id: string): Promise<ContratoAtivoResumo[]> {
+  const { data } = await http.get<unknown>(`/v1/orcamentos/ObterContratosAtivosParaConversao/${id}`)
+  if (!Array.isArray(data)) throw new Error('A API retornou os contratos ativos em formato inesperado.')
+  return data.map((value) => {
+    const item = record(value)
+    return {
+      id: requiredString(field(item, 'id')),
+      numero: requiredString(field(item, 'numero')),
+      dataInicio: requiredString(field(item, 'dataInicio')),
+      dataFim: optionalString(field(item, 'dataFim')),
+    }
+  })
 }
 
 export async function converterOrcamento(id: string, payload: ConverterContratoPayload): Promise<string> {

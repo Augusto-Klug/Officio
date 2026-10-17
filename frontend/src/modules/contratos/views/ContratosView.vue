@@ -38,6 +38,15 @@ let controller: AbortController | undefined
 let empresasController: AbortController | undefined
 let generation = 0
 const empresaId = computed(() => typeof route.query.empresaId === 'string' ? route.query.empresaId : null)
+const statusFiltro = computed(() => typeof route.query.status === 'string' ? route.query.status : null)
+const statusOptions = [
+  { label: 'Todos os status', value: null },
+  { label: 'Rascunho', value: 'Rascunho' },
+  { label: 'Aguardando assinatura', value: 'AguardandoAssinatura' },
+  { label: 'Ativo', value: 'Ativo' },
+  { label: 'Encerrado', value: 'Encerrado' },
+  { label: 'Cancelado', value: 'Cancelado' },
+]
 const empresaOptions = computed(() => empresas.value.map((empresa) => ({
   label: empresa.cnpj ? `${empresa.razaoSocial} · ${formatCnpj(empresa.cnpj)}` : empresa.razaoSocial,
   value: empresa.id,
@@ -53,7 +62,7 @@ async function load(options: { background?: boolean; reportErrors?: boolean } = 
   if (!background) loading.value = true
   if (reportErrors) error.value = ''
   try {
-    const resultado = await listarContratos(empresaId.value || undefined, controller.signal)
+    const resultado = await listarContratos(empresaId.value || undefined, controller.signal, statusFiltro.value || undefined)
     if (request === generation) {
       contratos.value = resultado
       error.value = ''
@@ -89,8 +98,12 @@ function aplicarFiltroEmpresa(value: string | null) {
   void router.replace({ query: { ...route.query, empresaId: value || undefined } })
 }
 
-function limparFiltroEmpresa() {
-  void router.replace({ query: { ...route.query, empresaId: undefined } })
+function aplicarFiltroStatus(value: string | null) {
+  void router.replace({ query: { ...route.query, status: value || undefined } })
+}
+
+function limparFiltros() {
+  void router.replace({ query: { ...route.query, empresaId: undefined, status: undefined } })
 }
 
 async function gerarPdf(item: Contrato) {
@@ -153,7 +166,7 @@ function severity(status: string) {
   return 'secondary'
 }
 
-watch(() => route.query.empresaId, () => void load(), { immediate: true })
+watch(() => [route.query.empresaId, route.query.status], () => void load(), { immediate: true })
 void loadEmpresas()
 onBeforeUnmount(() => {
   ++generation
@@ -178,7 +191,11 @@ onBeforeUnmount(() => {
         <Select input-id="contract-company" :model-value="empresaId" :options="empresaOptions" option-label="label" option-value="value" filter show-clear placeholder="Todas as empresas" :loading="empresasLoading" :disabled="empresasLoading || !!empresasError" @update:model-value="aplicarFiltroEmpresa" />
         <small v-if="empresasError" class="field-error">{{ empresasError }}</small>
       </div>
-      <BaseButton v-if="empresaId" label="Limpar filtro" variant="text" @click="limparFiltroEmpresa" />
+      <div class="field">
+        <label for="contract-status">Status</label>
+        <Select input-id="contract-status" :model-value="statusFiltro" :options="statusOptions" option-label="label" option-value="value" placeholder="Todos os status" @update:model-value="aplicarFiltroStatus" />
+      </div>
+      <BaseButton v-if="empresaId || statusFiltro" label="Limpar filtros" variant="text" @click="limparFiltros" />
     </form>
     <div class="list-heading"><h2>Contratos</h2><span>{{ loading ? 'Carregando…' : `${contratos.length} ${contratos.length === 1 ? 'contrato' : 'contratos'}` }}</span></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando contratos…</p></div>
@@ -189,7 +206,7 @@ onBeforeUnmount(() => {
       <Column field="valorTotal" header="Valor"><template #body="{ data }"><span class="numeric">{{ formatCurrency(data.valorTotal) }}</span></template></Column>
       <Column field="dataInicio" header="Início"><template #body="{ data }"><span class="numeric">{{ formatDate(data.dataInicio) }}</span></template></Column>
       <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton v-if="!data.pdfGerado" label="Gerar PDF" icon="pi pi-file-pdf" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="gerarPdf(data)" /><BaseButton v-else-if="data.status === 'Rascunho'" label="Enviar" icon="pi pi-send" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirAssinatura(data)" /><BaseButton v-if="data.pdfAssinadoDisponivel" label="Assinado" icon="pi pi-download" variant="text" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirPdfAssinado(data)" /></div></template></Column>
-      <template #empty><div class="empty-state"><i class="pi pi-file" /><h3>{{ empresaId ? 'Nenhum contrato para esta empresa' : 'Nenhum contrato criado' }}</h3><p>{{ empresaId ? 'Selecione outra empresa ou limpe o filtro.' : 'Contratos gerados a partir de orçamentos aceitos aparecerão aqui.' }}</p><BaseButton v-if="empresaId" label="Limpar filtro" variant="secondary" @click="limparFiltroEmpresa" /></div></template>
+      <template #empty><div class="empty-state"><i class="pi pi-file" /><h3>{{ empresaId ? 'Nenhum contrato para esta empresa' : statusFiltro ? 'Nenhum contrato com este status' : 'Nenhum contrato criado' }}</h3><p>{{ empresaId || statusFiltro ? 'Ajuste ou limpe os filtros para ver outros contratos.' : 'Contratos gerados a partir de orçamentos aceitos aparecerão aqui.' }}</p><BaseButton v-if="empresaId || statusFiltro" label="Limpar filtros" variant="secondary" @click="limparFiltros" /></div></template>
     </DataTable>
   </BaseCard>
 

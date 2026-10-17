@@ -57,7 +57,6 @@ public class ClienteHandlersTestes
             cliente.Id,
             DateTime.UtcNow.Date,
             null,
-            true,
             null);
         var documento = Documento.Create(tenantId, "cartao-cnpj.pdf", TipoDocumento.CartaoCnpj, "doc.pdf", 0.9m, clientId: cliente.Id);
         contexto.Empresas.Add(empresa);

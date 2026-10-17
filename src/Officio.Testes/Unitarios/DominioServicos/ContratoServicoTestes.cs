@@ -50,6 +50,91 @@ public class ContratoServicoTestes
     }
 
     [Fact]
+    public async Task ConverterOrcamentoAsync_ComContratoAtivoExigeConfirmacaoESoSubstituiAposAssinatura()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var empresa = Empresa.CriarDoProspecto(prospecto);
+        prospecto.VincularEmpresa(empresa.Id);
+        var orcamentoAtual = Orcamento.Criar(tenantId, prospecto.Id, "Contrato atual", 10, null);
+        var novoOrcamento = Orcamento.Criar(tenantId, prospecto.Id, "Novo contrato", 10, null);
+        orcamentoAtual.Aceitar();
+        novoOrcamento.Aceitar();
+        var contratoAtual = Contrato.CriarDeOrcamento(
+            orcamentoAtual, prospecto, new DateTime(2026, 1, 1), null, null);
+        contratoAtual.MarkAsSigned(new DateTime(2026, 1, 2));
+
+        contexto.Empresas.Add(empresa);
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(orcamentoAtual, novoOrcamento);
+        contexto.Contracts.Add(contratoAtual);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, tenantId);
+
+        var ativos = await servico.ListarAtivosParaOrcamentoAsync(novoOrcamento.Id);
+        var semConfirmacao = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
+            novoOrcamento.Id,
+            new DateTime(2026, 10, 16),
+            null,
+            false,
+            null));
+
+        Assert.True(ativos.Sucesso);
+        Assert.Equal(contratoAtual.Id, Assert.Single(ativos.Valor!).Id);
+        Assert.False(semConfirmacao.Sucesso);
+        Assert.Equal(ContratoErros.SubstituicaoRequerConfirmacao, semConfirmacao.Erro);
+        Assert.Equal(StatusContrato.Ativo, contratoAtual.Status);
+        Assert.Single(contexto.Contracts);
+
+        var comConfirmacao = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
+            novoOrcamento.Id,
+            new DateTime(2026, 10, 16),
+            null,
+            true,
+            null));
+
+        Assert.True(comConfirmacao.Sucesso, comConfirmacao.Erro);
+        Assert.Equal(StatusContrato.Ativo, contratoAtual.Status);
+        var contratoNovo = await contexto.Contracts.SingleAsync(contrato => contrato.Id == comConfirmacao.Valor);
+        Assert.Equal(StatusContrato.Rascunho, contratoNovo.Status);
+    }
+
+    [Fact]
+    public async Task EncerrarContratosExpiradosAsync_EncerraApenasVigenciasAnterioresADataDeReferencia()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var expirado = CriarContratoComVigencia(tenantId, new DateTime(2026, 10, 15));
+        var terminaHoje = CriarContratoComVigencia(tenantId, new DateTime(2026, 10, 16));
+        var indeterminado = CriarContratoComVigencia(tenantId, null);
+        contexto.Prospects.AddRange(expirado.Prospecto, terminaHoje.Prospecto, indeterminado.Prospecto);
+        contexto.Budgets.AddRange(expirado.Orcamento, terminaHoje.Orcamento, indeterminado.Orcamento);
+        contexto.Contracts.AddRange(expirado.Contrato, terminaHoje.Contrato, indeterminado.Contrato);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await CriarServico(contexto, tenantId)
+            .EncerrarContratosExpiradosAsync(new DateOnly(2026, 10, 16));
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal(1, resultado.Valor);
+        Assert.Equal(StatusContrato.Encerrado, expirado.Contrato.Status);
+        Assert.Equal(StatusContrato.Ativo, terminaHoje.Contrato.Status);
+        Assert.Equal(StatusContrato.Ativo, indeterminado.Contrato.Status);
+    }
+
+    private static (Prospecto Prospecto, Orcamento Orcamento, Contrato Contrato) CriarContratoComVigencia(
+        Guid tenantId,
+        DateTime? dataFim)
+    {
+        var prospecto = Prospecto.Create(tenantId, $"Empresa {Guid.NewGuid():N}", Guid.NewGuid().ToString("N")[..14], null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, new DateTime(2026, 1, 1), dataFim, null);
+        contrato.MarkAsSigned(new DateTime(2026, 1, 2));
+        return (prospecto, orcamento, contrato);
+    }
+
+    [Fact]
     public async Task ConverterOrcamentoAsync_ComOrcamentoRascunho_Falha()
     {
         var tenantId = Guid.NewGuid();
@@ -86,7 +171,6 @@ public class ContratoServicoTestes
             cliente.Id,
             new DateTime(2026, 9, 1),
             null,
-            true,
             null);
         contexto.Prospects.Add(prospecto);
         contexto.Clients.Add(cliente);
@@ -207,7 +291,6 @@ public class ContratoServicoTestes
             prospecto,
             new DateTime(2026, 9, 1),
             null,
-            true,
             null);
         contexto.Parceiros.Add(parceiro);
         contexto.Empresas.Add(empresa);
@@ -249,7 +332,6 @@ public class ContratoServicoTestes
             prospecto,
             new DateTime(2026, 9, 1),
             null,
-            true,
             null);
         contexto.Parceiros.Add(parceiro);
         contexto.Empresas.Add(empresa);
@@ -287,7 +369,6 @@ public class ContratoServicoTestes
             prospecto,
             new DateTime(2026, 9, 1),
             null,
-            true,
             null);
         contrato.SetPdfPath("contratos/contrato.pdf");
         contexto.Prospects.Add(prospecto);
@@ -324,7 +405,7 @@ public class ContratoServicoTestes
         var prospecto = Prospecto.Create(tenantId, "Empresa Prospect", "11222333000144", null);
         var cliente = Cliente.CreateFromProspect(prospecto);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, new DateTime(2026, 9, 1), null, true, null);
+        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, new DateTime(2026, 9, 1), null, null);
         var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
         var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
         solicitacao.DefinirIdentificadorExterno("doc-autentique-1");
@@ -393,7 +474,6 @@ public class ContratoServicoTestes
             prospecto,
             new DateTime(2026, 9, 1),
             null,
-            true,
             null);
         var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
         var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
@@ -441,7 +521,6 @@ public class ContratoServicoTestes
             prospecto,
             new DateTime(2026, 9, 1),
             null,
-            true,
             null);
         var cliente = prospecto.ConverterParaCliente();
         var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
@@ -466,6 +545,33 @@ public class ContratoServicoTestes
         Assert.Equal(StatusContrato.Ativo, contrato.Status);
         Assert.Single(contexto.Clients);
         Assert.Equal(cliente.Id, Assert.Single(contexto.Documents).ClientId);
+    }
+
+    [Fact]
+    public async Task ProcessarWebhookAutentiqueAsync_AoAssinarNovoContratoEncerraContratoAtivoAnterior()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (prospecto, contratoNovo, _) = await CriarContratoComSolicitacaoAsync(contexto, tenantId);
+        var empresa = Empresa.CriarDoProspecto(prospecto);
+        prospecto.VincularEmpresa(empresa.Id);
+        contratoNovo.VincularEmpresa(empresa.Id);
+
+        var orcamentoAnterior = Orcamento.Criar(tenantId, prospecto.Id, "Contrato anterior", 10, null);
+        var contratoAnterior = Contrato.CriarDeOrcamento(
+            orcamentoAnterior, prospecto, new DateTime(2025, 1, 1), null, null);
+        contratoAnterior.MarkAsSigned(new DateTime(2025, 1, 2));
+        contexto.Empresas.Add(empresa);
+        contexto.Budgets.Add(orcamentoAnterior);
+        contexto.Contracts.Add(contratoAnterior);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await CriarServico(contexto, tenantId).ProcessarWebhookAutentiqueAsync(
+            """{"event":"document.finished","document":{"id":"doc-autentique-1"},"created_at":"2026-10-16T10:00:00Z"}""");
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(StatusContrato.Encerrado, contratoAnterior.Status);
+        Assert.Equal(StatusContrato.Ativo, contratoNovo.Status);
     }
 
     [Fact]
@@ -650,7 +756,7 @@ public class ContratoServicoTestes
         var prospecto = Prospecto.Create(tenantId, "Empresa Prospect", "11222333000144", null);
         var cliente = Cliente.CreateFromProspect(prospecto);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, new DateTime(2026, 9, 1), null, true, null);
+        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, new DateTime(2026, 9, 1), null, null);
         var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
         var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
         solicitacao.DefinirIdentificadorExterno("doc-autentique-1");
@@ -860,7 +966,7 @@ public class ContratoServicoTestes
         var prospecto = Prospecto.Create(tenantId, "Empresa Prospect", "11222333000144", null);
         var cliente = Cliente.CreateFromProspect(prospecto);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, new DateTime(2026, 9, 1), null, true, null);
+        var contrato = Contrato.CreateFromBudget(orcamento, cliente.Id, new DateTime(2026, 9, 1), null, null);
         var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
         var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
         solicitacao.DefinirIdentificadorExterno("doc-autentique-1");

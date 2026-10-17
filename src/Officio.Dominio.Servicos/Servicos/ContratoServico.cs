@@ -52,12 +52,15 @@ public class ContratoServico(
         if (!empresa.Sucesso)
             return Resultado<Guid>.CriarFalha(empresa.Erro!);
 
+        var contratosAtivos = await contratoRepositorio.ListarAtivosPorEmpresaAsync(empresa.Valor!.Id, ct);
+        if (contratosAtivos.Count > 0 && !requisicao.ConfirmarSubstituicaoContratoAtivo)
+            return Resultado<Guid>.CriarFalha(ContratoErros.SubstituicaoRequerConfirmacao);
+
         var contrato = Contrato.CriarDeOrcamento(
             orcamento,
             prospecto,
             requisicao.DataInicio,
             requisicao.DataFim,
-            requisicao.RenovacaoAutomatica,
             requisicao.ClausulasExtras);
 
         await contratoRepositorio.AdicionarAsync(contrato, ct);
@@ -66,11 +69,44 @@ public class ContratoServico(
         return Resultado<Guid>.CriarSucesso(contrato.Id);
     }
 
-    public async Task<Resultado<List<ContratoDto>>> ListarAsync(
-        Guid? empresaId = null,
+    public async Task<Resultado<List<ContratoAtivoResumoDto>>> ListarAtivosParaOrcamentoAsync(
+        Guid orcamentoId,
         CancellationToken ct = default)
     {
-        var contratos = await contratoRepositorio.ListarAsync(empresaId, ct);
+        var orcamento = await orcamentoRepositorio.ObterPorIdComItensAsync(orcamentoId, ct);
+        if (orcamento is null)
+            return Resultado<List<ContratoAtivoResumoDto>>.CriarFalha("Orcamento nao encontrado.");
+
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
+        if (prospecto is null)
+            return Resultado<List<ContratoAtivoResumoDto>>.CriarFalha("Prospecto nao encontrado.");
+
+        var empresaId = prospecto.EmpresaId;
+        if (!empresaId.HasValue && !string.IsNullOrWhiteSpace(prospecto.Cnpj))
+        {
+            var empresa = await prospectoRepositorio.ObterEmpresaPorCnpjAsync(prospecto.Cnpj, ct);
+            empresaId = empresa?.Id;
+        }
+
+        if (!empresaId.HasValue)
+            return Resultado<List<ContratoAtivoResumoDto>>.CriarSucesso([]);
+
+        var contratos = await contratoRepositorio.ListarAtivosPorEmpresaAsync(empresaId.Value, ct);
+        return Resultado<List<ContratoAtivoResumoDto>>.CriarSucesso(contratos
+            .Select(contrato => new ContratoAtivoResumoDto(
+                contrato.Id,
+                contrato.Numero,
+                contrato.DataInicio,
+                contrato.DataFim))
+            .ToList());
+    }
+
+    public async Task<Resultado<List<ContratoDto>>> ListarAsync(
+        Guid? empresaId = null,
+        StatusContrato? status = null,
+        CancellationToken ct = default)
+    {
+        var contratos = await contratoRepositorio.ListarAsync(empresaId, status, ct);
         var idsComPdfAssinado = await contratoRepositorio.ListarIdsComDocumentoAssinadoAsync(
             contratos.Select(contrato => contrato.Id).ToList(),
             ct);
@@ -81,6 +117,30 @@ public class ContratoServico(
             .ToList();
 
         return Resultado<List<ContratoDto>>.CriarSucesso(dtos);
+    }
+
+    public async Task<Resultado<int>> EncerrarContratosExpiradosAsync(
+        DateOnly dataReferencia,
+        CancellationToken ct = default)
+    {
+        var limite = dataReferencia.ToDateTime(TimeOnly.MinValue);
+        var expirados = await contratoRepositorio.ListarContratosExpiradosAsync(limite, ct);
+
+        foreach (var grupoTenant in expirados.GroupBy(contrato => contrato.TenantId))
+        {
+            empresaAtual.SetTenant(grupoTenant.Key);
+            foreach (var contrato in grupoTenant)
+                contrato.Encerrar();
+
+            await contratoRepositorio.SalvarAlteracoesAsync(ct);
+        }
+
+        logger.LogInformation(
+            "Encerramento diario de contratos expirados concluido. DataReferencia={DataReferencia} ContratosEncerrados={Quantidade}",
+            dataReferencia,
+            expirados.Count);
+
+        return Resultado<int>.CriarSucesso(expirados.Count);
     }
 
     public async Task<Resultado<List<EmpresaContratoFiltroDto>>> ListarEmpresasAsync(
@@ -469,6 +529,13 @@ public class ContratoServico(
             ct);
 
         var dataConclusao = ocorridoEm ?? DateTime.UtcNow;
+        var contratosAtivosAnteriores = await contratoRepositorio.ListarAtivosPorEmpresaAsync(
+            solicitacao.Contrato.EmpresaId,
+            ct);
+        foreach (var contratoAtivo in contratosAtivosAnteriores.Where(
+                     contrato => contrato.Id != solicitacao.ContratoId))
+            contratoAtivo.Encerrar();
+
         solicitacao.MarcarConcluida(statusAssinado.Id, dataConclusao);
         solicitacao.Contrato.MarkAsSigned(dataConclusao);
 
@@ -685,7 +752,6 @@ public class ContratoServico(
             DataFim = contrato.DataFim.HasValue
                 ? DateOnly.FromDateTime(contrato.DataFim.Value)
                 : null,
-            RenovacaoAuto = contrato.RenovacaoAutomatica,
             ClausulasExtras = contrato.ClausulasExtras,
         };
     }
@@ -706,7 +772,6 @@ public class ContratoServico(
             contrato.DiaVencimento,
             contrato.DataInicio,
             contrato.DataFim,
-            contrato.RenovacaoAutomatica,
             contrato.ClausulasExtras,
             !string.IsNullOrWhiteSpace(contrato.PdfPath),
             pdfAssinadoDisponivel,

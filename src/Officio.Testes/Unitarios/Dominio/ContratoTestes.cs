@@ -28,7 +28,6 @@ public class ContratoTestes
             prospecto,
             new DateTime(2026, 9, 1),
             null,
-            true,
             "Clausula extra");
 
         Assert.Equal(tenantId, contrato.TenantId);
@@ -38,7 +37,6 @@ public class ContratoTestes
         Assert.Equal(StatusContrato.Rascunho, contrato.Status);
         Assert.Equal(500m, contrato.ValorTotal);
         Assert.Equal(10, contrato.DiaVencimento);
-        Assert.True(contrato.RenovacaoAutomatica);
         Assert.Equal("Clausula extra", contrato.ClausulasExtras);
         Assert.StartsWith("CTR-", contrato.Numero);
     }
@@ -53,7 +51,7 @@ public class ContratoTestes
         orcamento.Aceitar();
 
         var erro = Assert.Throws<InvalidOperationException>(() =>
-            Contrato.CriarDeOrcamento(orcamento, outroProspecto, DateTime.UtcNow, null, true, null));
+            Contrato.CriarDeOrcamento(orcamento, outroProspecto, DateTime.UtcNow, null, null));
 
         Assert.Contains("Prospecto", erro.Message);
     }
@@ -70,7 +68,6 @@ public class ContratoTestes
             prospecto,
             DateTime.UtcNow,
             null,
-            true,
             null);
         var clienteId = Guid.NewGuid();
 
@@ -80,5 +77,22 @@ public class ContratoTestes
         Assert.Equal(clienteId, contrato.ClientId);
         Assert.Throws<InvalidOperationException>(() => contrato.VincularCliente(Guid.NewGuid()));
         Assert.Throws<ArgumentException>(() => contrato.VincularCliente(Guid.Empty));
+    }
+
+    [Fact]
+    public void MarkAsSigned_ContratoEncerradoNaoDeveSerReativadoPorEventoRepetido()
+    {
+        var tenantId = Guid.NewGuid();
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.UtcNow, null, null);
+        var primeiraAssinatura = new DateTime(2026, 9, 1, 12, 0, 0, DateTimeKind.Utc);
+
+        contrato.MarkAsSigned(primeiraAssinatura);
+        contrato.Encerrar();
+        contrato.MarkAsSigned(primeiraAssinatura.AddDays(1));
+
+        Assert.Equal(StatusContrato.Encerrado, contrato.Status);
+        Assert.Equal(primeiraAssinatura, contrato.AssinadoEm);
     }
 }

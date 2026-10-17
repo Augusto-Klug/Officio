@@ -2,6 +2,7 @@ using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Interfaces;
+using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarEmpresasContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
@@ -114,7 +115,6 @@ public class ContratoHandlersTestes
             10,
             new DateTime(2026, 9, 1),
             null,
-            true,
             "Clausula",
             false,
             true,
@@ -142,8 +142,17 @@ public class ContratoHandlersTestes
 
         public Task<Resultado<List<ContratoDto>>> ListarAsync(
             Guid? empresaId = null,
+            StatusContrato? status = null,
             CancellationToken ct = default)
             => Task.FromResult(listagem ?? throw new NotImplementedException());
+
+        public Task<Resultado<List<ContratoAtivoResumoDto>>> ListarAtivosParaOrcamentoAsync(
+            Guid orcamentoId, CancellationToken ct = default)
+            => throw new NotImplementedException();
+
+        public Task<Resultado<int>> EncerrarContratosExpiradosAsync(
+            DateOnly dataReferencia, CancellationToken ct = default)
+            => throw new NotImplementedException();
 
         public Task<Resultado<List<EmpresaContratoFiltroDto>>> ListarEmpresasAsync(
             CancellationToken ct = default)

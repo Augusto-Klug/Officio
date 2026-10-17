@@ -7,5 +7,5 @@ public record ConverterOrcamentoParaContratoComando(
     Guid OrcamentoId,
     DateTime DataInicio,
     DateTime? DataFim,
-    bool RenovacaoAutomatica,
+    bool ConfirmarSubstituicaoContratoAtivo,
     string? ClausulasExtras) : IRequest<Resultado<Guid>>;

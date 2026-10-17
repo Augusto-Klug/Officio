@@ -1,4 +1,5 @@
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Enumeradores;
 
 namespace Officio.Dominio.Interfaces;
 
@@ -6,7 +7,16 @@ public interface IContratoRepositorio
 {
     Task AdicionarAsync(Contrato contrato, CancellationToken cancellationToken = default);
     Task<Contrato?> ObterPorOrcamentoAsync(Guid orcamentoId, CancellationToken cancellationToken = default);
-    Task<List<Contrato>> ListarAsync(Guid? empresaId = null, CancellationToken cancellationToken = default);
+    Task<List<Contrato>> ListarAsync(
+        Guid? empresaId = null,
+        StatusContrato? status = null,
+        CancellationToken cancellationToken = default);
+    Task<List<Contrato>> ListarAtivosPorEmpresaAsync(
+        Guid empresaId,
+        CancellationToken cancellationToken = default);
+    Task<List<Contrato>> ListarContratosExpiradosAsync(
+        DateTime antesDe,
+        CancellationToken cancellationToken = default);
     Task<List<Empresa>> ListarEmpresasComContratoAsync(CancellationToken cancellationToken = default);
     Task<HashSet<Guid>> ListarIdsComDocumentoAssinadoAsync(
         IReadOnlyCollection<Guid> contratoIds,

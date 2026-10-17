@@ -1,6 +1,6 @@
 # Officio.Sincronizador
 
-Executavel de operacoes agendadas do Officio. No momento executa a reconciliacao das assinaturas da Autentique uma vez e encerra com codigo diferente de zero quando houver falhas.
+Executavel de operacoes agendadas do Officio. Reprocessa assinaturas pendentes da Autentique e encerra contratos ativos cuja data final ja passou, usando a data local de `America/Sao_Paulo`.
 
 ## Execucao manual
 
@@ -35,4 +35,4 @@ sudo systemctl start officio-sincronizador.service
 sudo journalctl -u officio-sincronizador.service -n 100 --no-pager
 ```
 
-O timer executa o job uma vez por dia. A automacao que inicia e desaloca a VM e configurada separadamente pelo Azure.
+O timer executa as duas rotinas uma vez por dia. Contratos permanecem validos durante toda a `DataFim` e sao encerrados quando o job roda no dia seguinte. A automacao que inicia e desaloca a VM e configurada separadamente pelo Azure.

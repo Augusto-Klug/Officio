@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.GerarPdfContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarContratos;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarEmpresasContratos;
@@ -22,10 +23,11 @@ public class ContratosController(
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> Listar(
-        [FromQuery] Guid? empresaId,
-        CancellationToken cancellationToken)
+        [FromQuery] Guid? empresaId = null,
+        [FromQuery] StatusContrato? status = null,
+        CancellationToken cancellationToken = default)
     {
-        var resultado = await mediator.Send(new ListarContratosConsulta(empresaId), cancellationToken);
+        var resultado = await mediator.Send(new ListarContratosConsulta(empresaId, status), cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
 

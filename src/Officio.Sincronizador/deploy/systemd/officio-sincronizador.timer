@@ -1,5 +1,5 @@
 [Unit]
-Description=Execucao diaria da reconciliacao Autentique do Officio
+Description=Reconciliacao Autentique e encerramento diario de contratos do Officio
 
 [Timer]
 OnCalendar=*-*-* 07:10:00

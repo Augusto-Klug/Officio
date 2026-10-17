@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import Button from 'primevue/button'
-import Checkbox from 'primevue/checkbox'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
@@ -18,9 +17,9 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import OrcamentoDetalheDialog from '../components/OrcamentoDetalheDialog.vue'
 import { normalizeError } from '../../../api/errors'
-import { formatCurrency } from '../../../utils/format'
-import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, excluirOrcamento, listarCatalogoOrcamento, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
-import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
+import { formatCurrency, formatDate } from '../../../utils/format'
+import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, excluirOrcamento, listarCatalogoOrcamento, listarContratosAtivosParaConversao, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
+import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type ContratoAtivoResumo, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,8 +34,10 @@ const detailLoadingId = ref('')
 const createOpen = ref(false)
 const detailOpen = ref(false)
 const convertOpen = ref(false)
+const confirmationOpen = ref(false)
 const deleteOpen = ref(false)
 const selected = ref<Orcamento | null>(null)
+const activeContracts = ref<ContratoAtivoResumo[]>([])
 const deleteTarget = ref<Orcamento | null>(null)
 const editingId = ref('')
 const saving = ref(false)
@@ -46,7 +47,7 @@ const catalogo = ref<ItemCatalogoOrcamento[]>([])
 const catalogLoading = ref(false)
 const catalogError = ref('')
 const catalogoAtivoCount = computed(() => catalogo.value.filter((item) => item.ativo).length)
-const conversion = ref({ dataInicio: hojeLocal(), dataFim: '', renovacaoAutomatica: true, clausulasExtras: '' })
+const conversion = ref({ dataInicio: hojeLocal(), dataFim: '', clausulasExtras: '' })
 let controller: AbortController | undefined
 let catalogController: AbortController | undefined
 
@@ -246,7 +247,8 @@ async function confirmarExclusao() {
 function abrirConversao(item: Orcamento) {
   selected.value = item
   formError.value = ''
-  conversion.value = { dataInicio: hojeLocal(), dataFim: '', renovacaoAutomatica: true, clausulasExtras: '' }
+  conversion.value = { dataInicio: hojeLocal(), dataFim: '', clausulasExtras: '' }
+  activeContracts.value = []
   detailOpen.value = false
   convertOpen.value = true
 }
@@ -259,23 +261,53 @@ function podeAceitar(status: string) {
   return !['Aceito', 'Recusado', 'Expirado'].includes(status)
 }
 
-async function converter() {
-  if (!selected.value) return
+async function converter(confirmarSubstituicaoContratoAtivo = false) {
+  const orcamentoSelecionado = selected.value
+  if (!orcamentoSelecionado) return
   if (!conversion.value.dataInicio) { formError.value = 'Informe a data de início.'; return }
   if (conversion.value.dataFim && conversion.value.dataFim < conversion.value.dataInicio) { formError.value = 'A data final não pode ser anterior à data de início.'; return }
   saving.value = true
   formError.value = ''
   try {
-    await converterOrcamento(selected.value.id, {
+    if (!confirmarSubstituicaoContratoAtivo) {
+      activeContracts.value = await listarContratosAtivosParaConversao(orcamentoSelecionado.id)
+      if (activeContracts.value.length > 0) {
+        convertOpen.value = false
+        confirmationOpen.value = true
+        return
+      }
+    }
+
+    await converterOrcamento(orcamentoSelecionado.id, {
       dataInicio: conversion.value.dataInicio,
       dataFim: conversion.value.dataFim || undefined,
-      renovacaoAutomatica: conversion.value.renovacaoAutomatica,
+      confirmarSubstituicaoContratoAtivo,
       clausulasExtras: conversion.value.clausulasExtras.trim() || undefined,
     })
+    confirmationOpen.value = false
     convertOpen.value = false
     await router.push({ name: 'contratos' })
-  } catch (cause) { formError.value = normalizeError(cause).message }
+  } catch (cause) {
+    if (!confirmarSubstituicaoContratoAtivo && axios.isAxiosError(cause) && cause.response?.status === 409) {
+      try {
+        activeContracts.value = await listarContratosAtivosParaConversao(orcamentoSelecionado.id)
+        if (activeContracts.value.length > 0) {
+          convertOpen.value = false
+          confirmationOpen.value = true
+          return
+        }
+      } catch {
+        // Preserve the original conversion error if the follow-up lookup also fails.
+      }
+    }
+    formError.value = normalizeError(cause).message
+  }
   finally { saving.value = false }
+}
+
+function cancelarConfirmacaoSubstituicao() {
+  confirmationOpen.value = false
+  convertOpen.value = true
 }
 
 function severity(status: string) {
@@ -352,13 +384,27 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
   </Dialog>
 
   <Dialog v-model:visible="convertOpen" modal header="Gerar contrato" class="workflow-dialog" :style="{ width: 'min(620px, 94vw)' }">
-    <form id="contract-form" class="dialog-form" @submit.prevent="converter">
+    <form id="contract-form" class="dialog-form" @submit.prevent="converter()">
       <Message v-if="formError" severity="error" :closable="false">{{ formError }}</Message>
       <div class="form-grid two-columns"><div class="field"><label for="contract-start">Início</label><InputText id="contract-start" v-model="conversion.dataInicio" type="date" /></div><div class="field"><label for="contract-end">Fim (opcional)</label><InputText id="contract-end" v-model="conversion.dataFim" type="date" /></div></div>
-      <label class="check-field"><Checkbox v-model="conversion.renovacaoAutomatica" binary input-id="auto-renew" /><span>Renovação automática</span></label>
       <div class="field"><label for="extra-clauses">Cláusulas extras</label><Textarea id="extra-clauses" v-model="conversion.clausulasExtras" rows="4" auto-resize /></div>
     </form>
     <template #footer><BaseButton label="Cancelar" variant="text" @click="convertOpen = false" /><BaseButton label="Gerar contrato" type="submit" form="contract-form" :loading="saving" /></template>
+  </Dialog>
+
+  <Dialog v-model:visible="confirmationOpen" modal header="Contrato ativo encontrado" class="workflow-dialog" :style="{ width: 'min(540px, 94vw)' }" :closable="false" :close-on-escape="false">
+    <p class="confirmation-copy">Esta empresa já possui contrato ativo. O contrato atual continuará ativo enquanto o novo estiver sendo gerado e assinado. Após a conclusão da nova assinatura, os contratos atuais serão encerrados.</p>
+    <ul class="active-contract-list">
+      <li v-for="contract in activeContracts" :key="contract.id">
+        <strong>{{ contract.numero }}</strong>
+        <span>Vigência: {{ formatDate(contract.dataInicio) }} até {{ contract.dataFim ? formatDate(contract.dataFim) : 'prazo indeterminado' }}</span>
+      </li>
+    </ul>
+    <Message v-if="formError" severity="error" :closable="false">{{ formError }}</Message>
+    <template #footer>
+      <BaseButton label="Voltar" variant="text" :disabled="saving" @click="cancelarConfirmacaoSubstituicao" />
+      <BaseButton label="Gerar contrato" icon="pi pi-file" :loading="saving" @click="converter(true)" />
+    </template>
   </Dialog>
 </template>
 
@@ -381,6 +427,9 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
 .catalog-price { display: grid; gap: 6px; min-width: 0; }
 .legacy-budget-item strong { overflow-wrap: anywhere; }
 .catalog-price-reference { font-size: 11px; }
+.active-contract-list { display: grid; gap: 10px; margin: 0; padding-left: 20px; }
+.active-contract-list li { display: grid; gap: 3px; }
+.active-contract-list span { color: var(--officio-muted); font-size: 13px; }
 .catalog-price > .p-inputnumber,
 .catalog-price :deep(.p-inputnumber-input) { width: 100%; min-width: 0; }
 

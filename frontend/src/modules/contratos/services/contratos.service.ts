@@ -26,7 +26,6 @@ function normalizeContrato(value: unknown): Contrato {
     diaVencimento: numberValue(field(item, 'diaVencimento')),
     dataInicio: requiredString(field(item, 'dataInicio')),
     dataFim: optionalString(field(item, 'dataFim')),
-    renovacaoAutomatica: booleanValue(field(item, 'renovacaoAutomatica')),
     clausulasExtras: optionalString(field(item, 'clausulasExtras')),
     pdfGerado: booleanValue(field(item, 'pdfGerado')),
     pdfAssinadoDisponivel: booleanValue(field(item, 'pdfAssinadoDisponivel')),
@@ -51,9 +50,13 @@ export function normalizeEmpresasContrato(value: unknown): EmpresaContratoFiltro
   })
 }
 
-export async function listarContratos(empresaId?: string, signal?: AbortSignal): Promise<Contrato[]> {
+export async function listarContratos(empresaId?: string, signal?: AbortSignal, status?: string): Promise<Contrato[]> {
+  const params = {
+    ...(empresaId ? { empresaId } : {}),
+    ...(status ? { status } : {}),
+  }
   const { data } = await http.get<unknown>('/v1/contratos/Listar', {
-    params: empresaId ? { empresaId } : undefined,
+    params: Object.keys(params).length ? params : undefined,
     signal,
   })
   return normalizeContratos(data)

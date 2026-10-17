@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, listarCatalogoOrcamento, normalizeCatalogoOrcamento, normalizeOrcamentos, obterOrcamento } from './orcamentos.service'
+import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, listarCatalogoOrcamento, listarContratosAtivosParaConversao, normalizeCatalogoOrcamento, normalizeOrcamentos, obterOrcamento } from './orcamentos.service'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -49,10 +49,21 @@ describe('contrato HTTP de orçamentos', () => {
     const payload = { prospectoId: 'pro-1', titulo: 'Proposta', diaVencimento: 10, itens: [{ descricao: 'Honorários', secao: 2, tipo: 2, naturezaCobranca: 2, quantidade: 1, valorUnitario: 500, ordem: 1 }] }
     await expect(criarOrcamento(payload)).resolves.toBe('orc-1')
     await aceitarOrcamento('orc-1')
-    await expect(converterOrcamento('orc-1', { dataInicio: '2026-09-19', renovacaoAutomatica: true })).resolves.toBe('con-1')
+    await expect(converterOrcamento('orc-1', { dataInicio: '2026-09-19', confirmarSubstituicaoContratoAtivo: true })).resolves.toBe('con-1')
     expect(post).toHaveBeenNthCalledWith(1, '/v1/orcamentos/Criar', payload)
     expect(post).toHaveBeenNthCalledWith(2, '/v1/orcamentos/Aceitar/orc-1')
-    expect(post).toHaveBeenNthCalledWith(3, '/v1/orcamentos/ConverterParaContrato/orc-1', { dataInicio: '2026-09-19', renovacaoAutomatica: true })
+    expect(post).toHaveBeenNthCalledWith(3, '/v1/orcamentos/ConverterParaContrato/orc-1', { dataInicio: '2026-09-19', confirmarSubstituicaoContratoAtivo: true })
+  })
+
+  it('consulta contratos ativos da empresa antes de converter um orcamento', async () => {
+    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: [{
+      id: 'con-1', numero: 'CTR-2026-0001', dataInicio: '2026-01-01T00:00:00', dataFim: null,
+    }] })
+
+    await expect(listarContratosAtivosParaConversao('orc-1')).resolves.toEqual([{
+      id: 'con-1', numero: 'CTR-2026-0001', dataInicio: '2026-01-01T00:00:00', dataFim: null,
+    }])
+    expect(get).toHaveBeenCalledWith('/v1/orcamentos/ObterContratosAtivosParaConversao/orc-1')
   })
 
   it('atualiza um orçamento editável', async () => {

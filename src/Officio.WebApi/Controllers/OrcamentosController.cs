@@ -7,6 +7,7 @@ using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcame
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ExcluirOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentoPorId;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterContratosAtivosParaOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
 using Officio.ViewModels.Contratos;
 using Officio.ViewModels.Orcamentos;
@@ -124,6 +125,7 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     [ProducesResponseType(201)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
+    [ProducesResponseType(409)]
     public async Task<IActionResult> ConverterParaContrato(
         Guid id,
         [FromBody] ConverterOrcamentoParaContratoViewModel viewModel,
@@ -131,9 +133,26 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     {
         var resultado = await mediator.Send(viewModel.ParaComando(id), cancellationToken);
 
-        return resultado.Sucesso
-            ? CreatedAtAction("ObterPorId", "Contratos", new { id = resultado.Valor }, resultado.Valor)
+        if (resultado.Sucesso)
+            return CreatedAtAction("ObterPorId", "Contratos", new { id = resultado.Valor }, resultado.Valor);
+
+        return resultado.Erro == ContratoErros.SubstituicaoRequerConfirmacao
+            ? Conflict(resultado.Erro)
             : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> ObterContratosAtivosParaConversao(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(
+            new ObterContratosAtivosParaOrcamentoConsulta(id),
+            cancellationToken);
+
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
 
     [HttpPost("{id:guid}")]

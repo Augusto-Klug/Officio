@@ -630,9 +630,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<Guid>("ProspectId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<bool>("RenovacaoAutomatica")
-                        .HasColumnType("bit");
-
                     b.Property<int>("Status")
                         .HasColumnType("int");
 

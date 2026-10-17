@@ -107,7 +107,7 @@ public class ContextoAplicacaoEventosTestes
         var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
         var cliente = Cliente.CreateFromProspect(prospecto);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        var contrato = Contrato.CreateFromBudget(orcamento, clientId, DateTime.UtcNow, null, true, null);
+        var contrato = Contrato.CreateFromBudget(orcamento, clientId, DateTime.UtcNow, null, null);
         contexto.Prospects.Add(prospecto);
         contexto.Clients.Add(cliente);
         contexto.Budgets.Add(orcamento);

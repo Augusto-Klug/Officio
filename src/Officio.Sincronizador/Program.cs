@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.EncerrarContratosExpirados;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Comandos.ReconciliarAssinaturasAutentique;
 using Officio.Dominio.Mediador.Modulos;
 using Officio.Infra.BancoDeDados.Modulos;
@@ -15,19 +16,48 @@ builder.Services.AdicionarBancoDeDados(builder.Configuration);
 builder.Services.AdicionarInfraestrutura(builder.Configuration);
 
 using var host = builder.Build();
-using var scope = host.Services.CreateScope();
-var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-var resultado = await mediator.Send(new ReconciliarAssinaturasAutentiqueComando());
+var fusoBrasil = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+var hojeNoBrasil = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, fusoBrasil).DateTime);
+var reconciliacaoConcluida = false;
+var encerramentoConcluido = false;
 
-if (!resultado.Sucesso)
+try
 {
-    Console.Error.WriteLine($"Falha na reconciliacao Autentique: {resultado.Erro}");
-    return 1;
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var reconciliacao = await mediator.Send(new ReconciliarAssinaturasAutentiqueComando());
+    reconciliacaoConcluida = reconciliacao.Sucesso && reconciliacao.Valor!.Falhas == 0;
+
+    if (!reconciliacao.Sucesso)
+        Console.Error.WriteLine($"Falha na reconciliacao Autentique: {reconciliacao.Erro}");
+    else
+    {
+        var resumo = reconciliacao.Valor!;
+        Console.WriteLine(
+            $"Reconciliacao concluida. Consultadas={resumo.Consultadas} Concluidas={resumo.Concluidas} " +
+            $"Pendentes={resumo.Pendentes} Falhas={resumo.Falhas}");
+    }
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"Excecao na reconciliacao Autentique: {exception.Message}");
 }
 
-var resumo = resultado.Valor!;
-Console.WriteLine(
-    $"Reconciliacao concluida. Consultadas={resumo.Consultadas} Concluidas={resumo.Concluidas} " +
-    $"Pendentes={resumo.Pendentes} Falhas={resumo.Falhas}");
+try
+{
+    using var scope = host.Services.CreateScope();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+    var encerramento = await mediator.Send(new EncerrarContratosExpiradosComando(hojeNoBrasil));
+    encerramentoConcluido = encerramento.Sucesso;
 
-return resumo.Falhas == 0 ? 0 : 2;
+    if (!encerramento.Sucesso)
+        Console.Error.WriteLine($"Falha ao encerrar contratos expirados: {encerramento.Erro}");
+    else
+        Console.WriteLine($"Encerramento de contratos concluido. DataReferencia={hojeNoBrasil} Encerrados={encerramento.Valor}");
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"Excecao ao encerrar contratos expirados: {exception.Message}");
+}
+
+return reconciliacaoConcluida && encerramentoConcluido ? 0 : 2;
