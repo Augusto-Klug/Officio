@@ -10,6 +10,7 @@ export const router = createRouter({
     { path: '/esqueci-senha', name: 'esqueci-senha', component: () => import('../views/auth/EsqueciSenhaView.vue'), meta: { title: 'Recuperar senha' } },
     { path: '/redefinir-senha', name: 'redefinir-senha', component: () => import('../views/auth/RedefinirSenhaView.vue'), meta: { title: 'Redefinir senha' } },
     { path: '/ficha-admissao/:token', name: 'ficha-admissao', component: () => import('../modules/admissoes/views/FichaAdmissaoView.vue'), meta: { title: 'Ficha de admissão' } },
+    { path: '/ficha-admissao-empresa/:token', name: 'ficha-admissao-empresa', component: () => import('../modules/admissoes/views/FichaAdmissaoEmpresaView.vue'), meta: { title: 'Dados do empregador' } },
     {
       path: '/', component: () => import('../components/layout/AppLayout.vue'), meta: { requiresAuth: true },
       children: [

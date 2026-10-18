@@ -16,7 +16,8 @@ public interface IAdmissaoRepositorio
 
     Task<Admissao?> ObterDetalheAsync(Guid admissaoId, CancellationToken cancellationToken = default);
     Task<Admissao?> ObterParaAlteracaoAsync(Guid admissaoId, CancellationToken cancellationToken = default);
-    Task<Admissao?> ObterPorTokenHashAsync(string tokenHash, bool rastreamento, CancellationToken cancellationToken = default);
+    Task<Admissao?> ObterPorTokenFuncionarioHashAsync(string tokenHash, bool rastreamento, CancellationToken cancellationToken = default);
+    Task<Admissao?> ObterPorTokenEmpresaHashAsync(string tokenHash, bool rastreamento, CancellationToken cancellationToken = default);
     Task<List<ConfigDocumentoAdmissao>> ObterOuCriarConfiguracoesDocumentoPadraoAsync(CancellationToken cancellationToken = default);
     Task<List<AdmissaoDocumento>> ListarDocumentosAsync(Guid admissaoId, CancellationToken cancellationToken = default);
     Task<AdmissaoDocumento?> ObterDocumentoAsync(Guid admissaoId, Guid admissaoDocumentoId, bool rastreamento, CancellationToken cancellationToken = default);

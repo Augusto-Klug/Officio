@@ -4,25 +4,37 @@ namespace Officio.Dominio.Contratos;
 
 public record GerarLinkFichaAdmissaoDto(string Token, DateTime ExpiraEm);
 
-public record AtualizarFichaAdmissaoRequisicao(
+public record EnviarLinkFichaAdmissaoEmailRequisicao(
+    Guid AdmissaoId,
+    string Papel,
+    string Email,
+    string Token);
+
+public record AtualizarFichaFuncionarioRequisicao(
     string NomeFuncionario,
-    string? Cpf,
-    string? Rg,
     DateOnly? DataNascimento,
     string? Sexo,
     string? EstadoCivil,
     string? Escolaridade,
     string? Telefone,
     string? Email,
+    IReadOnlyCollection<DependenteAdmissaoRequisicao> Dependentes);
+
+public record AtualizarFichaEmpresaRequisicao(
     string? Pis,
+    DateOnly? DataAdmissaoPrevista,
+    decimal? Salario,
+    string? Comissao,
+    string? Funcao,
+    int? ContratoExperienciaDias,
+    bool? UtilizaValeTransporte,
+    string? HorarioTrabalho,
     string? Banco,
     string? Agencia,
     string? Conta,
-    string? TipoConta,
-    bool? UtilizaValeTransporte,
-    IReadOnlyCollection<DependenteAdmissaoRequisicao> Dependentes);
+    string? TipoConta);
 
-public record FichaAdmissaoPublicaDto(
+public record FichaFuncionarioPublicaDto(
     Guid Id,
     string EmpresaNome,
     string NomeFuncionario,
@@ -39,10 +51,41 @@ public record FichaAdmissaoPublicaDto(
     string? Agencia,
     string? Conta,
     string? TipoConta,
-    bool? UtilizaValeTransporte,
     DateOnly? DataAdmissaoPrevista,
+    decimal? Salario,
+    string? Comissao,
     string? Funcao,
+    int? ContratoExperienciaDias,
+    bool? UtilizaValeTransporte,
+    string? HorarioTrabalho,
     bool PreenchimentoConcluido,
     DateTime ExpiraEm,
     IReadOnlyCollection<AdmissaoDependenteDto> Dependentes,
     IReadOnlyCollection<AdmissaoDocumentoDto> Documentos);
+
+public record FichaEmpresaPublicaDto(
+    Guid Id,
+    string EmpresaNome,
+    string NomeFuncionario,
+    string? Cpf,
+    string? Rg,
+    DateOnly? DataNascimento,
+    string? Sexo,
+    string? EstadoCivil,
+    string? Escolaridade,
+    string? Telefone,
+    string? Email,
+    string? Banco,
+    string? Agencia,
+    string? Conta,
+    string? TipoConta,
+    string? Pis,
+    DateOnly? DataAdmissaoPrevista,
+    decimal? Salario,
+    string? Comissao,
+    string? Funcao,
+    int? ContratoExperienciaDias,
+    bool? UtilizaValeTransporte,
+    string? HorarioTrabalho,
+    bool PreenchimentoConcluido,
+    DateTime ExpiraEm);

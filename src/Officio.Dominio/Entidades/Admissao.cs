@@ -34,6 +34,8 @@ public class Admissao : EntidadeAuditavel
     public string? HorarioTrabalho { get; private set; }
     public string? TokenAcessoHash { get; private set; }
     public DateTime? TokenExpiraEm { get; private set; }
+    public string? TokenEmpresaAcessoHash { get; private set; }
+    public DateTime? TokenEmpresaExpiraEm { get; private set; }
     public DateTime? PreenchimentoFuncionarioConcluidoEm { get; private set; }
     public DateTime? PreenchimentoEmpresaConcluidoEm { get; private set; }
     public string? Observacoes { get; private set; }
@@ -137,6 +139,9 @@ public class Admissao : EntidadeAuditavel
         TokenAcessoHash = tokenHash;
         TokenExpiraEm = expiraEm;
         PreenchimentoFuncionarioConcluidoEm = null;
+        TokenEmpresaAcessoHash = null;
+        TokenEmpresaExpiraEm = null;
+        PreenchimentoEmpresaConcluidoEm = null;
     }
 
     public void RevogarAcessoTemporario()
@@ -145,30 +150,89 @@ public class Admissao : EntidadeAuditavel
         TokenExpiraEm = null;
     }
 
+    public void GerarAcessoEmpresa(string tokenHash, DateTime expiraEm)
+    {
+        if (!PreenchimentoFuncionarioConcluidoEm.HasValue)
+            throw new InvalidOperationException("O admitido precisa concluir a ficha antes do acesso do empregador.");
+        if (string.IsNullOrWhiteSpace(tokenHash))
+            throw new ArgumentException("Hash do token e obrigatorio.", nameof(tokenHash));
+        if (expiraEm <= DateTime.UtcNow)
+            throw new ArgumentException("A expiracao do token deve estar no futuro.", nameof(expiraEm));
+
+        TokenEmpresaAcessoHash = tokenHash;
+        TokenEmpresaExpiraEm = expiraEm;
+        PreenchimentoEmpresaConcluidoEm = null;
+    }
+
+    public void RevogarAcessoEmpresa()
+    {
+        TokenEmpresaAcessoHash = null;
+        TokenEmpresaExpiraEm = null;
+    }
+
     public void MarcarPreenchimentoFuncionarioConcluido()
         => PreenchimentoFuncionarioConcluidoEm ??= DateTime.UtcNow;
 
+    public void MarcarPreenchimentoEmpresaConcluido()
+        => PreenchimentoEmpresaConcluidoEm ??= DateTime.UtcNow;
+
     public void AtualizarDadosFuncionario(
         string nomeFuncionario,
-        string? cpf,
-        string? rg,
         DateOnly? dataNascimento,
         string? sexo,
         string? estadoCivil,
         string? escolaridade,
         string? telefone,
-        string? email,
+        string? email)
+    {
+        if (string.IsNullOrWhiteSpace(nomeFuncionario))
+            throw new ArgumentException("Nome do funcionario e obrigatorio.", nameof(nomeFuncionario));
+        if (dataNascimento is null || dataNascimento >= DateOnly.FromDateTime(DateTime.UtcNow))
+            throw new ArgumentException("Informe uma data de nascimento valida.", nameof(dataNascimento));
+        if (sexo is not ("Masculino" or "Feminino"))
+            throw new ArgumentException("Selecione Masculino ou Feminino para o sexo do funcionario.", nameof(sexo));
+
+        NomeFuncionario = nomeFuncionario.Trim();
+        DataNascimento = dataNascimento;
+        Sexo = sexo;
+        EstadoCivil = Normalizar(estadoCivil);
+        Escolaridade = Normalizar(escolaridade);
+        Telefone = Normalizar(telefone);
+        Email = Normalizar(email)?.ToLowerInvariant();
+    }
+
+    public void AtualizarDadosEmpresa(
         string? pis,
+        DateOnly? dataAdmissaoPrevista,
+        decimal? salario,
+        string? comissao,
+        string? funcao,
+        int? contratoExperienciaDias,
+        bool? utilizaValeTransporte,
+        string? horarioTrabalho,
         string? banco,
         string? agencia,
         string? conta,
-        string? tipoConta,
-        bool? utilizaValeTransporte)
-        => AtualizarDados(
-            nomeFuncionario, cpf, rg, dataNascimento, sexo, estadoCivil, escolaridade,
-            telefone, email, pis, banco, agencia, conta, tipoConta, DataAdmissaoPrevista,
-            Salario, Comissao, Funcao, ContratoExperienciaDias, utilizaValeTransporte,
-            HorarioTrabalho, Observacoes);
+        string? tipoConta)
+    {
+        if (salario < 0)
+            throw new ArgumentException("Salario nao pode ser negativo.", nameof(salario));
+        if (contratoExperienciaDias < 0)
+            throw new ArgumentException("Contrato de experiencia nao pode ter duracao negativa.", nameof(contratoExperienciaDias));
+
+        Pis = DocumentoFiscal.SomenteDigitos(pis);
+        DataAdmissaoPrevista = dataAdmissaoPrevista;
+        Salario = salario;
+        Comissao = Normalizar(comissao);
+        Funcao = Normalizar(funcao);
+        ContratoExperienciaDias = contratoExperienciaDias;
+        UtilizaValeTransporte = utilizaValeTransporte;
+        HorarioTrabalho = Normalizar(horarioTrabalho);
+        Banco = Normalizar(banco);
+        Agencia = Normalizar(agencia);
+        Conta = Normalizar(conta);
+        TipoConta = Normalizar(tipoConta);
+    }
 
     private static string? Normalizar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

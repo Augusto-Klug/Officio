@@ -28,6 +28,11 @@ public class AdmissaoDocumentoFluxoTestes(OfficioWebApplicationFactory factory)
             dados = new
             {
                 nomeFuncionario = "Funcionaria Integracao",
+                cpf = "11789299900",
+                rg = "1234567",
+                dataNascimento = new DateOnly(1995, 6, 15),
+                sexo = "Feminino",
+                telefone = "47999990000",
                 dependentes = Array.Empty<object>()
             }
         });
@@ -44,18 +49,32 @@ public class AdmissaoDocumentoFluxoTestes(OfficioWebApplicationFactory factory)
         var fichaResposta = await cliente.GetAsync($"/api/v1/admissoes-publicas/Obter/{tokenFicha}");
         Assert.Equal(HttpStatusCode.OK, fichaResposta.StatusCode);
         var ficha = await fichaResposta.Content.ReadFromJsonAsync<JsonObject>();
-        var identidade = Assert.Single(ficha!["documentos"]!.AsArray(),
-            item => item!["tipoCodigo"]!.GetValue<string>() == "IDENTIDADE");
-        var itemId = identidade!["id"]!.GetValue<Guid>();
+        var itensParaEnviar = ficha!["documentos"]!.AsArray()
+            .Where(item => item!["obrigatorio"]!.GetValue<bool>() ||
+                item["tipoCodigo"]!.GetValue<string>() == "IDENTIDADE")
+            .ToList();
+        Guid itemId = Guid.Empty;
+        foreach (var item in itensParaEnviar)
+        {
+            var tipoCodigo = item!["tipoCodigo"]!.GetValue<string>();
+            var id = item["id"]!.GetValue<Guid>();
+            if (tipoCodigo == "IDENTIDADE")
+                itemId = id;
 
-        using var conteudo = new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.4\nconteudo de teste\n%%EOF"));
-        conteudo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-        using var formulario = new MultipartFormDataContent();
-        formulario.Add(conteudo, "arquivos", "identidade.pdf");
-        var upload = await cliente.PostAsync(
-            $"/api/v1/admissoes-publicas/EnviarDocumento/{tokenFicha}/itens/{itemId}", formulario);
-        Assert.True(upload.StatusCode == HttpStatusCode.OK,
-            $"Upload retornou {(int)upload.StatusCode}: {await upload.Content.ReadAsStringAsync()}");
+            using var conteudo = new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.4\nconteudo de teste\n%%EOF"));
+            conteudo.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+            using var formulario = new MultipartFormDataContent();
+            formulario.Add(conteudo, "arquivos", $"{tipoCodigo}.pdf");
+            var upload = await cliente.PostAsync(
+                $"/api/v1/admissoes-publicas/EnviarDocumento/{tokenFicha}/itens/{id}", formulario);
+            Assert.True(upload.StatusCode == HttpStatusCode.OK,
+                $"Upload de {tipoCodigo} retornou {(int)upload.StatusCode}: {await upload.Content.ReadAsStringAsync()}");
+        }
+
+        var envioConferencia = await cliente.PostAsync(
+            $"/api/v1/admissoes-publicas/Concluir/{tokenFicha}", null);
+        Assert.True(envioConferencia.StatusCode == HttpStatusCode.NoContent,
+            $"Envio para conferencia retornou {(int)envioConferencia.StatusCode}: {await envioConferencia.Content.ReadAsStringAsync()}");
 
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenAcesso);
         var validacao = await cliente.PostAsync(

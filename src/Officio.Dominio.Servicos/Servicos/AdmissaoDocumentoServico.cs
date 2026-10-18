@@ -222,82 +222,16 @@ public sealed class AdmissaoDocumentoServico(
         var erro = ValidarItemEditavel(item);
         if (erro is not null)
             return Resultado<ValidationResultDto>.CriarFalha(erro);
-        if (item!.DocumentoId is null)
+        if (item!.Admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.AguardandoValidacao)
+            return Resultado<ValidationResultDto>.CriarFalha("A validacao documental so pode ocorrer enquanto a admissao aguarda revisao da contabilidade.");
+        if (item.DocumentoId is null)
             return Resultado<ValidationResultDto>.CriarFalha("Envie o arquivo antes de iniciar a validacao.");
 
         var resultado = await documentoServico.ValidarAsync(item.DocumentoId.Value, ct);
         if (!resultado.Sucesso)
             return resultado;
 
-        if (resultado.Valor!.FallbackManual || !resultado.Valor.Valido)
-        {
-            var status = await repositorio.ObterOuCriarStatusAsync(
-                StatusAdmissaoCodigos.PendenteRevisao, "Pendente de revisao", 4, ct);
-            item.Admissao.AlterarStatus(status.Id);
-            await repositorio.SalvarAlteracoesAsync(ct);
-        }
-
         return resultado;
-    }
-
-    public async Task<Resultado<ResumoValidacaoDocumentosAdmissaoDto>> ValidarPendentesAsync(
-        Guid admissaoId,
-        CancellationToken ct = default)
-    {
-        var admissao = await repositorio.ObterDetalheAsync(admissaoId, ct);
-        if (admissao is null)
-            return Resultado<ResumoValidacaoDocumentosAdmissaoDto>.CriarFalha("Admissao nao encontrada.");
-
-        var documentos = await repositorio.ListarDocumentosAsync(admissaoId, ct);
-        var pendentes = documentos
-            .Where(item => item.DocumentoId.HasValue && item.Documento!.Validacoes.Count == 0)
-            .ToList();
-        var aprovados = 0;
-        var pendentesRevisao = 0;
-        var falhas = 0;
-
-        foreach (var item in pendentes)
-        {
-            try
-            {
-                var resultado = await ValidarAsync(admissaoId, item.Id, ct);
-                if (!resultado.Sucesso)
-                {
-                    falhas++;
-                    logger.LogWarning(
-                        "Nao foi possivel validar automaticamente o documento {DocumentoId} da admissao {AdmissaoId}: {Erro}",
-                        item.DocumentoId, admissaoId, resultado.Erro);
-                    continue;
-                }
-
-                if (resultado.Valor!.Valido && !resultado.Valor.FallbackManual)
-                    aprovados++;
-                else
-                    pendentesRevisao++;
-            }
-            catch (Exception exception)
-            {
-                falhas++;
-                logger.LogWarning(exception,
-                    "Falha ao validar automaticamente o documento {DocumentoId} da admissao {AdmissaoId}.",
-                    item.DocumentoId, admissaoId);
-            }
-        }
-
-        if (falhas > 0)
-        {
-            var admissaoParaAlteracao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
-            if (admissaoParaAlteracao is not null)
-            {
-                var status = await repositorio.ObterOuCriarStatusAsync(
-                    StatusAdmissaoCodigos.PendenteRevisao, "Pendente de revisao", 4, ct);
-                admissaoParaAlteracao.AlterarStatus(status.Id);
-                await repositorio.SalvarAlteracoesAsync(ct);
-            }
-        }
-
-        return Resultado<ResumoValidacaoDocumentosAdmissaoDto>.CriarSucesso(
-            new(pendentes.Count, aprovados, pendentesRevisao, falhas));
     }
 
     public async Task<Resultado<bool>> AprovarManualmenteAsync(
@@ -309,7 +243,9 @@ public sealed class AdmissaoDocumentoServico(
         var erro = ValidarItemEditavel(item);
         if (erro is not null)
             return Resultado<bool>.CriarFalha(erro);
-        if (item!.DocumentoId is null)
+        if (item!.Admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.AguardandoValidacao)
+            return Resultado<bool>.CriarFalha("A revisao manual so pode ocorrer enquanto a admissao aguarda revisao da contabilidade.");
+        if (item.DocumentoId is null)
             return Resultado<bool>.CriarFalha("Arquivo ainda nao enviado.");
         if (string.IsNullOrWhiteSpace(requisicao.Observacao))
             return Resultado<bool>.CriarFalha("Informe a justificativa da revisao manual.");
@@ -326,17 +262,6 @@ public sealed class AdmissaoDocumentoServico(
 
         validacao.ApproveManually(usuarioAtual.UserId, requisicao.Observacao);
         await repositorio.SalvarAlteracoesAsync(ct);
-
-        var documentos = await repositorio.ListarDocumentosAsync(item.AdmissaoId, ct);
-        var possuiOutraRevisao = documentos.Any(documento =>
-            documento.Documento?.Validacoes.OrderByDescending(v => v.CriadoEm).FirstOrDefault()?.Status
-                is StatusValidacao.Reprovado or StatusValidacao.RevisaoManual);
-        if (!possuiOutraRevisao)
-        {
-            var status = await repositorio.ObterOuCriarStatusAsync(StatusAdmissaoCodigos.Rascunho, "Rascunho", 1, ct);
-            item.Admissao.AlterarStatus(status.Id);
-            await repositorio.SalvarAlteracoesAsync(ct);
-        }
 
         return Resultado<bool>.CriarSucesso(true);
     }
@@ -365,9 +290,14 @@ public sealed class AdmissaoDocumentoServico(
     {
         if (item is null)
             return "Documento da admissao nao encontrado.";
-        return StatusAdmissaoCodigos.Terminal(item.Admissao.StatusAdmissao.Codigo)
-            ? "Documentos de uma admissao concluida ou cancelada nao podem ser alterados."
-            : null;
+        var status = item.Admissao.StatusAdmissao.Codigo;
+        if (StatusAdmissaoCodigos.Terminal(status))
+            return "Documentos de uma admissao concluida ou cancelada nao podem ser alterados.";
+        return status is StatusAdmissaoCodigos.Rascunho
+            or StatusAdmissaoCodigos.AguardandoAdmitido
+            or StatusAdmissaoCodigos.AguardandoValidacao
+                ? null
+                : "Documentos nao podem ser alterados apos a conclusao da revisao documental.";
     }
 
     private static AdmissaoDocumentoDto Mapear(AdmissaoDocumento item)
@@ -400,7 +330,10 @@ public sealed class AdmissaoDocumentoServico(
                 divergencia.ValorInformado ?? string.Empty,
                 divergencia.Confianca ?? 0m)).ToList() ?? [],
             validacao?.TipoDocumentoDetectado,
-            validacao?.TipoDocumentoIncompativel ?? false);
+            validacao?.TipoDocumentoIncompativel ?? false,
+            validacao?.ObservacaoRevisao,
+            validacao?.RevisadoPor?.Nome,
+            validacao?.RevisadoEm);
     }
 
     private static bool TentarMapearTipo(string codigo, out TipoDocumento tipo)

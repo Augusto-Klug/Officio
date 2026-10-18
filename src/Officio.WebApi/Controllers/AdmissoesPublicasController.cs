@@ -25,18 +25,50 @@ public class AdmissoesPublicasController(IFichaAdmissaoServico servico) : Contro
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Atualizar(
         string token,
-        [FromBody] AtualizarFichaAdmissaoViewModel viewModel,
+        [FromBody] AtualizarFichaFuncionarioViewModel viewModel,
         CancellationToken cancellationToken)
     {
-        var requisicao = new AtualizarFichaAdmissaoRequisicao(
-            viewModel.NomeFuncionario, viewModel.Cpf, viewModel.Rg, viewModel.DataNascimento,
-            viewModel.Sexo, viewModel.EstadoCivil, viewModel.Escolaridade, viewModel.Telefone,
-            viewModel.Email, viewModel.Pis, viewModel.Banco, viewModel.Agencia, viewModel.Conta,
-            viewModel.TipoConta, viewModel.UtilizaValeTransporte,
+        var requisicao = new AtualizarFichaFuncionarioRequisicao(
+            viewModel.NomeFuncionario, viewModel.DataNascimento, viewModel.Sexo,
+            viewModel.EstadoCivil, viewModel.Escolaridade, viewModel.Telefone, viewModel.Email,
             (viewModel.Dependentes ?? []).Select(item => new DependenteAdmissaoRequisicao(
                 item.Nome, item.Cpf, item.DataNascimento, item.Parentesco,
                 item.DependenteIr, item.SalarioFamilia)).ToList());
         var resultado = await servico.AtualizarAsync(token, requisicao, cancellationToken);
+        return resultado.Sucesso ? NoContent() : BadRequest(resultado.Erro);
+    }
+
+    [HttpGet("{token}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ObterEmpresa(string token, CancellationToken cancellationToken)
+    {
+        var resultado = await servico.ObterEmpresaAsync(token, cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : BadRequest(resultado.Erro);
+    }
+
+    [HttpPut("{token}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> AtualizarEmpresa(
+        string token,
+        [FromBody] AtualizarFichaEmpresaViewModel viewModel,
+        CancellationToken cancellationToken)
+    {
+        var requisicao = new AtualizarFichaEmpresaRequisicao(
+            viewModel.Pis, viewModel.DataAdmissaoPrevista, viewModel.Salario, viewModel.Comissao,
+            viewModel.Funcao, viewModel.ContratoExperienciaDias, viewModel.UtilizaValeTransporte,
+            viewModel.HorarioTrabalho, viewModel.Banco, viewModel.Agencia, viewModel.Conta, viewModel.TipoConta);
+        var resultado = await servico.AtualizarEmpresaAsync(token, requisicao, cancellationToken);
+        return resultado.Sucesso ? NoContent() : BadRequest(resultado.Erro);
+    }
+
+    [HttpPost("{token}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ConcluirEmpresa(string token, CancellationToken cancellationToken)
+    {
+        var resultado = await servico.ConcluirEmpresaAsync(token, cancellationToken);
         return resultado.Sucesso ? NoContent() : BadRequest(resultado.Erro);
     }
 

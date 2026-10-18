@@ -4,6 +4,7 @@ import Dialog from 'primevue/dialog'
 import BaseButton from '../../../components/base/BaseButton.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { formatCurrency, formatDate } from '../../../utils/format'
+import { formatarCpf, formatarPis, formatarTelefone } from '../../../utils/inputMasks'
 import type { AdmissaoDetalhe } from '../types/admissao'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -32,11 +33,11 @@ function informar(value: string | number | null | undefined): string {
       </div>
 
       <dl class="detail-grid admission-summary">
-        <div><dt>CPF</dt><dd>{{ informar(admissao.cpf) }}</dd></div>
+        <div><dt>CPF</dt><dd>{{ informar(formatarCpf(admissao.cpf)) }}</dd></div>
         <div><dt>Função</dt><dd>{{ informar(admissao.funcao) }}</dd></div>
         <div><dt>Admissão prevista</dt><dd>{{ formatDate(admissao.dataAdmissaoPrevista) }}</dd></div>
         <div><dt>Salário</dt><dd>{{ admissao.salario == null ? 'Não informado' : formatCurrency(admissao.salario) }}</dd></div>
-        <div><dt>Telefone</dt><dd>{{ informar(admissao.telefone) }}</dd></div>
+        <div><dt>Telefone</dt><dd>{{ informar(formatarTelefone(admissao.telefone)) }}</dd></div>
         <div><dt>E-mail</dt><dd>{{ informar(admissao.email) }}</dd></div>
       </dl>
 
@@ -46,7 +47,7 @@ function informar(value: string | number | null | undefined): string {
         <div><dt>Sexo</dt><dd>{{ informar(admissao.sexo) }}</dd></div>
         <div><dt>Estado civil</dt><dd>{{ informar(admissao.estadoCivil) }}</dd></div>
         <div><dt>Escolaridade</dt><dd>{{ informar(admissao.escolaridade) }}</dd></div>
-        <div><dt>PIS/PASEP</dt><dd>{{ informar(admissao.pis) }}</dd></div>
+        <div><dt>PIS/PASEP</dt><dd>{{ informar(formatarPis(admissao.pis)) }}</dd></div>
       </dl></section>
 
       <section class="detail-section"><h3>Vínculo e pagamento</h3><dl class="detail-grid detail-grid-compact">
@@ -60,7 +61,7 @@ function informar(value: string | number | null | undefined): string {
 
       <section class="detail-section"><h3>Dependentes <span>{{ admissao.dependentes.length }}</span></h3>
         <div v-if="admissao.dependentes.length" class="detail-list">
-          <div v-for="dependente in admissao.dependentes" :key="dependente.id"><strong>{{ dependente.nome }}</strong><span>{{ dependente.parentesco || 'Parentesco não informado' }} · {{ dependente.cpf || 'CPF não informado' }}</span></div>
+          <div v-for="dependente in admissao.dependentes" :key="dependente.id"><strong>{{ dependente.nome }}</strong><span>{{ dependente.parentesco || 'Parentesco não informado' }} · {{ formatarCpf(dependente.cpf) || 'CPF não informado' }}</span></div>
         </div>
         <p v-else class="muted">Nenhum dependente informado.</p>
       </section>
@@ -71,7 +72,7 @@ function informar(value: string | number | null | undefined): string {
       <BaseButton label="Fechar" variant="text" @click="visible = false" />
       <BaseButton v-if="admissao && !terminal" label="Cancelar admissão" icon="pi pi-ban" variant="secondary" @click="$emit('cancelar')" />
       <BaseButton v-if="admissao && !terminal" label="Editar" icon="pi pi-pencil" variant="secondary" @click="$emit('editar')" />
-      <BaseButton v-if="admissao && !terminal" label="Concluir" icon="pi pi-check" @click="$emit('concluir')" />
+      <BaseButton v-if="admissao && !terminal && admissao.status === 'LIBERADO_PELO_EMPREGADOR'" label="Concluir admissão" icon="pi pi-check" @click="$emit('concluir')" />
     </template>
   </Dialog>
 </template>

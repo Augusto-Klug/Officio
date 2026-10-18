@@ -13,6 +13,7 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatDate } from '../../../utils/format'
+import { formatarCnpj } from '../../../utils/inputMasks'
 import { alterarStatusParceiro, convidarAdministradorParceiro, criarParceiro, listarParceiros, reenviarConviteAdministrador } from '../services/parceiros.service'
 import type { ParceiroPlataforma } from '../types/parceiro'
 
@@ -155,7 +156,7 @@ onBeforeUnmount(() => controller?.abort())
       <fieldset><legend>Dados do parceiro</legend><div class="form-grid two-columns">
         <BaseInput id="company-name" v-model="razaoSocial" label="Razão social" required :disabled="saving" />
         <BaseInput id="company-trade-name" v-model="nomeFantasia" label="Nome fantasia" :disabled="saving" />
-        <BaseInput id="company-cnpj" v-model="cnpj" label="CNPJ" inputmode="numeric" placeholder="00.000.000/0000-00" required :disabled="saving" />
+        <BaseInput id="company-cnpj" :model-value="cnpj" label="CNPJ" inputmode="numeric" placeholder="00.000.000/0000-00" maxlength="18" required :disabled="saving" @update:model-value="cnpj = formatarCnpj($event)" />
       </div></fieldset>
       <fieldset><legend>Primeiro administrador</legend><p>Esta pessoa receberá o convite para ativar a conta e gerenciar a equipe do parceiro.</p><div class="form-grid two-columns">
         <BaseInput id="admin-name" v-model="adminNome" label="Nome completo" autocomplete="name" required :disabled="saving" />

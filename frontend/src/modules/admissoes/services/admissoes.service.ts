@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, AtualizarFichaAdmissaoPayload, CriarAdmissaoPayload, DadosAdmissaoPayload, DivergenciaDocumento, EmpresaAdmissoesResumo, FichaAdmissaoPublica, LinkFichaAdmissao, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
+import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, AtualizarFichaEmpresaPayload, AtualizarFichaFuncionarioPayload, CriarAdmissaoPayload, DadosAdmissaoPayload, DivergenciaDocumento, EmpresaAdmissoesResumo, FichaEmpresaPublica, FichaFuncionarioPublica, LinkFichaAdmissao, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
 
 function optionalNumber(value: unknown): number | null {
   if (value == null) return null
@@ -61,6 +61,8 @@ function normalizeResumo(value: unknown): AdmissaoResumo {
     funcao: optionalString(field(item, 'funcao')),
     salario: optionalNumber(field(item, 'salario')),
     criadoEm: requiredString(field(item, 'criadoEm')),
+    preenchimentoFuncionarioConcluido: optionalBoolean(field(item, 'preenchimentoFuncionarioConcluido')) ?? false,
+    preenchimentoEmpresaConcluido: optionalBoolean(field(item, 'preenchimentoEmpresaConcluido')) ?? false,
   }
 }
 
@@ -135,6 +137,9 @@ function normalizeDocumento(value: unknown): AdmissaoDocumento {
     divergencias: normalizeDivergencias(field(item, 'divergencias')),
     tipoDocumentoDetectado: optionalString(field(item, 'tipoDocumentoDetectado')),
     tipoDocumentoIncompativel: optionalBoolean(field(item, 'tipoDocumentoIncompativel')) ?? false,
+    observacaoRevisao: optionalString(field(item, 'observacaoRevisao')),
+    revisadoPorNome: optionalString(field(item, 'revisadoPorNome')),
+    revisadoEm: optionalString(field(item, 'revisadoEm')),
   }
 }
 
@@ -173,6 +178,19 @@ export async function atualizarAdmissao(id: string, dados: DadosAdmissaoPayload)
 
 export async function concluirAdmissao(id: string): Promise<void> {
   await http.post(`/v1/admissoes/Concluir/${id}`)
+}
+
+export async function concluirRevisaoDocumentalAdmissao(id: string): Promise<void> {
+  await http.post(`/v1/admissoes/ConcluirRevisaoDocumental/${id}`)
+}
+
+export async function enviarLinkFichaAdmissaoPorEmail(
+  id: string,
+  papel: 'funcionario' | 'empresa',
+  email: string,
+  token: string,
+): Promise<void> {
+  await http.post(`/v1/admissoes/EnviarLinkPorEmail/${id}`, { papel, email, token })
 }
 
 export async function cancelarAdmissao(id: string): Promise<void> {
@@ -226,7 +244,7 @@ export async function revogarLinkFichaAdmissao(id: string): Promise<void> {
   await http.post(`/v1/admissoes/RevogarLinkFicha/${id}`)
 }
 
-export function normalizeFichaAdmissao(value: unknown): FichaAdmissaoPublica {
+export function normalizeFichaFuncionario(value: unknown): FichaFuncionarioPublica {
   const item = record(value)
   const dependentes = field(item, 'dependentes')
   if (!Array.isArray(dependentes)) throw new Error('A API retornou dependentes em formato inesperado.')
@@ -247,9 +265,13 @@ export function normalizeFichaAdmissao(value: unknown): FichaAdmissaoPublica {
     agencia: optionalString(field(item, 'agencia')),
     conta: optionalString(field(item, 'conta')),
     tipoConta: optionalString(field(item, 'tipoConta')),
-    utilizaValeTransporte: optionalBoolean(field(item, 'utilizaValeTransporte')),
     dataAdmissaoPrevista: optionalString(field(item, 'dataAdmissaoPrevista')),
+    salario: optionalNumber(field(item, 'salario')),
+    comissao: optionalString(field(item, 'comissao')),
     funcao: optionalString(field(item, 'funcao')),
+    contratoExperienciaDias: optionalNumber(field(item, 'contratoExperienciaDias')),
+    utilizaValeTransporte: optionalBoolean(field(item, 'utilizaValeTransporte')),
+    horarioTrabalho: optionalString(field(item, 'horarioTrabalho')),
     preenchimentoConcluido: optionalBoolean(field(item, 'preenchimentoConcluido')) ?? false,
     expiraEm: requiredString(field(item, 'expiraEm')),
     dependentes: dependentes.map(normalizeDependente),
@@ -257,12 +279,43 @@ export function normalizeFichaAdmissao(value: unknown): FichaAdmissaoPublica {
   }
 }
 
-export async function obterFichaAdmissao(token: string): Promise<FichaAdmissaoPublica> {
-  const { data } = await http.get<unknown>(`/v1/admissoes-publicas/Obter/${encodeURIComponent(token)}`, { skipAuth: true })
-  return normalizeFichaAdmissao(data)
+export function normalizeFichaEmpresa(value: unknown): FichaEmpresaPublica {
+  const item = record(value)
+  return {
+    id: requiredString(field(item, 'id')),
+    empresaNome: requiredString(field(item, 'empresaNome')),
+    nomeFuncionario: requiredString(field(item, 'nomeFuncionario')),
+    cpf: optionalString(field(item, 'cpf')),
+    rg: optionalString(field(item, 'rg')),
+    dataNascimento: optionalString(field(item, 'dataNascimento')),
+    sexo: optionalString(field(item, 'sexo')),
+    estadoCivil: optionalString(field(item, 'estadoCivil')),
+    escolaridade: optionalString(field(item, 'escolaridade')),
+    telefone: optionalString(field(item, 'telefone')),
+    email: optionalString(field(item, 'email')),
+    banco: optionalString(field(item, 'banco')),
+    agencia: optionalString(field(item, 'agencia')),
+    conta: optionalString(field(item, 'conta')),
+    tipoConta: optionalString(field(item, 'tipoConta')),
+    pis: optionalString(field(item, 'pis')),
+    dataAdmissaoPrevista: optionalString(field(item, 'dataAdmissaoPrevista')),
+    salario: optionalNumber(field(item, 'salario')),
+    comissao: optionalString(field(item, 'comissao')),
+    funcao: optionalString(field(item, 'funcao')),
+    contratoExperienciaDias: optionalNumber(field(item, 'contratoExperienciaDias')),
+    utilizaValeTransporte: optionalBoolean(field(item, 'utilizaValeTransporte')),
+    horarioTrabalho: optionalString(field(item, 'horarioTrabalho')),
+    preenchimentoConcluido: optionalBoolean(field(item, 'preenchimentoConcluido')) ?? false,
+    expiraEm: requiredString(field(item, 'expiraEm')),
+  }
 }
 
-export async function atualizarFichaAdmissao(token: string, payload: AtualizarFichaAdmissaoPayload): Promise<void> {
+export async function obterFichaAdmissao(token: string): Promise<FichaFuncionarioPublica> {
+  const { data } = await http.get<unknown>(`/v1/admissoes-publicas/Obter/${encodeURIComponent(token)}`, { skipAuth: true })
+  return normalizeFichaFuncionario(data)
+}
+
+export async function atualizarFichaAdmissao(token: string, payload: AtualizarFichaFuncionarioPayload): Promise<void> {
   await http.put(`/v1/admissoes-publicas/Atualizar/${encodeURIComponent(token)}`, payload, { skipAuth: true })
 }
 
@@ -280,4 +333,27 @@ export async function obterUrlDocumentoFichaAdmissao(token: string, itemId: stri
   const { data } = await http.get<unknown>(`/v1/admissoes-publicas/ObterUrlDocumento/${encodeURIComponent(token)}/itens/${itemId}`, { skipAuth: true })
   const item = record(data)
   return { url: requiredString(field(item, 'url')), expiraEm: requiredString(field(item, 'expiraEm')) }
+}
+
+export async function gerarLinkFichaEmpresaAdmissao(id: string): Promise<LinkFichaAdmissao> {
+  const { data } = await http.post<unknown>(`/v1/admissoes/GerarLinkFichaEmpresa/${id}`)
+  const item = record(data)
+  return { token: requiredString(field(item, 'token')), expiraEm: requiredString(field(item, 'expiraEm')) }
+}
+
+export async function revogarLinkFichaEmpresaAdmissao(id: string): Promise<void> {
+  await http.post(`/v1/admissoes/RevogarLinkFichaEmpresa/${id}`)
+}
+
+export async function obterFichaEmpresaAdmissao(token: string): Promise<FichaEmpresaPublica> {
+  const { data } = await http.get<unknown>(`/v1/admissoes-publicas/ObterEmpresa/${encodeURIComponent(token)}`, { skipAuth: true })
+  return normalizeFichaEmpresa(data)
+}
+
+export async function atualizarFichaEmpresaAdmissao(token: string, payload: AtualizarFichaEmpresaPayload): Promise<void> {
+  await http.put(`/v1/admissoes-publicas/AtualizarEmpresa/${encodeURIComponent(token)}`, payload, { skipAuth: true })
+}
+
+export async function concluirFichaEmpresaAdmissao(token: string): Promise<void> {
+  await http.post(`/v1/admissoes-publicas/ConcluirEmpresa/${encodeURIComponent(token)}`, undefined, { skipAuth: true })
 }

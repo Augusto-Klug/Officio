@@ -10,6 +10,8 @@ export interface AdmissaoResumo {
   funcao: string | null
   salario: number | null
   criadoEm: string
+  preenchimentoFuncionarioConcluido: boolean
+  preenchimentoEmpresaConcluido: boolean
 }
 
 export interface EmpresaAdmissoesResumo {
@@ -72,6 +74,9 @@ export interface AdmissaoDocumento {
   divergencias: DivergenciaDocumento[]
   tipoDocumentoDetectado?: string | null
   tipoDocumentoIncompativel?: boolean
+  observacaoRevisao?: string | null
+  revisadoPorNome?: string | null
+  revisadoEm?: string | null
   alternativas?: AdmissaoDocumento[]
 }
 
@@ -100,7 +105,7 @@ export interface LinkFichaAdmissao {
   expiraEm: string
 }
 
-export interface FichaAdmissaoPublica {
+export interface FichaFuncionarioPublica {
   id: string
   empresaNome: string
   nomeFuncionario: string
@@ -117,32 +122,71 @@ export interface FichaAdmissaoPublica {
   agencia: string | null
   conta: string | null
   tipoConta: string | null
-  utilizaValeTransporte: boolean | null
   dataAdmissaoPrevista: string | null
+  salario: number | null
+  comissao: string | null
   funcao: string | null
+  contratoExperienciaDias: number | null
+  utilizaValeTransporte: boolean | null
+  horarioTrabalho: string | null
   preenchimentoConcluido: boolean
   expiraEm: string
   dependentes: AdmissaoDependente[]
   documentos: AdmissaoDocumento[]
 }
 
-export interface AtualizarFichaAdmissaoPayload {
+export interface FichaEmpresaPublica {
+  id: string
+  empresaNome: string
   nomeFuncionario: string
-  cpf?: string
-  rg?: string
+  cpf: string | null
+  rg: string | null
+  dataNascimento: string | null
+  sexo: string | null
+  estadoCivil: string | null
+  escolaridade: string | null
+  telefone: string | null
+  email: string | null
+  banco: string | null
+  agencia: string | null
+  conta: string | null
+  tipoConta: string | null
+  pis: string | null
+  dataAdmissaoPrevista: string | null
+  salario: number | null
+  comissao: string | null
+  funcao: string | null
+  contratoExperienciaDias: number | null
+  utilizaValeTransporte: boolean | null
+  horarioTrabalho: string | null
+  preenchimentoConcluido: boolean
+  expiraEm: string
+}
+
+export interface AtualizarFichaFuncionarioPayload {
+  nomeFuncionario: string
   dataNascimento?: string
   sexo?: string
   estadoCivil?: string
   escolaridade?: string
   telefone?: string
   email?: string
+  dependentes: DependenteAdmissaoPayload[]
+}
+
+export interface AtualizarFichaEmpresaPayload {
   pis?: string
+  dataAdmissaoPrevista?: string
+  salario?: number
+  comissao?: string
+  funcao?: string
+  contratoExperienciaDias?: number
+  utilizaValeTransporte?: boolean
+  horarioTrabalho?: string
   banco?: string
   agencia?: string
   conta?: string
   tipoConta?: string
-  utilizaValeTransporte?: boolean
-  dependentes: DependenteAdmissaoPayload[]
 }
 
 export interface DependenteAdmissaoPayload {
@@ -195,6 +239,11 @@ export interface AdmissoesFiltro {
 export const statusAdmissaoOptions = [
   { label: 'Todos', value: '' },
   { label: 'Rascunho', value: 'RASCUNHO' },
+  { label: 'Aguardando admitido', value: 'AGUARDANDO_ADMITIDO' },
+  { label: 'Aguardando validação', value: 'AGUARDANDO_VALIDACAO' },
+  { label: 'Documentos validados', value: 'DOCUMENTOS_VALIDADOS' },
+  { label: 'Aguardando empregador', value: 'AGUARDANDO_EMPREGADOR' },
+  { label: 'Liberado pelo empregador', value: 'LIBERADO_PELO_EMPREGADOR' },
   { label: 'Concluída', value: 'CONCLUIDA' },
   { label: 'Cancelada', value: 'CANCELADA' },
 ]

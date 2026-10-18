@@ -35,8 +35,7 @@ public class InfraestruturaInjecaoDependenciaTestes
     [Fact]
     public void EnvExample_ContemVariaveisAutentique()
     {
-        var raiz = EncontrarRaizRepositorio();
-        var conteudo = File.ReadAllText(Path.Combine(raiz, ".envexample"));
+        var conteudo = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, ".envexample"));
 
         Assert.Contains("Autentique__BaseUrl=https://api.autentique.com.br/v2/graphql", conteudo);
         Assert.Contains("Autentique__ApiToken=", conteudo);
@@ -45,13 +44,4 @@ public class InfraestruturaInjecaoDependenciaTestes
         Assert.Contains("Autentique__FolderId=", conteudo);
     }
 
-    private static string EncontrarRaizRepositorio()
-    {
-        var diretorio = new DirectoryInfo(AppContext.BaseDirectory);
-        while (diretorio is not null && !File.Exists(Path.Combine(diretorio.FullName, "Officio.slnx")))
-            diretorio = diretorio.Parent;
-
-        return diretorio?.FullName
-            ?? throw new InvalidOperationException("Raiz do repositorio nao encontrada.");
-    }
 }

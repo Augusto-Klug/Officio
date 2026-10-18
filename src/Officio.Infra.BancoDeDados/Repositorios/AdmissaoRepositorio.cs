@@ -100,12 +100,23 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
                     .ThenInclude(documento => documento!.Validacoes)
             .FirstOrDefaultAsync(admissao => admissao.Id == admissaoId, cancellationToken);
 
-    public Task<Admissao?> ObterPorTokenHashAsync(
+    public Task<Admissao?> ObterPorTokenFuncionarioHashAsync(
         string tokenHash,
         bool rastreamento,
         CancellationToken cancellationToken = default)
+        => ConsultarPorToken(rastreamento)
+            .FirstOrDefaultAsync(admissao => admissao.TokenAcessoHash == tokenHash, cancellationToken);
+
+    public Task<Admissao?> ObterPorTokenEmpresaHashAsync(
+        string tokenHash,
+        bool rastreamento,
+        CancellationToken cancellationToken = default)
+        => ConsultarPorToken(rastreamento)
+            .FirstOrDefaultAsync(admissao => admissao.TokenEmpresaAcessoHash == tokenHash, cancellationToken);
+
+    private IQueryable<Admissao> ConsultarPorToken(bool rastreamento)
     {
-        var consulta = Contexto.Admissoes
+        IQueryable<Admissao> consulta = Contexto.Admissoes
             .IgnoreQueryFilters()
             .Include(admissao => admissao.Empresa)
             .Include(admissao => admissao.StatusAdmissao)
@@ -114,13 +125,12 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
                 .ThenInclude(item => item.TipoDocumento)
             .Include(admissao => admissao.Documentos)
                 .ThenInclude(item => item.Documento)
-                    .ThenInclude(documento => documento!.Validacoes)
-            .Where(admissao => admissao.TokenAcessoHash == tokenHash);
+                    .ThenInclude(documento => documento!.Validacoes);
 
         if (!rastreamento)
             consulta = consulta.AsNoTracking();
 
-        return consulta.FirstOrDefaultAsync(cancellationToken);
+        return consulta;
     }
 
     public async Task<List<ConfigDocumentoAdmissao>> ObterOuCriarConfiguracoesDocumentoPadraoAsync(
@@ -191,6 +201,9 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(item => item.Documento)
                 .ThenInclude(documento => documento!.Validacoes)
                     .ThenInclude(validacao => validacao.Divergencias)
+            .Include(item => item.Documento)
+                .ThenInclude(documento => documento!.Validacoes)
+                    .ThenInclude(validacao => validacao.RevisadoPor)
             .OrderBy(item => item.Ordem)
             .ToListAsync(cancellationToken);
 
@@ -208,6 +221,9 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(item => item.Documento)
                 .ThenInclude(documento => documento!.Validacoes)
                     .ThenInclude(validacao => validacao.Divergencias)
+            .Include(item => item.Documento)
+                .ThenInclude(documento => documento!.Validacoes)
+                    .ThenInclude(validacao => validacao.RevisadoPor)
             .AsQueryable();
 
         if (!rastreamento)

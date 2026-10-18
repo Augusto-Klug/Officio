@@ -20,7 +20,10 @@ public record AdmissaoDocumentoDto(
     Dictionary<string, string> CamposExtraidos,
     List<DivergenciaDto> Divergencias,
     string? TipoDocumentoDetectado = null,
-    bool TipoDocumentoIncompativel = false);
+    bool TipoDocumentoIncompativel = false,
+    string? ObservacaoRevisao = null,
+    string? RevisadoPorNome = null,
+    DateTime? RevisadoEm = null);
 
 public record ResumoValidacaoDocumentosAdmissaoDto(
     int Processados,
