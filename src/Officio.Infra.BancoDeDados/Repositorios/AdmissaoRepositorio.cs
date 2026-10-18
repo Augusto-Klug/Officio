@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Comum;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Interfaces;
 using Officio.Infra.BancoDeDados.Contextos;
@@ -43,6 +44,39 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
 
         return consulta
             .OrderByDescending(admissao => admissao.CriadoEm)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<List<EmpresaAdmissoesResumoDto>> ListarEmpresasComAdmissoesAsync(
+        string? busca,
+        CancellationToken cancellationToken = default)
+    {
+        var consulta = Contexto.Empresas
+            .AsNoTracking()
+            .Where(empresa => empresa.Admissoes.Any());
+
+        if (!string.IsNullOrWhiteSpace(busca))
+        {
+            var termo = busca.Trim();
+            var documento = DocumentoFiscal.SomenteDigitos(termo);
+            consulta = consulta.Where(empresa =>
+                empresa.RazaoSocial.Contains(termo) ||
+                (empresa.NomeFantasia != null && empresa.NomeFantasia.Contains(termo)) ||
+                (empresa.Cnpj.Contains(termo) ||
+                 (documento != null && empresa.Cnpj
+                     .Replace(".", "")
+                     .Replace("/", "")
+                     .Replace("-", "")
+                     .Contains(documento))));
+        }
+
+        return consulta
+            .OrderBy(empresa => empresa.RazaoSocial)
+            .Select(empresa => new EmpresaAdmissoesResumoDto(
+                empresa.Id,
+                empresa.RazaoSocial,
+                empresa.Cnpj,
+                empresa.Admissoes.Count()))
             .ToListAsync(cancellationToken);
     }
 

@@ -1,5 +1,6 @@
 export interface Cliente {
   id: string
+  empresaId: string
   razaoSocial: string
   nomeFantasia: string | null
   cnpj: string | null

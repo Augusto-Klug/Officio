@@ -1,5 +1,11 @@
 namespace Officio.Dominio.Contratos.Dtos;
 
+public record EmpresaAdmissoesResumoDto(
+    Guid EmpresaId,
+    string EmpresaNome,
+    string? Cnpj,
+    int QuantidadeAdmissoes);
+
 public record AdmissaoResumoDto(
     Guid Id,
     Guid EmpresaId,

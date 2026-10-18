@@ -1,4 +1,5 @@
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Contratos.Dtos;
 
 namespace Officio.Dominio.Interfaces;
 
@@ -7,6 +8,9 @@ public interface IAdmissaoRepositorio
     Task<List<Admissao>> ListarAsync(
         Guid? empresaId,
         string? status,
+        string? busca,
+        CancellationToken cancellationToken = default);
+    Task<List<EmpresaAdmissoesResumoDto>> ListarEmpresasComAdmissoesAsync(
         string? busca,
         CancellationToken cancellationToken = default);
 

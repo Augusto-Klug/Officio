@@ -87,21 +87,30 @@ public class AdmissaoServico(
         Guid? clienteId,
         string? status,
         string? busca,
+        Guid? empresaId = null,
         CancellationToken ct = default)
     {
-        Guid? empresaId = null;
-        if (clienteId.HasValue)
+        var empresaIdFiltro = empresaId;
+        if (!empresaIdFiltro.HasValue && clienteId.HasValue)
         {
             var cliente = await clienteRepositorio.ObterPorIdAsync(clienteId.Value, ct);
             if (cliente is null)
                 return Resultado<List<AdmissaoResumoDto>>.CriarFalha("Cliente nao encontrado.");
-            empresaId = cliente.EmpresaId;
-            if (empresaId is null)
+            empresaIdFiltro = cliente.EmpresaId;
+            if (empresaIdFiltro is null)
                 return Resultado<List<AdmissaoResumoDto>>.CriarSucesso([]);
         }
 
-        var admissoes = await repositorio.ListarAsync(empresaId, status, busca, ct);
+        var admissoes = await repositorio.ListarAsync(empresaIdFiltro, status, busca, ct);
         return Resultado<List<AdmissaoResumoDto>>.CriarSucesso(admissoes.Select(MapearResumo).ToList());
+    }
+
+    public async Task<Resultado<List<EmpresaAdmissoesResumoDto>>> ListarEmpresasComAdmissoesAsync(
+        string? busca,
+        CancellationToken ct = default)
+    {
+        var empresas = await repositorio.ListarEmpresasComAdmissoesAsync(busca, ct);
+        return Resultado<List<EmpresaAdmissoesResumoDto>>.CriarSucesso(empresas);
     }
 
     public async Task<Resultado<AdmissaoDetalheDto>> ObterPorIdAsync(

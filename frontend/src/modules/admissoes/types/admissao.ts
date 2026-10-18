@@ -12,6 +12,13 @@ export interface AdmissaoResumo {
   criadoEm: string
 }
 
+export interface EmpresaAdmissoesResumo {
+  empresaId: string
+  empresaNome: string
+  cnpj: string | null
+  quantidadeAdmissoes: number
+}
+
 export interface AdmissaoDependente {
   id: string
   nome: string
@@ -180,6 +187,7 @@ export interface CriarAdmissaoPayload {
 
 export interface AdmissoesFiltro {
   clienteId?: string
+  empresaId?: string
   status?: string
   busca?: string
 }

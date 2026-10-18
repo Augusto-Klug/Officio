@@ -2,6 +2,7 @@ namespace Officio.Dominio.Contratos.Dtos;
 
 public record ClienteDto(
     Guid Id,
+    Guid EmpresaId,
     string RazaoSocial,
     string? NomeFantasia,
     string? Cnpj,
@@ -26,6 +27,7 @@ public record ClienteDto(
 
 public record ClienteDetalheDto(
     Guid Id,
+    Guid EmpresaId,
     string RazaoSocial,
     string? NomeFantasia,
     string? Cnpj,
