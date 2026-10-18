@@ -104,6 +104,7 @@ public class ClienteServico(
     private static ClienteDto Mapear(Cliente cliente)
         => new(
             cliente.Id,
+            cliente.EmpresaId,
             cliente.Empresa.RazaoSocial,
             cliente.Empresa.NomeFantasia,
             cliente.Empresa.Cnpj,
@@ -129,6 +130,7 @@ public class ClienteServico(
     private static ClienteDetalheDto MapearDetalhe(Cliente cliente)
         => new(
             cliente.Id,
+            cliente.EmpresaId,
             cliente.Empresa.RazaoSocial,
             cliente.Empresa.NomeFantasia,
             cliente.Empresa.Cnpj,

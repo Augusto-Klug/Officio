@@ -11,6 +11,7 @@ using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.GerarLinkFicha
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RevogarLinkFichaAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarDocumentosAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarAdmissoes;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarEmpresasComAdmissoes;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ObterAdmissaoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ObterUrlDocumentoAdmissao;
 using Officio.Dominio.Contratos;
@@ -31,10 +32,23 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
         [FromQuery] Guid? clienteId,
         [FromQuery] string? status,
         [FromQuery] string? busca,
+        [FromQuery] Guid? empresaId,
         CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(
-            new ListarAdmissoesConsulta(clienteId, status, busca),
+            new ListarAdmissoesConsulta(clienteId, status, busca, empresaId),
+            cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarEmpresasComAdmissoes(
+        [FromQuery] string? busca,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(
+            new ListarEmpresasComAdmissoesConsulta(busca),
             cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }

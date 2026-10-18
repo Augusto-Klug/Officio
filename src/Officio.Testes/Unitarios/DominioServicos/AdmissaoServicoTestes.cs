@@ -29,6 +29,43 @@ public class AdmissaoServicoTestes
     }
 
     [Fact]
+    public async Task ListarEmpresasComAdmissoes_AgrupaPorEmpresaEFiltraPorRazaoSocialOuCnpj()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var empresaA = Empresa.CriarConstituida(tenantId, "11222333000144", "Alfa Contabilidade");
+        var empresaB = Empresa.CriarConstituida(tenantId, "12345678000199", "Beta Servicos");
+        var clienteA = Cliente.CriarParaEmpresa(tenantId, empresaA.Id);
+        var clienteB = Cliente.CriarParaEmpresa(tenantId, empresaB.Id);
+        contexto.Empresas.AddRange(empresaA, empresaB);
+        contexto.Clients.AddRange(clienteA, clienteB);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, tenantId);
+
+        Assert.True((await servico.CriarManualAsync(new(clienteA.Id, CriarDados(nome: "Ana Silva")))).Sucesso);
+        Assert.True((await servico.CriarManualAsync(new(clienteA.Id, CriarDados(nome: "Bruno Souza")))).Sucesso);
+        Assert.True((await servico.CriarManualAsync(new(clienteB.Id, CriarDados(nome: "Carla Lima")))).Sucesso);
+
+        var todos = await servico.ListarEmpresasComAdmissoesAsync(null);
+        var porNome = await servico.ListarEmpresasComAdmissoesAsync("Alfa");
+        var porCnpjSemMascara = await servico.ListarEmpresasComAdmissoesAsync("11222333000144");
+        var admissoesEmpresaA = await servico.ListarAsync(null, null, null, empresaA.Id);
+
+        Assert.True(todos.Sucesso);
+        Assert.NotNull(todos.Valor);
+        Assert.NotNull(porNome.Valor);
+        Assert.NotNull(porCnpjSemMascara.Valor);
+        Assert.Equal(2, todos.Valor!.Count);
+        Assert.Equal(2, todos.Valor.Single(item => item.EmpresaId == empresaA.Id).QuantidadeAdmissoes);
+        Assert.Equal(1, todos.Valor.Single(item => item.EmpresaId == empresaB.Id).QuantidadeAdmissoes);
+        Assert.Equal(empresaA.Id, Assert.Single(porNome.Valor!).EmpresaId);
+        Assert.Equal(empresaA.Id, Assert.Single(porCnpjSemMascara.Valor!).EmpresaId);
+        Assert.True(admissoesEmpresaA.Sucesso);
+        Assert.Equal(2, admissoesEmpresaA.Valor!.Count);
+        Assert.All(admissoesEmpresaA.Valor, item => Assert.Equal(empresaA.Id, item.EmpresaId));
+    }
+
+    [Fact]
     public async Task CriarManual_NormalizaDocumentosEPersisteDependentes()
     {
         var tenantId = Guid.NewGuid();

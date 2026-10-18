@@ -14,6 +14,7 @@ function normalizeClienteBase(value: unknown) {
   const row = record(value)
   return {
     id: requiredString(field(row, 'id')),
+    empresaId: requiredString(field(row, 'empresaId')),
     razaoSocial: requiredString(field(row, 'razaoSocial')),
     nomeFantasia: optionalString(field(row, 'nomeFantasia')),
     cnpj: optionalString(field(row, 'cnpj')),

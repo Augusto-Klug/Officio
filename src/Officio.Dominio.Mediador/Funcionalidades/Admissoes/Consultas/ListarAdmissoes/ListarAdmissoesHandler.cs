@@ -9,5 +9,5 @@ public class ListarAdmissoesHandler(IAdmissaoServico servico)
     : IRequestHandler<ListarAdmissoesConsulta, Resultado<List<AdmissaoResumoDto>>>
 {
     public Task<Resultado<List<AdmissaoResumoDto>>> Handle(ListarAdmissoesConsulta request, CancellationToken ct)
-        => servico.ListarAsync(request.ClienteId, request.Status, request.Busca, ct);
+        => servico.ListarAsync(request.ClienteId, request.Status, request.Busca, request.EmpresaId, ct);
 }

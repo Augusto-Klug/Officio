@@ -1,8 +1,30 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
+import { listarEmpresasComAdmissoes, normalizeEmpresasComAdmissoes } from './admissoes.service'
 import { aprovarDocumentoAdmissao, atualizarAdmissao, atualizarFichaAdmissao, cancelarAdmissao, concluirAdmissao, concluirFichaAdmissao, criarAdmissao, enviarDocumentoAdmissao, enviarDocumentoFichaAdmissao, gerarLinkFichaAdmissao, listarAdmissoes, listarDocumentosAdmissao, normalizeAdmissao, normalizeAdmissoes, normalizeDocumentosAdmissao, normalizeFichaAdmissao, obterAdmissao, obterFichaAdmissao, obterUrlDocumentoAdmissao, obterUrlDocumentoFichaAdmissao, removerDocumentoAdmissao, revogarLinkFichaAdmissao, validarDocumentoAdmissao } from './admissoes.service'
 
 afterEach(() => vi.restoreAllMocks())
+
+describe('agrupamento de empresas com admissoes', () => {
+  it('normaliza e consulta o endpoint agrupado', async () => {
+    const agrupamento = { empresaId: 'emp-1', empresaNome: 'Empresa Teste', cnpj: '11222333000144', quantidadeAdmissoes: 3 }
+    expect(normalizeEmpresasComAdmissoes([agrupamento])).toEqual([agrupamento])
+
+    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: [agrupamento] })
+    await expect(listarEmpresasComAdmissoes('Empresa')).resolves.toEqual([agrupamento])
+    expect(get).toHaveBeenCalledWith('/v1/admissoes/ListarEmpresasComAdmissoes', {
+      params: { busca: 'Empresa' }, signal: undefined,
+    })
+  })
+
+  it('envia empresaId como escopo da lista detalhada', async () => {
+    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: [] })
+    await listarAdmissoes({ empresaId: 'emp-1', busca: 'Ana' })
+    expect(get).toHaveBeenCalledWith('/v1/admissoes/Listar', {
+      params: { empresaId: 'emp-1', busca: 'Ana' }, signal: undefined,
+    })
+  })
+})
 
 const resumo = {
   id: 'adm-1', empresaId: 'emp-1', empresaNome: 'Empresa Teste', nomeFuncionario: 'Ana Silva',

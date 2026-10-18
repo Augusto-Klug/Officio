@@ -6,6 +6,14 @@ namespace Officio.Testes.Unitarios.WebApi;
 
 public class AdmissoesControllerRotasTestes
 {
+    [Fact]
+    public void ListarEmpresasComAdmissoes_UsaGet()
+    {
+        var metodo = typeof(AdmissoesController).GetMethod(nameof(AdmissoesController.ListarEmpresasComAdmissoes));
+        Assert.NotNull(metodo);
+        Assert.NotEmpty(metodo!.GetCustomAttributes(false).OfType<HttpGetAttribute>());
+    }
+
     [Theory]
     [InlineData(nameof(AdmissoesController.ObterPorId))]
     [InlineData(nameof(AdmissoesController.Atualizar))]

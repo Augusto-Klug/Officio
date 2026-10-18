@@ -26,13 +26,19 @@ import { statusAdmissaoOptions, type AdmissaoDetalhe, type AdmissaoResumo, type 
 const route = useRoute()
 const router = useRouter()
 const clientes = ref<Cliente[]>([])
+const clientesCarregados = ref(false)
 const admissoes = ref<AdmissaoResumo[]>([])
+const empresaId = computed(() => typeof route.params.empresaId === 'string' ? route.params.empresaId : '')
+const nomeEmpresa = computed(() => typeof route.query.empresaNome === 'string'
+  ? route.query.empresaNome
+  : admissoes.value[0]?.empresaNome || 'empresa selecionada')
+const clientesDaEmpresa = computed(() => clientes.value.filter((cliente) => cliente.empresaId === empresaId.value))
+const clienteId = computed(() => clientesDaEmpresa.value[0]?.id || '')
 const loading = ref(true)
 const error = ref('')
 const success = ref('')
 const busca = ref('')
 const status = ref('')
-const clienteId = ref(typeof route.query.clienteId === 'string' ? route.query.clienteId : '')
 const formOpen = ref(false)
 const detailOpen = ref(false)
 const documentsOpen = ref(false)
@@ -55,7 +61,6 @@ let clientesController: AbortController | undefined
 let generation = 0
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
-const clienteOptions = computed(() => [{ id: '', razaoSocial: 'Todos os clientes' } as Cliente, ...clientes.value])
 const terminal = (item: AdmissaoResumo) => item.status === 'CONCLUIDA' || item.status === 'CANCELADA'
 const statusSeverity = (codigo: string) => codigo === 'CONCLUIDA' ? 'success' : codigo === 'CANCELADA' ? 'danger' : 'warn'
 
@@ -68,10 +73,9 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const listaAdmissoes = await listarAdmissoes({ clienteId: clienteId.value || undefined, status: status.value || undefined, busca: busca.value.trim() || undefined }, currentController.signal)
+    const listaAdmissoes = await listarAdmissoes({ empresaId: empresaId.value || undefined, status: status.value || undefined, busca: busca.value.trim() || undefined }, currentController.signal)
     if (request !== generation) return
     admissoes.value = listaAdmissoes
-    await router.replace({ query: clienteId.value ? { clienteId: clienteId.value } : {} })
   } catch (cause) {
     if (request === generation && !axios.isCancel(cause)) error.value = normalizeError(cause).message
   } finally { if (request === generation) loading.value = false }
@@ -84,6 +88,8 @@ async function carregarClientes() {
   try { clientes.value = await listarClientes({ ativo: true }, currentController.signal) }
   catch (cause) {
     if (!axios.isCancel(cause)) error.value = normalizeError(cause).message
+  } finally {
+    if (!currentController.signal.aborted) clientesCarregados.value = true
   }
 }
 
@@ -199,7 +205,7 @@ async function executarAcao() {
 }
 
 watch(busca, agendarBusca)
-watch([clienteId, status], () => void load())
+watch([empresaId, status], () => void load())
 void load()
 void carregarClientes()
 onBeforeUnmount(() => {
@@ -211,23 +217,23 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <PageHeader title="Admissões" description="Cadastre funcionários, revise os dados e conclua a admissão na empresa.">
-    <BaseButton label="Nova admissão" icon="pi pi-plus" @click="abrirCriacao" />
+  <PageHeader title="Admissões" :description="`Funcionários admitidos em ${nomeEmpresa}.`">
+    <BaseButton label="Voltar para clientes com admissões" icon="pi pi-arrow-left" variant="text" @click="router.push({ name: 'admissoes' })" />
+    <BaseButton label="Nova admissão" icon="pi pi-plus" :disabled="!clienteId || !clientesCarregados" @click="abrirCriacao" />
   </PageHeader>
   <Message v-if="success" severity="success" :closable="true" class="page-message" @close="success = ''">{{ success }}</Message>
   <Message v-if="error" severity="error" :closable="true" class="page-message" @close="error = ''">{{ error }}</Message>
+  <Message v-if="clientesCarregados && !clienteId" severity="warn" :closable="false" class="page-message">Não há um cliente ativo vinculado a esta empresa para iniciar uma nova admissão.</Message>
 
   <BaseCard class="data-card">
     <form class="filters admission-filters" role="search" aria-label="Filtrar admissões" @submit.prevent="load">
-      <BaseInput id="admission-search" v-model="busca" label="Buscar funcionário" type="search" placeholder="Nome ou CPF" autocomplete="off" />
-      <div class="field"><label for="admission-client-filter">Cliente</label><Select input-id="admission-client-filter" v-model="clienteId" :options="clienteOptions" option-label="razaoSocial" option-value="id" filter /></div>
+      <BaseInput id="admission-search" v-model="busca" label="Buscar funcionário" type="search" placeholder="Nome do funcionário" autocomplete="off" />
       <div class="field"><label for="admission-status-filter">Situação</label><Select input-id="admission-status-filter" v-model="status" :options="statusAdmissaoOptions" option-label="label" option-value="value" /></div>
     </form>
     <div class="list-heading"><h2>Admissões cadastradas</h2><span>{{ loading ? 'Carregando...' : `${admissoes.length} ${admissoes.length === 1 ? 'admissão' : 'admissões'}` }}</span></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando admissões...</p></div>
     <DataTable v-else :value="admissoes" data-key="id" class="work-table admissions-table" :table-props="{ 'aria-label': 'Lista de admissões' }">
       <Column field="nomeFuncionario" header="Funcionário"><template #body="{ data }"><div class="company-cell"><strong>{{ data.nomeFuncionario }}</strong><span>{{ data.cpf || 'CPF não informado' }}</span></div></template></Column>
-      <Column field="empresaNome" header="Cliente" />
       <Column field="statusDescricao" header="Situação"><template #body="{ data }"><StatusBadge :label="data.statusDescricao" :severity="statusSeverity(data.status)" /></template></Column>
       <Column header="Vínculo"><template #body="{ data }"><div class="company-cell"><strong>{{ data.funcao || 'Função não informada' }}</strong><span>{{ formatDate(data.dataAdmissaoPrevista) }} · {{ data.salario == null ? 'Salário não informado' : formatCurrency(data.salario) }}</span></div></template></Column>
       <Column header="Ações"><template #body="{ data }"><div class="admission-row-actions">
@@ -240,7 +246,7 @@ onBeforeUnmount(() => {
     </DataTable>
   </BaseCard>
 
-  <AdmissaoFormDialog v-model:visible="formOpen" :clientes="clientes" :admissao="selected" :cliente-inicial-id="clienteId" :saving="saving" :error="formError" @salvar="salvar" />
+  <AdmissaoFormDialog v-model:visible="formOpen" :clientes="clientesDaEmpresa" :admissao="selected" :cliente-inicial-id="clienteId" :saving="saving" :error="formError" @salvar="salvar" />
   <AdmissaoDetalheDialog v-model:visible="detailOpen" :admissao="selected" :loading="detailLoading" @editar="abrirEdicao()" @concluir="selected && confirmar(selected, 'concluir')" @cancelar="selected && confirmar(selected, 'cancelar')" />
   <AdmissaoDocumentosDialog v-if="documentsOpen" v-model:visible="documentsOpen" :admissao="documentsTarget" :link-loading="linkLoading" @atualizado="() => load()" @gerar-link="gerarLink" />
 
@@ -261,6 +267,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.admissions-table :deep(.p-datatable-table) { width: 100%; table-layout: fixed; }
+.admissions-table :deep(.p-datatable-thead > tr > th),
+.admissions-table :deep(.p-datatable-tbody > tr > td) { width: 25%; }
 .admission-row-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .admission-row-actions :deep(.base-button.p-button) { min-height: 32px; padding: 4px 8px; font-size: 13px; font-weight: 600; }
 </style>

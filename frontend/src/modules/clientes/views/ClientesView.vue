@@ -110,7 +110,13 @@ async function salvarSci() {
 }
 
 function abrirAdmissoes(clienteId: string) {
-  void router.push({ name: 'admissoes', query: { clienteId } })
+  const cliente = clientes.value.find((item) => item.id === clienteId)
+  if (!cliente) return
+  void router.push({
+    name: 'admissoes-empresa',
+    params: { empresaId: cliente.empresaId },
+    query: { empresaNome: cliente.razaoSocial },
+  })
 }
 
 watch(busca, agendarBusca)

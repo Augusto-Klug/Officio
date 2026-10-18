@@ -6,14 +6,14 @@ afterEach(() => vi.restoreAllMocks())
 
 describe('contrato HTTP de clientes', () => {
   it('normaliza listagem e aceita propriedades PascalCase', () => {
-    expect(normalizeClientes([{ Id: 'c1', RazaoSocial: 'Empresa Ltda.', Ativo: true, QuantidadeSocios: 2, QuantidadeContratos: 1, QuantidadeDocumentos: 3 }])).toEqual([
+    expect(normalizeClientes([{ Id: 'c1', EmpresaId: 'e1', RazaoSocial: 'Empresa Ltda.', Ativo: true, QuantidadeSocios: 2, QuantidadeContratos: 1, QuantidadeDocumentos: 3 }])).toEqual([
       expect.objectContaining({ id: 'c1', razaoSocial: 'Empresa Ltda.', ativo: true, quantidadeSocios: 2, quantidadeContratos: 1, quantidadeDocumentos: 3 }),
     ])
   })
 
   it('normaliza detalhe e coleções relacionadas', () => {
     const result = normalizeClienteDetalhe({
-      id: 'c1', razaoSocial: 'Empresa', ativo: true,
+      id: 'c1', empresaId: 'e1', razaoSocial: 'Empresa', ativo: true,
       socios: [{ id: 's1', nome: 'Ana', participacao: 100 }],
       contratos: [{ id: 'ct1', numero: 'CTR-1', status: 'Ativo', valorTotal: 500, dataInicio: '2026-09-01' }],
       documentos: [{ id: 'd1', nomeArquivo: 'contrato.pdf', tipo: 'Contrato', legivel: true, qualidadeEstimada: 0.98 }],

@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, AtualizarFichaAdmissaoPayload, CriarAdmissaoPayload, DadosAdmissaoPayload, DivergenciaDocumento, FichaAdmissaoPublica, LinkFichaAdmissao, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
+import type { AdmissaoDependente, AdmissaoDetalhe, AdmissaoDocumento, AdmissaoResumo, AdmissoesFiltro, AtualizarFichaAdmissaoPayload, CriarAdmissaoPayload, DadosAdmissaoPayload, DivergenciaDocumento, EmpresaAdmissoesResumo, FichaAdmissaoPublica, LinkFichaAdmissao, ResultadoValidacaoDocumento, UrlDocumentoAdmissao } from '../types/admissao'
 
 function optionalNumber(value: unknown): number | null {
   if (value == null) return null
@@ -69,6 +69,21 @@ export function normalizeAdmissoes(value: unknown): AdmissaoResumo[] {
   return value.map(normalizeResumo)
 }
 
+function normalizeEmpresaAdmissoes(value: unknown): EmpresaAdmissoesResumo {
+  const item = record(value)
+  return {
+    empresaId: requiredString(field(item, 'empresaId')),
+    empresaNome: requiredString(field(item, 'empresaNome')),
+    cnpj: optionalString(field(item, 'cnpj')),
+    quantidadeAdmissoes: optionalNumber(field(item, 'quantidadeAdmissoes')) ?? 0,
+  }
+}
+
+export function normalizeEmpresasComAdmissoes(value: unknown): EmpresaAdmissoesResumo[] {
+  if (!Array.isArray(value)) throw new Error('A API retornou as empresas com admissões em formato inesperado.')
+  return value.map(normalizeEmpresaAdmissoes)
+}
+
 export function normalizeAdmissao(value: unknown): AdmissaoDetalhe {
   const item = record(value)
   const dependentes = field(item, 'dependentes')
@@ -131,6 +146,14 @@ export function normalizeDocumentosAdmissao(value: unknown): AdmissaoDocumento[]
 export async function listarAdmissoes(filtro: AdmissoesFiltro = {}, signal?: AbortSignal): Promise<AdmissaoResumo[]> {
   const { data } = await http.get<unknown>('/v1/admissoes/Listar', { params: filtro, signal })
   return normalizeAdmissoes(data)
+}
+
+export async function listarEmpresasComAdmissoes(busca?: string, signal?: AbortSignal): Promise<EmpresaAdmissoesResumo[]> {
+  const { data } = await http.get<unknown>('/v1/admissoes/ListarEmpresasComAdmissoes', {
+    params: busca ? { busca } : {},
+    signal,
+  })
+  return normalizeEmpresasComAdmissoes(data)
 }
 
 export async function obterAdmissao(id: string): Promise<AdmissaoDetalhe> {
