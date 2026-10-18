@@ -14,7 +14,8 @@ import BaseInput from '../../../components/base/BaseInput.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
-import { formatCnpj, formatCurrency, formatDate } from '../../../utils/format'
+import { formatCurrency, formatDate } from '../../../utils/format'
+import { formatarCpf, formatarDocumentoFiscal, formatarTelefone } from '../../../utils/inputMasks'
 import { listarClientes, obterCliente, vincularCodigoSci } from '../services/clientes.service'
 import type { Cliente, ClienteDetalhe } from '../types/cliente'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
@@ -144,7 +145,7 @@ onBeforeUnmount(() => {
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando clientes…</p></div>
     <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="() => load()" /></div>
     <DataTable v-else :value="clientes" data-key="id" class="work-table clients-table" :table-props="{ 'aria-label': 'Lista de clientes' }">
-      <Column field="razaoSocial" header="Cliente"><template #body="{ data }"><div class="company-cell"><strong>{{ data.razaoSocial }}</strong><span>{{ formatCnpj(data.cnpj || data.cpf) }}</span></div></template></Column>
+      <Column field="razaoSocial" header="Cliente"><template #body="{ data }"><div class="company-cell"><strong>{{ data.razaoSocial }}</strong><span>{{ formatarDocumentoFiscal(data.cnpj || data.cpf) || 'CNPJ não informado' }}</span></div></template></Column>
       <Column field="ativo" header="Situação"><template #body="{ data }"><StatusBadge :label="data.ativo ? 'Ativo' : 'Inativo'" :severity="data.ativo ? 'success' : 'secondary'" /></template></Column>
       <Column field="sciCodigo" header="SCI"><template #body="{ data }"><span class="numeric">{{ data.sciCodigo || 'Não vinculado' }}</span></template></Column>
       <Column header="Relacionamentos"><template #body="{ data }"><span class="relation-counts">{{ data.quantidadeContratos }} contratos · {{ data.quantidadeDocumentos }} documentos</span></template></Column>
@@ -157,15 +158,15 @@ onBeforeUnmount(() => {
     <div v-if="detalheLoading" class="list-state compact-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando detalhes…</p></div>
     <Message v-else-if="dialogError" severity="error" :closable="false">{{ dialogError }}</Message>
     <div v-else-if="detalhe" class="client-detail">
-      <div class="detail-heading"><div><h2>{{ detalhe.razaoSocial }}</h2><p>{{ detalhe.nomeFantasia || formatCnpj(detalhe.cnpj || detalhe.cpf) }}</p></div><StatusBadge :label="detalhe.ativo ? 'Ativo' : 'Inativo'" :severity="detalhe.ativo ? 'success' : 'secondary'" /></div>
+      <div class="detail-heading"><div><h2>{{ detalhe.razaoSocial }}</h2><p>{{ detalhe.nomeFantasia || formatarDocumentoFiscal(detalhe.cnpj || detalhe.cpf) || 'CNPJ não informado' }}</p></div><StatusBadge :label="detalhe.ativo ? 'Ativo' : 'Inativo'" :severity="detalhe.ativo ? 'success' : 'secondary'" /></div>
       <dl class="detail-grid">
         <div><dt>Regime tributário</dt><dd>{{ detalhe.regimeTributario || 'Não informado' }}</dd></div>
         <div><dt>Código SCI</dt><dd>{{ detalhe.sciCodigo || 'Não vinculado' }}</dd></div>
-        <div><dt>Contato</dt><dd>{{ detalhe.email || detalhe.telefone || 'Não informado' }}</dd></div>
+        <div><dt>Contato</dt><dd>{{ detalhe.email || formatarTelefone(detalhe.telefone) || 'Não informado' }}</dd></div>
         <div><dt>Localização</dt><dd>{{ localizacao || 'Não informada' }}</dd></div>
         <div><dt>Relacionamento desde</dt><dd>{{ formatDate(detalhe.inicioRelacionamentoEm) }}</dd></div>
       </dl>
-      <section class="detail-section"><h3>Sócios <span>{{ detalhe.socios.length }}</span></h3><div v-if="detalhe.socios.length" class="detail-list"><div v-for="socio in detalhe.socios" :key="socio.id"><strong>{{ socio.nome }}</strong><span>{{ socio.participacao }}% · {{ socio.cpf || 'CPF não informado' }}</span></div></div><p v-else class="muted">Nenhum sócio vinculado.</p></section>
+      <section class="detail-section"><h3>Sócios <span>{{ detalhe.socios.length }}</span></h3><div v-if="detalhe.socios.length" class="detail-list"><div v-for="socio in detalhe.socios" :key="socio.id"><strong>{{ socio.nome }}</strong><span>{{ socio.participacao }}% · {{ formatarCpf(socio.cpf) || 'CPF não informado' }}</span></div></div><p v-else class="muted">Nenhum sócio vinculado.</p></section>
       <section class="detail-section"><h3>Contratos <span>{{ detalhe.contratos.length }}</span></h3><div v-if="detalhe.contratos.length" class="detail-list"><div v-for="contrato in detalhe.contratos" :key="contrato.id"><strong>{{ contrato.numero }} · {{ contrato.status }}</strong><span>{{ formatCurrency(contrato.valorTotal) }} · início em {{ formatDate(contrato.dataInicio) }}</span></div></div><p v-else class="muted">Nenhum contrato vinculado.</p></section>
       <section class="detail-section"><h3>Documentos <span>{{ detalhe.documentos.length }}</span></h3><div v-if="detalhe.documentos.length" class="detail-list"><div v-for="documento in detalhe.documentos" :key="documento.id"><strong>{{ documento.nomeArquivo }}</strong><span>{{ documento.tipo }} · {{ documento.legivel ? 'legível' : 'requer revisão' }}</span></div></div><p v-else class="muted">Nenhum documento vinculado.</p></section>
     </div>

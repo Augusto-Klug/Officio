@@ -11,7 +11,7 @@ import { consultarCep, listarEstados, listarMunicipios } from '../services/local
 import { atualizarProspecto, criarProspecto, obterProspecto } from '../services/prospectos.service'
 import type { EstadoLocalidade, MunicipioLocalidade } from '../types/localidade'
 import { prospectoNaEtapaInicial, regimeTributarioOptions, type CriarProspectoPayload, type ProspectoCriado } from '../types/prospecto'
-import { formatarCep, formatarCnpj, formatarCpf, limparPayload, montarFormularioProspecto, novoProspecto, somenteDigitos, validarProspecto, type ProspectoFormErrors } from './prospecto-form'
+import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limparPayload, montarFormularioProspecto, novoProspecto, somenteDigitos, validarProspecto, type ProspectoFormErrors } from './prospecto-form'
 
 const props = defineProps<{ visible: boolean; prospectoId?: string | null }>()
 const emit = defineEmits<{
@@ -339,8 +339,8 @@ async function submit() {
         <div class="prospect-company-grid">
           <BaseInput id="nomeContato" v-model="form.nomeContato" label="Nome do contato" name="nomeContato" maxlength="250" />
           <BaseInput id="email" v-model="form.email" label="E-mail" name="email" type="email" autocomplete="email" maxlength="250" />
-          <BaseInput id="telefone" v-model="form.telefone" label="Telefone" name="telefone" inputmode="tel" autocomplete="tel" maxlength="30" />
-          <BaseInput id="whatsapp" v-model="form.whatsapp" label="WhatsApp" name="whatsapp" inputmode="tel" maxlength="30" />
+          <BaseInput id="telefone" :model-value="form.telefone" label="Telefone" name="telefone" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" @update:model-value="form.telefone = formatarTelefone($event)" />
+          <BaseInput id="whatsapp" :model-value="form.whatsapp" label="WhatsApp" name="whatsapp" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" @update:model-value="form.whatsapp = formatarTelefone($event)" />
         </div>
       </section>
 

@@ -17,7 +17,9 @@ public record AdmissaoResumoDto(
     DateOnly? DataAdmissaoPrevista,
     string? Funcao,
     decimal? Salario,
-    DateTime CriadoEm);
+    DateTime CriadoEm,
+    bool PreenchimentoFuncionarioConcluido,
+    bool PreenchimentoEmpresaConcluido);
 
 public record AdmissaoDependenteDto(
     Guid Id,

@@ -6,10 +6,16 @@ namespace Officio.Dominio.Interfaces;
 public interface IFichaAdmissaoServico
 {
     Task<Resultado<GerarLinkFichaAdmissaoDto>> GerarLinkAsync(Guid admissaoId, CancellationToken ct = default);
+    Task<Resultado<GerarLinkFichaAdmissaoDto>> GerarLinkEmpresaAsync(Guid admissaoId, CancellationToken ct = default);
+    Task<Resultado<bool>> EnviarLinkPorEmailAsync(EnviarLinkFichaAdmissaoEmailRequisicao requisicao, CancellationToken ct = default);
     Task<Resultado<bool>> RevogarLinkAsync(Guid admissaoId, CancellationToken ct = default);
-    Task<Resultado<FichaAdmissaoPublicaDto>> ObterAsync(string token, CancellationToken ct = default);
-    Task<Resultado<bool>> AtualizarAsync(string token, AtualizarFichaAdmissaoRequisicao requisicao, CancellationToken ct = default);
+    Task<Resultado<bool>> RevogarLinkEmpresaAsync(Guid admissaoId, CancellationToken ct = default);
+    Task<Resultado<FichaFuncionarioPublicaDto>> ObterAsync(string token, CancellationToken ct = default);
+    Task<Resultado<bool>> AtualizarAsync(string token, AtualizarFichaFuncionarioRequisicao requisicao, CancellationToken ct = default);
     Task<Resultado<bool>> ConcluirAsync(string token, CancellationToken ct = default);
+    Task<Resultado<FichaEmpresaPublicaDto>> ObterEmpresaAsync(string token, CancellationToken ct = default);
+    Task<Resultado<bool>> AtualizarEmpresaAsync(string token, AtualizarFichaEmpresaRequisicao requisicao, CancellationToken ct = default);
+    Task<Resultado<bool>> ConcluirEmpresaAsync(string token, CancellationToken ct = default);
     Task<Resultado<ResultadoDocumentoAdmissaoDto>> EnviarDocumentoAsync(string token, Guid itemId, IReadOnlyList<ArquivoAdmissaoUpload> arquivos, CancellationToken ct = default);
     Task<Resultado<ResultadoUrlDocumentoAdmissaoDto>> ObterUrlDocumentoAsync(string token, Guid itemId, CancellationToken ct = default);
 }

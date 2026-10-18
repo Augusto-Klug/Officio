@@ -181,6 +181,11 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .ocr-review summary > span { display: inline-flex; align-items: center; gap: 7px; font-weight: 650; }
 .ocr-review summary > strong { color: var(--officio-muted); font-size: 10px; font-weight: 600; }
 .ocr-review[open] summary { margin-bottom: 12px; }
+.manual-review-audit { grid-column: 1 / -1; width: 100%; min-width: 0; box-sizing: border-box; border-top: 1px solid #e7ece9; padding-top: 10px; }
+.manual-review-audit summary { display: flex; align-items: flex-start; gap: 8px; color: #355348; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; cursor: pointer; }
+.manual-review-audit summary > i { flex: 0 0 auto; margin-top: 2px; }
+.manual-review-audit p { margin: 8px 0 6px; color: var(--officio-text); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.manual-review-audit small { display: flex; flex-wrap: wrap; gap: 4px; color: var(--officio-muted); font-size: 11px; line-height: 1.4; }
 .ocr-divergence-list { overflow-x: auto; margin-bottom: 12px; border: 1px solid var(--officio-border); border-radius: 6px; }
 .ocr-comparison { min-width: 620px; display: grid; grid-template-columns: 130px repeat(2, minmax(150px, 1fr)) 90px; gap: 12px; padding: 9px 12px; border-top: 1px solid var(--officio-border); color: #35483f; font-size: 11px; overflow-wrap: anywhere; }
 .ocr-comparison:first-child { border-top: 0; }
@@ -220,6 +225,9 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .public-section-heading h2 { margin: 0; }
 .public-dependent-list, .public-document-list { display: grid; gap: 10px; }
 .public-dependent-row { display: grid; grid-template-columns: minmax(180px, 1.3fr) repeat(3, minmax(130px, .8fr)) auto auto 40px; gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--officio-border); border-radius: 6px; background: var(--officio-surface); }
+.public-readonly-bank { margin-top: 14px; }
+.public-radio-group { display: flex; align-items: center; gap: 16px; min-height: 38px; }
+.public-radio-group label { display: inline-flex; align-items: center; gap: 7px; color: var(--officio-text); font-size: 13px; }
 .public-document-row { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--officio-border); }
 .public-document-row > div:first-child { display: flex; flex-direction: column; gap: 4px; }
 .public-document-row strong { font-size: 13px; }

@@ -1,3 +1,5 @@
+import { formatarCnpj, somenteDigitos } from './inputMasks'
+
 const dateFormat = new Intl.DateTimeFormat('pt-BR')
 const saoPauloDateTimeFormat = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'short',
@@ -13,7 +15,7 @@ export function formatDate(value: string | null): string {
 }
 export function formatCnpj(value: string | null): string {
   if (!value) return 'CNPJ não informado'
-  return value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+  return somenteDigitos(value).length === 14 ? formatarCnpj(value) : value
 }
 export function formatCurrency(value: number): string {
   return currencyFormat.format(value)

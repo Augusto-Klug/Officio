@@ -22,7 +22,7 @@ public class AdmissaoServico(
         if (cliente.EmpresaId == Guid.Empty)
             return Resultado<Guid>.CriarFalha("Cliente nao possui empresa vinculada.");
 
-        var validacao = ValidarDados(requisicao.Dados, exigirConclusao: false);
+        var validacao = ValidarDados(requisicao.Dados, exigirConclusao: false, exigirDadosBasicos: true);
         if (validacao is not null)
             return Resultado<Guid>.CriarFalha(validacao);
 
@@ -65,7 +65,7 @@ public class AdmissaoServico(
         if (StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo))
             return Resultado<Guid>.CriarFalha("Admissao concluida ou cancelada nao pode ser editada.");
 
-        var validacao = ValidarDados(requisicao.Dados, exigirConclusao: false);
+        var validacao = ValidarDados(requisicao.Dados, exigirConclusao: false, exigirDadosBasicos: true);
         if (validacao is not null)
             return Resultado<Guid>.CriarFalha(validacao);
 
@@ -123,6 +123,29 @@ public class AdmissaoServico(
             : Resultado<AdmissaoDetalheDto>.CriarSucesso(MapearDetalhe(admissao));
     }
 
+    public async Task<Resultado<bool>> ConcluirRevisaoDocumentalAsync(
+        Guid admissaoId,
+        CancellationToken ct = default)
+    {
+        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
+        if (admissao is null)
+            return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
+        if (admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.AguardandoValidacao)
+            return Resultado<bool>.CriarFalha("A admissao nao esta aguardando revisao documental da contabilidade.");
+        if (!admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
+            return Resultado<bool>.CriarFalha("O admitido ainda nao concluiu o preenchimento da ficha.");
+
+        var erroDocumentos = AdmissaoDocumentoRegras.ValidarDocumentosParaConclusao(admissao.Documentos);
+        if (erroDocumentos is not null)
+            return Resultado<bool>.CriarFalha(erroDocumentos);
+
+        var status = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.DocumentosValidados, "Documentos validados", 4, ct);
+        admissao.AlterarStatus(status.Id);
+        await repositorio.SalvarAlteracoesAsync(ct);
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
     public async Task<Resultado<bool>> ConcluirAsync(Guid admissaoId, CancellationToken ct = default)
     {
         var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
@@ -134,27 +157,18 @@ public class AdmissaoServico(
         var funcionarioExistente = await repositorio.ObterFuncionarioPorAdmissaoAsync(admissao.Id, ct);
         if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.Concluida || funcionarioExistente is not null)
             return Resultado<bool>.CriarSucesso(true);
+        if (admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.LiberadoPeloEmpregador ||
+            !admissao.PreenchimentoFuncionarioConcluidoEm.HasValue ||
+            !admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
+            return Resultado<bool>.CriarFalha("A admissao so pode ser concluida apos o preenchimento do admitido, a validacao documental e a liberacao pelo empregador.");
 
         var dados = ExtrairDados(admissao);
         var validacao = ValidarDados(dados, exigirConclusao: true);
         if (validacao is not null)
             return Resultado<bool>.CriarFalha(validacao);
-        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId is null &&
-                item.TipoDocumento.Codigo is not ("IDENTIDADE" or "CNH")))
-            return Resultado<bool>.CriarFalha("Envie todos os documentos obrigatorios antes de concluir a admissao.");
-        if (!AdmissaoDocumentoRegras.PossuiIdentificacao(admissao.Documentos))
-            return Resultado<bool>.CriarFalha("Envie uma identidade (RG/CIN) ou CNH antes de concluir a admissao.");
-        if (!AdmissaoDocumentoRegras.IdentificacaoAprovada(admissao.Documentos))
-            return Resultado<bool>.CriarFalha("Valide e aprove a identidade ou CNH antes de concluir a admissao.");
-        if (admissao.Documentos.Any(item => item.Obrigatorio && item.DocumentoId.HasValue &&
-                item.Documento!.Validacoes.OrderByDescending(validacaoDocumento => validacaoDocumento.CriadoEm)
-                    .FirstOrDefault()?.Status != Officio.Dominio.Enumeradores.StatusValidacao.Aprovado))
-            return Resultado<bool>.CriarFalha("Valide e aprove todos os documentos obrigatorios antes de concluir a admissao.");
-        if (admissao.Documentos.Any(item =>
-                item.TipoDocumento.Codigo is not ("IDENTIDADE" or "CNH") &&
-                item.Documento?.Validacoes.OrderByDescending(validacaoDocumento => validacaoDocumento.CriadoEm)
-                    .FirstOrDefault()?.Status is Officio.Dominio.Enumeradores.StatusValidacao.Reprovado or Officio.Dominio.Enumeradores.StatusValidacao.RevisaoManual))
-            return Resultado<bool>.CriarFalha("Existem documentos aguardando revisao antes de concluir a admissao.");
+        var erroDocumentos = AdmissaoDocumentoRegras.ValidarDocumentosParaConclusao(admissao.Documentos);
+        if (erroDocumentos is not null)
+            return Resultado<bool>.CriarFalha(erroDocumentos);
 
         var status = await ObterStatusAsync(StatusAdmissaoCodigos.Concluida, ct);
         var funcionario = EmpresaFuncionario.Criar(
@@ -205,13 +219,24 @@ public class AdmissaoServico(
                 dependente.Parentesco, dependente.DependenteIr, dependente.SalarioFamilia)));
     }
 
-    private static string? ValidarDados(DadosAdmissaoRequisicao dados, bool exigirConclusao)
+    private static string? ValidarDados(
+        DadosAdmissaoRequisicao dados,
+        bool exigirConclusao,
+        bool exigirDadosBasicos = false)
     {
         if (string.IsNullOrWhiteSpace(dados.NomeFuncionario))
             return "Nome do funcionario e obrigatorio.";
         var cpf = Comum.DocumentoFiscal.SomenteDigitos(dados.Cpf);
+        if (exigirDadosBasicos && cpf is null)
+            return "CPF do funcionario e obrigatorio para criar a admissao.";
         if (cpf is not null && cpf.Length != 11)
             return "CPF do funcionario deve conter 11 digitos.";
+        if (exigirDadosBasicos && string.IsNullOrWhiteSpace(dados.Rg))
+            return "RG do funcionario e obrigatorio para criar a admissao.";
+        if (exigirDadosBasicos && dados.DataNascimento is null)
+            return "Data de nascimento e obrigatoria para criar a admissao.";
+        if (exigirDadosBasicos && dados.Sexo is not ("Masculino" or "Feminino"))
+            return "Selecione Masculino ou Feminino para o sexo do funcionario.";
         if (dados.Dependentes.Any(dependente => string.IsNullOrWhiteSpace(dependente.Nome)))
             return "Nome do dependente e obrigatorio.";
         if (dados.Dependentes.Any(dependente =>
@@ -232,8 +257,8 @@ public class AdmissaoServico(
         => codigo switch
         {
             StatusAdmissaoCodigos.Rascunho => repositorio.ObterOuCriarStatusAsync(codigo, "Rascunho", 1, ct),
-            StatusAdmissaoCodigos.Concluida => repositorio.ObterOuCriarStatusAsync(codigo, "Concluida", 5, ct),
-            StatusAdmissaoCodigos.Cancelada => repositorio.ObterOuCriarStatusAsync(codigo, "Cancelada", 6, ct),
+            StatusAdmissaoCodigos.Concluida => repositorio.ObterOuCriarStatusAsync(codigo, "Concluida", 7, ct),
+            StatusAdmissaoCodigos.Cancelada => repositorio.ObterOuCriarStatusAsync(codigo, "Cancelada", 8, ct),
             _ => throw new ArgumentOutOfRangeException(nameof(codigo), codigo, null)
         };
 
@@ -254,7 +279,9 @@ public class AdmissaoServico(
             admissao.Id, admissao.EmpresaId, admissao.Empresa.RazaoSocial,
             admissao.NomeFuncionario, admissao.Cpf, admissao.StatusAdmissao.Codigo,
             admissao.StatusAdmissao.Descricao, admissao.DataAdmissaoPrevista,
-            admissao.Funcao, admissao.Salario, admissao.CriadoEm);
+            admissao.Funcao, admissao.Salario, admissao.CriadoEm,
+            admissao.PreenchimentoFuncionarioConcluidoEm.HasValue,
+            admissao.PreenchimentoEmpresaConcluidoEm.HasValue);
 
     private static AdmissaoDetalheDto MapearDetalhe(Admissao admissao)
         => new(

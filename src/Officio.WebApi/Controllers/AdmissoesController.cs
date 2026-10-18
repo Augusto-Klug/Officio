@@ -3,12 +3,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.CancelarAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.ConcluirAdmissao;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.ConcluirRevisaoDocumental;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.EnviarLinkFichaAdmissaoEmail;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.AprovarDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.EnviarDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RemoverDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.ValidarDocumentoAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.GerarLinkFichaAdmissao;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.GerarLinkFichaEmpresaAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RevogarLinkFichaAdmissao;
+using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Comandos.RevogarLinkFichaEmpresaAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarDocumentosAdmissao;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarAdmissoes;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarEmpresasComAdmissoes;
@@ -101,6 +105,31 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConcluirRevisaoDocumental(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new ConcluirRevisaoDocumentalComando(id), cancellationToken);
+        return resultado.Sucesso ? NoContent() : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EnviarLinkPorEmail(
+        Guid id,
+        [FromBody] EnviarLinkFichaAdmissaoEmailViewModel viewModel,
+        CancellationToken cancellationToken)
+    {
+        var requisicao = new EnviarLinkFichaAdmissaoEmailRequisicao(
+            id, viewModel.Papel, viewModel.Email, viewModel.Token);
+        var resultado = await mediator.Send(new EnviarLinkFichaAdmissaoEmailComando(requisicao), cancellationToken);
+        return resultado.Sucesso ? NoContent() : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpPost("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -127,6 +156,26 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> RevogarLinkFicha(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new RevogarLinkFichaAdmissaoComando(id), cancellationToken);
+        return resultado.Sucesso ? NoContent() : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GerarLinkFichaEmpresa(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new GerarLinkFichaEmpresaAdmissaoComando(id), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpPost("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RevogarLinkFichaEmpresa(Guid id, CancellationToken cancellationToken)
+    {
+        var resultado = await mediator.Send(new RevogarLinkFichaEmpresaAdmissaoComando(id), cancellationToken);
         return resultado.Sucesso ? NoContent() : ResultadoErro(resultado.Erro);
     }
 

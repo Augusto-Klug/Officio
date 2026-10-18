@@ -1,29 +1,9 @@
 import type { CriarProspectoPayload } from '../types/prospecto'
+import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, somenteDigitos } from '../../../utils/inputMasks'
+
+export { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, somenteDigitos } from '../../../utils/inputMasks'
 
 export type ProspectoFormErrors = Record<string, string>
-
-export function somenteDigitos(value: string): string {
-  return value.replace(/\D/g, '')
-}
-
-export function formatarCnpj(value: string): string {
-  return somenteDigitos(value).slice(0, 14)
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d)/, '.$1/$2')
-    .replace(/(\d{4})(\d)/, '$1-$2')
-}
-
-export function formatarCpf(value: string): string {
-  return somenteDigitos(value).slice(0, 11)
-    .replace(/^(\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/(\d{3})(\d)/, '$1-$2')
-}
-
-export function formatarCep(value: string): string {
-  return somenteDigitos(value).slice(0, 8).replace(/^(\d{5})(\d)/, '$1-$2')
-}
 
 export function novoProspecto(): CriarProspectoPayload {
   return {
@@ -42,7 +22,7 @@ export function montarFormularioProspecto(dados: CriarProspectoPayload = novoPro
     tipoEmpresa: dados.tipoEmpresa || '', regimeTributario: dados.regimeTributario,
     porteEmpresa: dados.porteEmpresa || '', cnaePrincipal: dados.cnaePrincipal || '',
     dataAbertura: dados.dataAbertura?.slice(0, 10) || '', email: dados.email || '',
-    telefone: dados.telefone || '', whatsapp: dados.whatsapp || '', nomeContato: dados.nomeContato || '',
+    telefone: formatarTelefone(dados.telefone), whatsapp: formatarTelefone(dados.whatsapp), nomeContato: dados.nomeContato || '',
     cep: formatarCep(dados.cep || ''), logradouro: dados.logradouro || '', numero: dados.numero || '',
     complemento: dados.complemento || '', bairro: dados.bairro || '', cidade: dados.cidade || '',
     uf: dados.uf || '', municipioCodigoIbge: dados.municipioCodigoIbge || '', origem: dados.origem || '',
@@ -99,8 +79,8 @@ export function limparPayload(payload: CriarProspectoPayload): CriarProspectoPay
     cnaePrincipal: documento(payload.cnaePrincipal),
     dataAbertura: payload.dataAbertura || null,
     email: texto(payload.email),
-    telefone: texto(payload.telefone),
-    whatsapp: texto(payload.whatsapp),
+    telefone: documento(payload.telefone),
+    whatsapp: documento(payload.whatsapp),
     nomeContato: texto(payload.nomeContato),
     cep: documento(payload.cep),
     logradouro: texto(payload.logradouro),

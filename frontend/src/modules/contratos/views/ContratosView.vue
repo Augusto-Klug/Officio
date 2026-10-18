@@ -15,6 +15,7 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatCurrency, formatDate } from '../../../utils/format'
+import { formatarCpf, somenteDigitos } from '../../../utils/inputMasks'
 import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, obterPdfAssinado } from '../services/contratos.service'
 import type { Contrato, EmpresaContratoFiltro } from '../types/contrato'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
@@ -137,7 +138,7 @@ async function enviarAssinatura() {
   formError.value = ''
   try {
     const result = await enviarContratoParaAssinatura(selected.value.id, {
-      signatarios: [{ nome: signer.value.nome.trim(), email: signer.value.email.trim(), cpf: signer.value.cpf.trim() || undefined, tipo: signer.value.tipo }],
+      signatarios: [{ nome: signer.value.nome.trim(), email: signer.value.email.trim(), cpf: somenteDigitos(signer.value.cpf) || undefined, tipo: signer.value.tipo }],
       mensagemPersonalizada: signer.value.mensagemPersonalizada.trim() || undefined,
     })
     signOpen.value = false
@@ -214,7 +215,7 @@ onBeforeUnmount(() => {
     <form id="signature-form" class="dialog-form" @submit.prevent="enviarAssinatura">
       <Message v-if="formError" severity="error" :closable="false">{{ formError }}</Message>
       <div class="field"><label for="signer-name">Nome do signatário</label><InputText id="signer-name" v-model="signer.nome" autocomplete="name" /></div>
-      <div class="form-grid two-columns"><div class="field"><label for="signer-email">E-mail</label><InputText id="signer-email" v-model="signer.email" type="email" autocomplete="email" /></div><div class="field"><label for="signer-cpf">CPF (opcional)</label><InputText id="signer-cpf" v-model="signer.cpf" inputmode="numeric" /></div></div>
+      <div class="form-grid two-columns"><div class="field"><label for="signer-email">E-mail</label><InputText id="signer-email" v-model="signer.email" type="email" autocomplete="email" /></div><div class="field"><label for="signer-cpf">CPF (opcional)</label><InputText id="signer-cpf" :model-value="signer.cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" @update:model-value="signer.cpf = formatarCpf($event)" /></div></div>
       <div class="field"><label for="signature-message">Mensagem (opcional)</label><Textarea id="signature-message" v-model="signer.mensagemPersonalizada" rows="3" auto-resize /></div>
     </form>
     <template #footer><BaseButton label="Cancelar" variant="text" @click="signOpen = false" /><BaseButton label="Enviar contrato" icon="pi pi-send" type="submit" form="signature-form" :loading="!!actionId" /></template>

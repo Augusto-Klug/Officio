@@ -29,6 +29,10 @@
     <ProjectReference Include="..\Officio.WebApi\Officio.WebApi.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\.envexample" Link=".envexample" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
 
 

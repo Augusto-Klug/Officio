@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatarCep, formatarCnpj, formatarCpf, limparPayload, montarFormularioProspecto, novoProspecto, validarProspecto } from './prospecto-form'
+import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limparPayload, montarFormularioProspecto, novoProspecto, validarProspecto } from './prospecto-form'
 
 describe('formulário de prospecto', () => {
   it('preenche a edicao sem perder identificadores de socios ou percentual e normaliza data/opcionais', () => {
@@ -19,6 +19,20 @@ describe('formulário de prospecto', () => {
     expect(formatarCnpj('12345678000190abc')).toBe('12.345.678/0001-90')
     expect(formatarCpf('12345678909')).toBe('123.456.789-09')
     expect(formatarCep('89010000')).toBe('89010-000')
+  })
+
+  it('formats phone values while editing and sends digits only', () => {
+    const formulario = montarFormularioProspecto({
+      ...novoProspecto(),
+      telefone: '4733334444',
+      whatsapp: '47999999999',
+    })
+    expect(formulario).toMatchObject({ telefone: '(47) 3333-4444', whatsapp: '(47) 99999-9999' })
+    expect(limparPayload({ ...novoProspecto(), ...formulario })).toMatchObject({
+      telefone: '4733334444',
+      whatsapp: '47999999999',
+    })
+    expect(formatarTelefone('479999999991')).toBe('(47) 99999-9999')
   })
 
   it('valida os campos coerentes com o contrato do backend', () => {

@@ -11,7 +11,7 @@ import { aprovarDocumentoAdmissao, enviarDocumentoAdmissao, listarDocumentosAdmi
 import type { AdmissaoDocumento } from '../types/admissao'
 import { agruparDocumentosAdmissao } from '../documentos'
 
-const props = defineProps<{ admissaoId: string; editable: boolean }>()
+const props = defineProps<{ admissaoId: string; editable: boolean; canValidate: boolean }>()
 const emit = defineEmits<{ atualizado: [] }>()
 const documentos = ref<AdmissaoDocumento[]>([])
 const loading = ref(false)
@@ -214,8 +214,8 @@ watch(() => props.admissaoId, () => void carregar(), { immediate: true })
             <StatusBadge :label="status(documentoAtivo(documento)).label" :severity="status(documentoAtivo(documento)).severity" />
             <div class="document-actions">
               <BaseButton v-if="documentoAtivo(documento).documentoId" icon="pi pi-external-link" variant="text" title="Visualizar documento" aria-label="Visualizar documento" :loading="actionId === documentoAtivo(documento).id" @click="visualizar(documentoAtivo(documento))" />
-              <BaseButton v-if="editable && documentoAtivo(documento).documentoId && documentoAtivo(documento).statusValidacao !== 'APROVADO'" label="Validar" icon="pi pi-sparkles" variant="secondary" :loading="actionId === documentoAtivo(documento).id" @click="validar(documentoAtivo(documento))" />
-              <BaseButton v-if="editable && !documentoAtivo(documento).tipoDocumentoIncompativel && ['REVISAO_MANUAL', 'REPROVADO'].includes(documentoAtivo(documento).statusValidacao)" label="Revisão manual" icon="pi pi-eye" :loading="actionId === documentoAtivo(documento).id" @click="aprovar(documentoAtivo(documento))" />
+              <BaseButton v-if="editable && canValidate && documentoAtivo(documento).documentoId && documentoAtivo(documento).statusValidacao !== 'APROVADO'" label="Validar" icon="pi pi-sparkles" variant="secondary" :loading="actionId === documentoAtivo(documento).id" @click="validar(documentoAtivo(documento))" />
+              <BaseButton v-if="editable && canValidate && !documentoAtivo(documento).tipoDocumentoIncompativel && ['REVISAO_MANUAL', 'REPROVADO'].includes(documentoAtivo(documento).statusValidacao)" label="Revisão manual" icon="pi pi-eye" :loading="actionId === documentoAtivo(documento).id" @click="aprovar(documentoAtivo(documento))" />
               <label v-if="editable" class="document-upload" :for="`documento-${documentoAtivo(documento).id}`"><i :class="documentoAtivo(documento).documentoId ? 'pi pi-refresh' : 'pi pi-upload'" />{{ documentoAtivo(documento).documentoId ? 'Substituir' : 'Enviar' }}</label>
               <input :id="`documento-${documentoAtivo(documento).id}`" class="visually-hidden" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" :disabled="actionId === documentoAtivo(documento).id" @change="enviar(documento, $event)" />
               <BaseButton v-if="editable && documentoAtivo(documento).documentoId" icon="pi pi-trash" variant="text" title="Remover documento" aria-label="Remover documento" :loading="actionId === documentoAtivo(documento).id" @click="remover(documentoAtivo(documento))" />
@@ -234,6 +234,14 @@ watch(() => props.admissaoId, () => void carregar(), { immediate: true })
               <dl class="ocr-extracted-fields">
                 <div v-for="(valor, campo) in documentoAtivo(documento).camposExtraidos" :key="campo"><dt>{{ rotuloCampo(campo) }}</dt><dd>{{ valor }}</dd></div>
               </dl>
+            </details>
+            <details v-if="documentoAtivo(documento).observacaoRevisao" class="manual-review-audit">
+              <summary><i class="pi pi-user-edit" /> Motivo da revisão manual</summary>
+              <p>{{ documentoAtivo(documento).observacaoRevisao }}</p>
+              <small v-if="documentoAtivo(documento).revisadoPorNome || documentoAtivo(documento).revisadoEm">
+                <span v-if="documentoAtivo(documento).revisadoPorNome">Revisado por {{ documentoAtivo(documento).revisadoPorNome }}</span>
+                <span v-if="documentoAtivo(documento).revisadoEm"> · {{ formatDate(documentoAtivo(documento).revisadoEm ?? null) }}</span>
+              </small>
             </details>
           </article>
         </div>

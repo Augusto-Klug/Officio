@@ -45,11 +45,11 @@ internal class DashboardRepositorio(ContextoAplicacao contexto) : IDashboardRepo
         CancellationToken cancellationToken = default)
     {
         var admissoes = await contexto.Admissoes
-            .Where(item => item.StatusAdmissao.Codigo == StatusAdmissaoCodigos.PendenteRevisao)
+            .Where(item => item.StatusAdmissao.Codigo == StatusAdmissaoCodigos.AguardandoValidacao)
             .Select(item => new DashboardAlertaDto(
-                "ADMISSAO_PENDENTE_REVISAO",
+                "ADMISSAO_AGUARDANDO_VALIDACAO",
                 "erro",
-                "Admissao aguardando revisao",
+                "Admissao aguardando validacao documental",
                 item.NomeFuncionario,
                 item.Id,
                 "/admissoes",

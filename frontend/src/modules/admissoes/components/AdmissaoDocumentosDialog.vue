@@ -7,10 +7,15 @@ import type { AdmissaoResumo } from '../types/admissao'
 import AdmissaoDocumentosSection from './AdmissaoDocumentosSection.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
-const props = defineProps<{ admissao: AdmissaoResumo | null; linkLoading?: boolean }>()
-const emit = defineEmits<{ atualizado: []; gerarLink: [admissaoId: string] }>()
+const props = defineProps<{ admissao: AdmissaoResumo | null; loading?: boolean; linkLoading?: boolean }>()
+const emit = defineEmits<{ atualizado: []; gerarLink: [admissaoId: string, papel: 'funcionario' | 'empresa']; concluirRevisao: [admissaoId: string] }>()
 
 const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.admissao?.status === 'CANCELADA')
+const funcionarioConcluiu = computed(() => props.admissao?.preenchimentoFuncionarioConcluido === true)
+const empresaConcluiu = computed(() => props.admissao?.preenchimentoEmpresaConcluido === true)
+const aguardandoValidacao = computed(() => props.admissao?.status === 'AGUARDANDO_VALIDACAO')
+const documentosValidados = computed(() => ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR', 'CONCLUIDA'].includes(props.admissao?.status ?? ''))
+const documentosEditaveis = computed(() => ['RASCUNHO', 'AGUARDANDO_ADMITIDO', 'AGUARDANDO_VALIDACAO'].includes(props.admissao?.status ?? ''))
 const severity = computed(() => {
   if (props.admissao?.status === 'CONCLUIDA') return 'success'
   if (props.admissao?.status === 'CANCELADA') return 'danger'
@@ -20,17 +25,25 @@ const severity = computed(() => {
 
 <template>
   <Dialog v-model:visible="visible" modal header="Documentos da admissão" class="workflow-dialog admission-documents-dialog" :style="{ width: 'min(980px, 96vw)' }">
-    <div v-if="admissao" class="documents-dialog-content">
+    <div v-if="loading" class="list-state compact-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Atualizando admissão...</p></div>
+    <div v-else-if="admissao" class="documents-dialog-content">
       <header class="documents-dialog-heading">
         <div><h2>{{ admissao.nomeFuncionario }}</h2><p>{{ admissao.empresaNome }}</p></div>
         <StatusBadge :label="admissao.statusDescricao" :severity="severity" />
       </header>
-      <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal" @atualizado="emit('atualizado')" />
+      <div class="admission-form-progress" aria-label="Etapas de preenchimento">
+        <div><span>Admitido</span><StatusBadge :label="funcionarioConcluiu ? 'Concluído' : 'Pendente'" :severity="funcionarioConcluiu ? 'success' : 'warn'" /></div>
+        <div><span>Revisão documental</span><StatusBadge :label="documentosValidados ? 'Concluída' : funcionarioConcluiu ? 'Pendente' : 'Aguardando admitido'" :severity="documentosValidados ? 'success' : funcionarioConcluiu ? 'warn' : 'secondary'" /></div>
+        <div><span>Empregador</span><StatusBadge :label="empresaConcluiu ? 'Liberado' : documentosValidados ? 'Aguardando preenchimento' : 'Aguardando validação'" :severity="empresaConcluiu ? 'success' : documentosValidados ? 'info' : 'secondary'" /></div>
+      </div>
+      <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal && documentosEditaveis" :can-validate="aguardandoValidacao" @atualizado="emit('atualizado')" />
     </div>
-    <div v-else class="list-state compact-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando admissão...</p></div>
+    <div v-else class="list-state compact-state"><p>Não foi possível carregar a admissão.</p></div>
     <template #footer>
       <BaseButton label="Fechar" variant="text" @click="visible = false" />
-      <BaseButton v-if="admissao && !terminal" label="Gerar ficha digital" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id)" />
+      <BaseButton v-if="admissao && !terminal && ['RASCUNHO', 'AGUARDANDO_ADMITIDO'].includes(admissao.status) && !funcionarioConcluiu" label="Gerar link do admitido" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'funcionario')" />
+      <BaseButton v-else-if="admissao && aguardandoValidacao" label="Concluir revisão documental" icon="pi pi-check-circle" :loading="linkLoading" :disabled="linkLoading" @click="emit('concluirRevisao', admissao.id)" />
+      <BaseButton v-else-if="admissao && !terminal && admissao.status === 'DOCUMENTOS_VALIDADOS' && !empresaConcluiu" label="Gerar link do empregador" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'empresa')" />
     </template>
   </Dialog>
 </template>
@@ -40,4 +53,7 @@ const severity = computed(() => {
 .documents-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .documents-dialog-heading h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
 .documents-dialog-heading p { margin: 4px 0 0; color: var(--officio-muted); font-size: 13px; }
+.admission-form-progress { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 12px 0; border-top: 1px solid var(--officio-border); border-bottom: 1px solid var(--officio-border); }
+.admission-form-progress > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--officio-muted); font-size: 13px; }
+@media (max-width: 560px) { .admission-form-progress { grid-template-columns: 1fr; } }
 </style>

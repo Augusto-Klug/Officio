@@ -47,7 +47,34 @@ public class AdmissaoDocumentoServicoTestes
     }
 
     [Fact]
-    public async Task Validar_QuandoRequerRevisao_AtualizaStatusDaAdmissao()
+    public async Task AlterarDocumento_AposRevisaoDocumentalConcluida_Falha()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        var envioInicial = await cenario.Servico.EnviarAsync(
+            CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        Assert.True(envioInicial.Sucesso);
+
+        var repositorio = new AdmissaoRepositorio(contexto);
+        var admissao = await repositorio.ObterParaAlteracaoAsync(cenario.AdmissaoId);
+        var status = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.DocumentosValidados, "Documentos validados", 4);
+        admissao!.AlterarStatus(status.Id);
+        await contexto.SaveChangesAsync();
+
+        var substituicao = await cenario.Servico.EnviarAsync(
+            CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade-atualizada.pdf"));
+        var remocao = await cenario.Servico.RemoverAsync(cenario.AdmissaoId, item.Id);
+
+        Assert.False(substituicao.Sucesso);
+        Assert.False(remocao.Sucesso);
+        Assert.Contains("revisao documental", substituicao.Erro);
+        Assert.Contains("revisao documental", remocao.Erro);
+    }
+
+    [Fact]
+    public async Task Validar_QuandoRequerRevisao_MantemEtapaAguardandoContabilidade()
     {
         var resultadoValidacao = new ValidationResultDto(false, 0.2m, [], true, "Revisao necessaria");
         var cenario = await CriarCenarioAsync(Resultado<ValidationResultDto>.CriarSucesso(resultadoValidacao));
@@ -60,29 +87,7 @@ public class AdmissaoDocumentoServicoTestes
         Assert.True(resultado.Sucesso);
         contexto.ChangeTracker.Clear();
         var admissao = await contexto.Admissoes.Include(registro => registro.StatusAdmissao).SingleAsync();
-        Assert.Equal(StatusAdmissaoCodigos.PendenteRevisao, admissao.StatusAdmissao.Codigo);
-    }
-
-    [Fact]
-    public async Task ValidarPendentes_ProcessaSomenteDocumentosSemValidacao()
-    {
-        var cenario = await CriarCenarioAsync();
-        await using var contexto = cenario.Contexto;
-        var itens = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).Take(2).ToListAsync();
-        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, itens[0].Id, "identidade.pdf"));
-        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, itens[1].Id, "cpf.pdf"));
-        var primeiroDocumentoId = (await contexto.AdmissaoDocumentos.SingleAsync(item => item.Id == itens[0].Id)).DocumentoId!.Value;
-        contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
-            cenario.TenantId, primeiroDocumentoId, [], [], true, 1m, itens[0].Id));
-        await contexto.SaveChangesAsync();
-
-        var resultado = await cenario.Servico.ValidarPendentesAsync(cenario.AdmissaoId);
-
-        Assert.True(resultado.Sucesso, resultado.Erro);
-        Assert.Equal(1, resultado.Valor!.Processados);
-        Assert.Equal(1, resultado.Valor.Aprovados);
-        Assert.Equal(0, resultado.Valor.PendentesRevisao);
-        Assert.Equal(0, resultado.Valor.Falhas);
+        Assert.Equal(StatusAdmissaoCodigos.AguardandoValidacao, admissao.StatusAdmissao.Codigo);
     }
 
     [Fact]
@@ -240,10 +245,15 @@ public class AdmissaoDocumentoServicoTestes
         var repositorio = new AdmissaoRepositorio(contexto);
         var admissaoServico = new AdmissaoServico(repositorio, new ClienteRepositorio(contexto), empresaAtual);
         var dados = new DadosAdmissaoRequisicao(
-            "Funcionario Teste", "11789299900", null, null, null, null, null, null, null, null,
+            "Funcionario Teste", "11789299900", "1234567", new DateOnly(1995, 5, 10), "Feminino", null, null, null, null, null,
             null, null, null, null, new DateOnly(2026, 9, 22), 2500m, null, "Analista",
             90, false, null, null, []);
         var criacao = await admissaoServico.CriarManualAsync(new CriarAdmissaoManualRequisicao(cliente.Id, dados));
+        var admissao = await contexto.Admissoes.SingleAsync(item => item.Id == criacao.Valor);
+        var aguardandoValidacao = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.AguardandoValidacao, "Aguardando validacao", 3);
+        admissao.AlterarStatus(aguardandoValidacao.Id);
+        await contexto.SaveChangesAsync();
 
         var armazenamento = new ArmazenamentoFake();
         var servico = CriarServicoDocumento(contexto, tenantId, armazenamento, resultadoValidacao);

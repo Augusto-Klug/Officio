@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Officio.Dominio.Admissoes;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Interfaces;
@@ -96,6 +97,7 @@ public class AdmissaoServicoTestes
             cliente.Id,
             CriarDados(cpf: "11789299900", dataAdmissao: new DateOnly(2026, 9, 21), funcao: "Analista")));
         await PreencherDocumentosObrigatoriosAsync(contexto, tenantId, empresa.Id, criacao.Valor);
+        await PrepararParaConclusaoAsync(contexto, criacao.Valor);
 
         var primeiraConclusao = await servico.ConcluirAsync(criacao.Valor);
         var segundaConclusao = await servico.ConcluirAsync(criacao.Valor);
@@ -120,6 +122,7 @@ public class AdmissaoServicoTestes
         var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(
             cliente.Id,
             CriarDados(dataAdmissao: new DateOnly(2026, 9, 21))));
+        await PrepararParaConclusaoAsync(contexto, criacao.Valor);
 
         var resultado = await servico.ConcluirAsync(criacao.Valor);
 
@@ -139,12 +142,13 @@ public class AdmissaoServicoTestes
             cliente.Id,
             CriarDados(dataAdmissao: new DateOnly(2026, 9, 21))));
         await PreencherDocumentosObrigatoriosAsync(
-            contexto, tenantId, empresa.Id, criacao.Valor, aprovar: false);
+            contexto, tenantId, empresa.Id, criacao.Valor, aprovar: false, aprovarIdentificacao: true);
+        await PrepararParaConclusaoAsync(contexto, criacao.Valor);
 
         var resultado = await servico.ConcluirAsync(criacao.Valor);
 
         Assert.False(resultado.Sucesso);
-        Assert.Contains("Valide e aprove", resultado.Erro);
+        Assert.Contains("ainda nao foi aprovado", resultado.Erro);
         Assert.Empty(contexto.EmpresaFuncionarios);
     }
 
@@ -175,6 +179,23 @@ public class AdmissaoServicoTestes
     }
 
     [Fact]
+    public async Task Atualizar_NaoPermiteRemoverDadosBasicosObrigatorios()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (_, cliente) = await CriarClienteAsync(contexto, tenantId);
+        var servico = CriarServico(contexto, tenantId);
+        var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(cliente.Id, CriarDados()));
+
+        var resultado = await servico.AtualizarAsync(new AtualizarAdmissaoRequisicao(
+            criacao.Valor,
+            CriarDados(rg: null)));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("RG", resultado.Erro);
+    }
+
+    [Fact]
     public async Task CriarManual_ComCpfInvalidoNoDependente_Falha()
     {
         var tenantId = Guid.NewGuid();
@@ -192,7 +213,7 @@ public class AdmissaoServicoTestes
     }
 
     [Fact]
-    public async Task Concluir_SemDadosObrigatorios_FalhaSemCriarFuncionario()
+    public async Task CriarManual_SemDadosBasicos_Falha()
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
@@ -200,13 +221,35 @@ public class AdmissaoServicoTestes
         var servico = CriarServico(contexto, tenantId);
         var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(
             cliente.Id,
-            CriarDados(cpf: null, dataAdmissao: null, funcao: null)));
+            CriarDados(rg: null)));
 
-        var resultado = await servico.ConcluirAsync(criacao.Valor);
+        Assert.False(criacao.Sucesso);
+        Assert.Contains("RG", criacao.Erro);
+        Assert.Empty(contexto.EmpresaFuncionarios);
+    }
+
+    [Theory]
+    [InlineData("cpf", "CPF")]
+    [InlineData("nascimento", "Data de nascimento")]
+    [InlineData("sexo", "sexo")]
+    public async Task CriarManual_ExigeCpfNascimentoESexo(string campo, string erroEsperado)
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (_, cliente) = await CriarClienteAsync(contexto, tenantId);
+        var dados = campo switch
+        {
+            "cpf" => CriarDados(cpf: null),
+            "nascimento" => CriarDados(omitirNascimento: true),
+            _ => CriarDados(sexo: null)
+        };
+
+        var resultado = await CriarServico(contexto, tenantId).CriarManualAsync(
+            new CriarAdmissaoManualRequisicao(cliente.Id, dados));
 
         Assert.False(resultado.Sucesso);
-        Assert.Contains("CPF", resultado.Erro);
-        Assert.Empty(contexto.EmpresaFuncionarios);
+        Assert.Contains(erroEsperado.ToLowerInvariant(), resultado.Erro!.ToLowerInvariant());
+        Assert.Empty(contexto.Admissoes);
     }
 
     [Fact]
@@ -250,11 +293,15 @@ public class AdmissaoServicoTestes
     private static DadosAdmissaoRequisicao CriarDados(
         string nome = "Funcionario Teste",
         string? cpf = "11789299900",
+        string? rg = "1234567",
+        DateOnly? dataNascimento = null,
+        string? sexo = "Feminino",
+        bool omitirNascimento = false,
         DateOnly? dataAdmissao = null,
         string? funcao = "Assistente",
         IReadOnlyCollection<DependenteAdmissaoRequisicao>? dependentes = null)
         => new(
-            nome, cpf, null, null, null, null, null, null, null, null,
+            nome, cpf, rg, omitirNascimento ? null : dataNascimento ?? new DateOnly(1995, 5, 10), sexo, null, null, null, null, null,
             null, null, null, null, dataAdmissao, 2500m, null, funcao,
             90, false, null, null, dependentes ?? []);
 
@@ -275,7 +322,8 @@ public class AdmissaoServicoTestes
         Guid tenantId,
         Guid empresaId,
         Guid admissaoId,
-        bool aprovar = true)
+        bool aprovar = true,
+        bool aprovarIdentificacao = false)
     {
         var itens = await contexto.AdmissaoDocumentos
             .Include(item => item.TipoDocumento)
@@ -290,12 +338,24 @@ public class AdmissaoServicoTestes
                 $"documents/{item.Id}.pdf", "application/pdf", 100, 1m);
             item.VincularDocumento(documento);
             contexto.Documents.Add(documento);
-            if (aprovar)
+            if (aprovar || (aprovarIdentificacao && item.TipoDocumento.Codigo is "IDENTIDADE" or "CNH"))
                 contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
                     tenantId, documento.Id, [], [], true, 1m, item.Id));
         }
 
         await contexto.SaveChangesAsync();
+    }
+
+    private static async Task PrepararParaConclusaoAsync(ContextoAplicacao contexto, Guid admissaoId)
+    {
+        var repositorio = new AdmissaoRepositorio(contexto);
+        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId);
+        var status = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.LiberadoPeloEmpregador, "Liberado pelo empregador", 6);
+        admissao!.MarcarPreenchimentoFuncionarioConcluido();
+        admissao.MarcarPreenchimentoEmpresaConcluido();
+        admissao.AlterarStatus(status.Id);
+        await repositorio.SalvarAlteracoesAsync();
     }
 
     private static IAdmissaoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
