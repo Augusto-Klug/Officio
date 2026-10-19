@@ -45,7 +45,10 @@ public class ContratosWebhookController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Nao foi possivel persistir o webhook Autentique recebido.");
+            logger.LogError(
+                "Nao foi possivel persistir o webhook Autentique. TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
+                ex.GetType().FullName,
+                ex.StackTrace);
             MetricasWebhookAutentique.RegistrarRecebido("storage_unavailable");
             return StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
@@ -58,6 +61,9 @@ public class ContratosWebhookController(
 
         MetricasWebhookAutentique.RegistrarRecebido(
             resultado == ResultadoRecepcaoWebhookAutentique.Duplicado ? "duplicate" : "accepted");
+        logger.LogInformation(
+            "Webhook Autentique persistido. Resultado={Resultado}",
+            resultado);
         return Accepted();
     }
 

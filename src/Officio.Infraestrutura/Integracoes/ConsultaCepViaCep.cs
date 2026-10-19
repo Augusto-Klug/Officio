@@ -2,13 +2,16 @@ using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Infraestrutura.Integracoes;
 
 internal sealed class ConsultaCepViaCep(
     HttpClient httpClient,
-    TimeProvider timeProvider) : IConsultaCep
+    TimeProvider timeProvider,
+    ILogger<ConsultaCepViaCep> logger) : IConsultaCep
 {
     private static readonly ConcurrentDictionary<string, ItemCache> Cache = new();
     private static readonly TimeSpan DuracaoCache = TimeSpan.FromHours(24);
@@ -20,15 +23,35 @@ internal sealed class ConsultaCepViaCep(
         if (Cache.TryGetValue(cep, out var item) && item.ExpiraEm > timeProvider.GetUtcNow())
             return item.Endereco;
 
-        var resposta = await httpClient.GetFromJsonAsync<RespostaViaCep>(
-            $"ws/{Uri.EscapeDataString(cep)}/json/",
-            cancellationToken);
+        var timer = Stopwatch.StartNew();
+        RespostaViaCep? resposta;
+        try
+        {
+            resposta = await httpClient.GetFromJsonAsync<RespostaViaCep>(
+                $"ws/{Uri.EscapeDataString(cep)}/json/",
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                "Falha na consulta ViaCEP. TipoExcecao={TipoExcecao} StatusHttp={StatusHttp} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+                exception.GetType().Name,
+                (exception as HttpRequestException)?.StatusCode,
+                timer.ElapsedMilliseconds,
+                exception.StackTrace);
+            throw;
+        }
 
         if (resposta is null || ErroSinalizado(resposta.Erro) ||
             string.IsNullOrWhiteSpace(resposta.Localidade) ||
             string.IsNullOrWhiteSpace(resposta.Uf) ||
             string.IsNullOrWhiteSpace(resposta.Ibge))
         {
+            logger.LogInformation("Consulta ViaCEP concluida sem endereco. DuracaoMs={DuracaoMs}", timer.ElapsedMilliseconds);
             return null;
         }
 
@@ -42,6 +65,7 @@ internal sealed class ConsultaCepViaCep(
             resposta.Ibge.Trim());
 
         Cache[cep] = new ItemCache(endereco, timeProvider.GetUtcNow().Add(DuracaoCache));
+        logger.LogInformation("Consulta ViaCEP concluida com endereco. DuracaoMs={DuracaoMs}", timer.ElapsedMilliseconds);
         return endereco;
     }
 

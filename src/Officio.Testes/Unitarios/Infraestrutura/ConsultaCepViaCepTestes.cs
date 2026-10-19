@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
 using Officio.Infraestrutura.Integracoes;
 
 namespace Officio.Testes.Unitarios.Infraestrutura;
@@ -22,7 +23,7 @@ public class ConsultaCepViaCepTestes
             }
             """);
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://viacep.com.br/") };
-        var consulta = new ConsultaCepViaCep(httpClient, TimeProvider.System);
+        var consulta = new ConsultaCepViaCep(httpClient, TimeProvider.System, NullLogger<ConsultaCepViaCep>.Instance);
 
         var endereco = await consulta.ConsultarAsync("89010000");
 
@@ -41,7 +42,7 @@ public class ConsultaCepViaCepTestes
     {
         var handler = new RespostaHttpHandler("""{ "erro": true }""");
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://viacep.com.br/") };
-        var consulta = new ConsultaCepViaCep(httpClient, TimeProvider.System);
+        var consulta = new ConsultaCepViaCep(httpClient, TimeProvider.System, NullLogger<ConsultaCepViaCep>.Instance);
 
         var endereco = await consulta.ConsultarAsync("99999998");
 
@@ -53,7 +54,7 @@ public class ConsultaCepViaCepTestes
     {
         var handler = new RespostaHttpHandler("""{ "erro": "true" }""");
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://viacep.com.br/") };
-        var consulta = new ConsultaCepViaCep(httpClient, TimeProvider.System);
+        var consulta = new ConsultaCepViaCep(httpClient, TimeProvider.System, NullLogger<ConsultaCepViaCep>.Instance);
 
         var endereco = await consulta.ConsultarAsync("99999997");
 

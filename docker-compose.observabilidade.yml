@@ -4,15 +4,44 @@ services:
     command: ["--config=/etc/otelcol/config.yaml"]
     ports:
       - "127.0.0.1:4317:4317"
+    mem_limit: 192m
+    cpus: 0.25
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     volumes:
       - ./src/observabilidade/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     depends_on:
       - jaeger
+      - loki
 
   jaeger:
     image: cr.jaegertracing.io/jaegertracing/jaeger:2.21.0
     ports:
       - "127.0.0.1:16686:16686"
+    mem_limit: 384m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  loki:
+    image: grafana/loki:3.7.8
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./src/observabilidade/loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    mem_limit: 384m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
   prometheus:
     image: prom/prometheus:v3.12.0
@@ -31,6 +60,13 @@ services:
     depends_on:
       - otel-collector
       - alertmanager
+    mem_limit: 384m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
   alertmanager:
     image: quay.io/prometheus/alertmanager:v0.34.1
@@ -44,11 +80,25 @@ services:
       - alertmanager-data:/alertmanager
     depends_on:
       - mailpit
+    mem_limit: 96m
+    cpus: 0.1
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
 
   mailpit:
     image: axllent/mailpit:v1.31.1
     ports:
       - "127.0.0.1:8025:8025"
+    mem_limit: 96m
+    cpus: 0.1
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
 
   grafana:
     image: grafana/grafana:12.4.0
@@ -65,8 +115,17 @@ services:
     depends_on:
       - prometheus
       - jaeger
+      - loki
+    mem_limit: 256m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
 volumes:
+  loki-data:
   prometheus-data:
   grafana-data:
   alertmanager-data:

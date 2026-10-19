@@ -29,9 +29,18 @@ public class IntermediarioExcecao(RequestDelegate next, ILogger<IntermediarioExc
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Erro não tratado");
+            logger.LogError(
+                "Erro nao tratado. TraceId={TraceId} Endpoint={Endpoint} TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
+                context.TraceIdentifier,
+                context.GetEndpoint()?.DisplayName,
+                ex.GetType().FullName,
+                ex.StackTrace);
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            await context.Response.WriteAsJsonAsync(new { error = "Erro interno do servidor." });
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "Erro interno do servidor.",
+                traceId = context.TraceIdentifier
+            });
         }
     }
 }
