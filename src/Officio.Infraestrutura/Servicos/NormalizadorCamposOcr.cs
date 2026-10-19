@@ -7,6 +7,13 @@ namespace Officio.Infraestrutura.Servicos;
 
 internal static class NormalizadorCamposOcr
 {
+    private static readonly IReadOnlyDictionary<string, string> TiposIdentificacaoAzure =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["idDocument.driverLicense"] = "CNH",
+            ["idDocument.nationalIdentityCard"] = "IDENTIDADE"
+        };
+
     private static readonly IReadOnlyDictionary<string, string[]> Alias =
         new Dictionary<string, string[]>
         {
@@ -106,9 +113,19 @@ internal static class NormalizadorCamposOcr
         IDictionary<string, string> valores,
         IDictionary<string, decimal> confiancas)
     {
+        var campoTipoAzure = camposMaterializados.FirstOrDefault(item =>
+            NormalizarChave(item.Chave) is "tipoazure" or "documenttype" or "typedocumento" or "tipodedocumento");
+        if (campoTipoAzure is not null)
+            Adicionar(valores, confiancas, "tipo_documento_azure", campoTipoAzure.Valor, campoTipoAzure.Confianca);
+
         var tipoDetectado = DetectarTipoDocumento(linhas, valores, camposMaterializados);
         if (tipoDetectado is not null)
-            Adicionar(valores, confiancas, "tipo_documento_detectado", tipoDetectado, ConfiancaMedia(linhas));
+        {
+            var tipoAzure = camposMaterializados.FirstOrDefault(item =>
+                NormalizarChave(item.Chave) == "tipoazure");
+            Adicionar(valores, confiancas, "tipo_documento_detectado", tipoDetectado,
+                tipoAzure?.Confianca ?? ConfiancaMedia(linhas));
+        }
 
         if (linhas.Count == 0)
             return;
@@ -185,8 +202,8 @@ internal static class NormalizadorCamposOcr
     {
         var texto = NormalizarFrase(string.Join(' ', campos.SelectMany(item => new[] { item.Chave, item.Valor })));
         var tipoAzure = campos
-            .Where(item => NormalizarChave(item.Chave) is "documenttype" or "typedocumento" or "tipodedocumento")
-            .Select(item => NormalizarFrase(item.Valor))
+            .Where(item => NormalizarChave(item.Chave) is "tipoazure" or "documenttype" or "typedocumento" or "tipodedocumento")
+            .Select(item => item.Valor.Trim())
             .FirstOrDefault();
 
         var textoLinhas = NormalizarFrase(string.Join(' ', linhas.Select(item => item.Valor)));
@@ -199,25 +216,10 @@ internal static class NormalizadorCamposOcr
         if (endereco && indicioContaResidencial)
             return "COMPROVANTE_RESIDENCIA";
 
-        var tipoAzureDetectado = tipoAzure switch
-        {
-            "DRIVER LICENSE" or "DRIVERLICENSE" or "CNH" => "CNH",
-            "ID CARD" or "IDCARD" or "IDENTITY CARD" or "IDENTITYCARD" or "ID" => "IDENTIDADE",
-            _ => null
-        };
-        if (tipoAzureDetectado is not null)
+        if (tipoAzure is not null && TiposIdentificacaoAzure.TryGetValue(tipoAzure, out var tipoAzureDetectado))
             return tipoAzureDetectado;
 
         var candidatos = new HashSet<string>(StringComparer.Ordinal);
-        if (ContemAlgum(texto,
-                "CARTEIRA NACIONAL DE HABILITACAO", "PERMISSAO PARA DIRIGIR", "CNH") ||
-            (ContemAlgum(texto, "CATEGORIA") && ContemAlgum(texto, "HABILITACAO")))
-            candidatos.Add("CNH");
-        if (ContemAlgum(texto,
-                "CARTEIRA DE IDENTIDADE", "REGISTRO GERAL", "DOCUMENTO DE IDENTIDADE",
-                "CARTEIRA DE IDENTIDADE NACIONAL", "IDENTIDADE NACIONAL") ||
-            Regex.IsMatch(texto, @"(^| )RG($| )"))
-            candidatos.Add("IDENTIDADE");
         if (ContemAlgum(texto, "TITULO ELEITORAL", "TITULO DE ELEITOR", "ZONA ELEITORAL", "SECAO ELEITORAL") ||
             (valores.TryGetValue("numero_titulo", out var numeroTitulo) &&
              string.Concat(numeroTitulo.Where(char.IsDigit)).Length == 12))

@@ -12,7 +12,8 @@ public record ValidationResultDto(
     decimal ConfiancaOcr,
     List<DivergenciaDto> Divergencias,
     bool FallbackManual,
-    string? Message)
+    string? Message,
+    string? DiagnosticoTecnicoOcr = null)
 {
     public string? Mensagem => Message;
 }

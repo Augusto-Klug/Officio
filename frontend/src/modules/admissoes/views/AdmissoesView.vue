@@ -305,7 +305,7 @@ onBeforeUnmount(() => {
 
   <AdmissaoFormDialog v-model:visible="formOpen" :clientes="clientesDaEmpresa" :admissao="selected" :cliente-inicial-id="clienteId" :saving="saving" :error="formError" @salvar="salvar" />
   <AdmissaoDetalheDialog v-model:visible="detailOpen" :admissao="selected" :loading="detailLoading" @editar="abrirEdicao()" @concluir="selected && confirmar(selected, 'concluir')" @cancelar="selected && confirmar(selected, 'cancelar')" />
-  <AdmissaoDocumentosDialog v-if="documentsOpen" v-model:visible="documentsOpen" :admissao="documentsTarget" :loading="documentsLoading" :link-loading="!!actionId || linkLoading" @atualizado="() => load()" @gerar-link="gerarLink" @concluir-revisao="concluirRevisaoDocumental" />
+  <AdmissaoDocumentosDialog v-if="documentsOpen" v-model:visible="documentsOpen" :admissao="documentsTarget" :loading="documentsLoading" :link-loading="!!actionId || linkLoading" @gerar-link="gerarLink" @concluir-revisao="concluirRevisaoDocumental" />
 
   <Dialog v-model:visible="linkOpen" modal :header="linkPapel === 'funcionario' ? 'Ficha digital do admitido' : 'Ficha digital do empregador'" class="workflow-dialog" :style="{ width: 'min(620px, 94vw)' }">
     <div class="admission-link-dialog">

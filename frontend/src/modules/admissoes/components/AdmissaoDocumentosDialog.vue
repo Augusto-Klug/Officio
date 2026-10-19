@@ -8,7 +8,7 @@ import AdmissaoDocumentosSection from './AdmissaoDocumentosSection.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 const props = defineProps<{ admissao: AdmissaoResumo | null; loading?: boolean; linkLoading?: boolean }>()
-const emit = defineEmits<{ atualizado: []; gerarLink: [admissaoId: string, papel: 'funcionario' | 'empresa']; concluirRevisao: [admissaoId: string] }>()
+const emit = defineEmits<{ gerarLink: [admissaoId: string, papel: 'funcionario' | 'empresa']; concluirRevisao: [admissaoId: string] }>()
 
 const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.admissao?.status === 'CANCELADA')
 const funcionarioConcluiu = computed(() => props.admissao?.preenchimentoFuncionarioConcluido === true)
@@ -36,7 +36,7 @@ const severity = computed(() => {
         <div><span>Revisão documental</span><StatusBadge :label="documentosValidados ? 'Concluída' : funcionarioConcluiu ? 'Pendente' : 'Aguardando admitido'" :severity="documentosValidados ? 'success' : funcionarioConcluiu ? 'warn' : 'secondary'" /></div>
         <div><span>Empregador</span><StatusBadge :label="empresaConcluiu ? 'Liberado' : documentosValidados ? 'Aguardando preenchimento' : 'Aguardando validação'" :severity="empresaConcluiu ? 'success' : documentosValidados ? 'info' : 'secondary'" /></div>
       </div>
-      <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal && documentosEditaveis" :can-validate="aguardandoValidacao" @atualizado="emit('atualizado')" />
+      <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal && documentosEditaveis" :can-validate="aguardandoValidacao" />
     </div>
     <div v-else class="list-state compact-state"><p>Não foi possível carregar a admissão.</p></div>
     <template #footer>

@@ -6,10 +6,12 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Azure.AI.DocumentIntelligence;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Seguranca;
 using Officio.Infra.BancoDeDados.Contextos;
+using Officio.Infraestrutura.Servicos;
 using Officio.WebApi.Servicos.Webhooks;
 
 namespace Officio.Testes.Integracao.Infraestrutura;
@@ -17,6 +19,7 @@ namespace Officio.Testes.Integracao.Infraestrutura;
 public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string banco = $"officio-integracao-{Guid.NewGuid()}";
+    public bool UsarIntegracoesReais { get; set; }
 
     public ServicoEmailFake ServicoEmail { get; } = new();
     public FilaWebhookAutentiqueFake FilaWebhook { get; } = new();
@@ -31,7 +34,7 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
             .UseSetting("Database:EnsureCreatedOnStartup", "false");
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            var configuracoes = new Dictionary<string, string?>
             {
                 ["Jwt:Key"] = "officio-integration-tests-key-with-at-least-32-bytes",
                 ["Jwt:Issuer"] = "Officio.IntegrationTests",
@@ -39,7 +42,12 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
                 ["Database:EnsureCreatedOnStartup"] = "false",
                 ["Email:ExporConteudoNoLog"] = "false",
                 ["Autentique:WebhookSecret"] = "segredo-webhook-integracao"
-            });
+            };
+            if (UsarIntegracoesReais)
+                foreach (var (chave, valor) in ConfiguracaoIntegracaoReal.ObterConfiguracoes())
+                    configuracoes[chave] = valor;
+
+            configuration.AddInMemoryCollection(configuracoes);
         });
 
         builder.ConfigureServices(services =>
@@ -53,8 +61,28 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
 
             services.RemoveAll<IServicoEmail>();
             services.AddSingleton<IServicoEmail>(ServicoEmail);
-            services.RemoveAll<IServicoArmazenamento>();
-            services.AddSingleton<IServicoArmazenamento, ServicoArmazenamentoFake>();
+            if (!UsarIntegracoesReais)
+            {
+                services.RemoveAll<IServicoArmazenamento>();
+                services.AddSingleton<IServicoArmazenamento, ServicoArmazenamentoFake>();
+            }
+            else
+            {
+                var configuracoes = ConfiguracaoIntegracaoReal.ObterConfiguracoes();
+                var endpointConfigurado = configuracoes.GetValueOrDefault("AzureOcr:Endpoint");
+                var chaveConfigurada = configuracoes.GetValueOrDefault("AzureOcr:Key");
+                if (!Uri.TryCreate(endpointConfigurado, UriKind.Absolute, out var endpoint) ||
+                    endpoint.Scheme != Uri.UriSchemeHttps ||
+                    string.IsNullOrWhiteSpace(chaveConfigurada))
+                    throw new InvalidOperationException(
+                        "O teste OCR real requer AzureOcr__Endpoint e AzureOcr__Key no ambiente ou em src/.env.");
+
+                services.RemoveAll<DocumentIntelligenceClient>();
+                services.AddSingleton(new DocumentIntelligenceClient(
+                    endpoint, new global::Azure.AzureKeyCredential(chaveConfigurada)));
+                services.RemoveAll<IServicoOcr>();
+                services.AddScoped<IServicoOcr, ServicoOcrAzure>();
+            }
             services.RemoveAll<IFilaWebhookAutentique>();
             services.AddSingleton<IFilaWebhookAutentique>(FilaWebhook);
         });

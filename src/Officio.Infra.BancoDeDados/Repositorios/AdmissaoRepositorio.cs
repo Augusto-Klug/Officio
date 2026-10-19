@@ -204,6 +204,10 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(item => item.Documento)
                 .ThenInclude(documento => documento!.Validacoes)
                     .ThenInclude(validacao => validacao.RevisadoPor)
+            .Include(item => item.Documento)
+                .ThenInclude(documento => documento!.Validacoes)
+                    .ThenInclude(validacao => validacao.OcrExecucao)
+                        .ThenInclude(execucao => execucao!.Campos)
             .OrderBy(item => item.Ordem)
             .ToListAsync(cancellationToken);
 
@@ -224,6 +228,10 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
             .Include(item => item.Documento)
                 .ThenInclude(documento => documento!.Validacoes)
                     .ThenInclude(validacao => validacao.RevisadoPor)
+            .Include(item => item.Documento)
+                .ThenInclude(documento => documento!.Validacoes)
+                    .ThenInclude(validacao => validacao.OcrExecucao)
+                        .ThenInclude(execucao => execucao!.Campos)
             .AsQueryable();
 
         if (!rastreamento)

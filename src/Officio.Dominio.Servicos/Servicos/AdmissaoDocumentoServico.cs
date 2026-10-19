@@ -333,7 +333,15 @@ public sealed class AdmissaoDocumentoServico(
             validacao?.TipoDocumentoIncompativel ?? false,
             validacao?.ObservacaoRevisao,
             validacao?.RevisadoPor?.Nome,
-            validacao?.RevisadoEm);
+            validacao?.RevisadoEm,
+            validacao?.OcrExecucao?.StatusProcessamento,
+            validacao?.OcrExecucao?.CategoriaResultado,
+            validacao?.OcrExecucao?.ModeloUtilizado,
+            validacao?.OcrExecucao?.StatusHttp,
+            validacao?.OcrExecucao?.CodigoErro,
+            validacao?.OcrExecucao?.IdExterno,
+            validacao?.OcrExecucao?.Campos.ToDictionary(campo => campo.CodigoCampo, campo => campo.Confianca ?? 0m) ?? [],
+            validacao?.OcrExecucao?.PayloadRetorno);
     }
 
     private static bool TentarMapearTipo(string codigo, out TipoDocumento tipo)

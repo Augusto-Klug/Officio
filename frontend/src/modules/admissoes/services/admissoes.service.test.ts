@@ -92,11 +92,17 @@ describe('contrato HTTP de admissões', () => {
       statusValidacao: 'PENDENTE_ENVIO', confiancaOcr: null, mensagemValidacao: null,
       camposExtraidos: { cpf: '12345678901' },
       divergencias: [{ campo: 'cpf', valorDocumento: '12345678901', valorCadastro: '10987654321', similaridade: 0.4 }],
+      statusProcessamentoOcr: 'CONCLUIDO', categoriaResultadoOcr: 'OCR_CONCLUIDO', modeloOcr: 'prebuilt-idDocument',
+      statusHttpOcr: 200, codigoErroOcr: null, idRequisicaoOcr: 'request-123',
+      confiancasCamposOcr: { cpf: 0.98, nome: 0.72 },
     }])
 
     expect(documentos[0]).toMatchObject({
       id: 'item-1', obrigatorio: true, statusValidacao: 'PENDENTE_ENVIO',
       camposExtraidos: { cpf: '12345678901' }, divergencias: [{ campo: 'cpf', similaridade: 0.4 }],
+      statusProcessamentoOcr: 'CONCLUIDO', categoriaResultadoOcr: 'OCR_CONCLUIDO',
+      modeloOcr: 'prebuilt-idDocument', statusHttpOcr: 200, idRequisicaoOcr: 'request-123',
+      confiancasCamposOcr: { cpf: 0.98, nome: 0.72 },
     })
   })
 
