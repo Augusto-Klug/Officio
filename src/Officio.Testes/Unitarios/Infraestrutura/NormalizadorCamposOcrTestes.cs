@@ -6,9 +6,11 @@ namespace Officio.Testes.Unitarios.Infraestrutura;
 public class NormalizadorCamposOcrTestes
 {
     [Theory]
-    [InlineData("Driver License", "CNH")]
-    [InlineData("ID Card", "IDENTIDADE")]
-    public void Normalizar_ClassificaDocumentosDeIdentificacaoPeloTipoAzure(string tipoAzure, string esperado)
+    [InlineData("Driver License")]
+    [InlineData("ID Card")]
+    [InlineData("CNH")]
+    [InlineData("CARTEIRA DE IDENTIDADE")]
+    public void Normalizar_NaoInfereTipoDeIdentificacaoPorAliasesOuTexto(string tipoAzure)
     {
         var resultado = NormalizadorCamposOcr.Normalizar(TipoDocumento.Identidade,
         [
@@ -17,7 +19,24 @@ public class NormalizadorCamposOcrTestes
             new CampoOcrBruto("LastName", "Silva", 0.98m)
         ]);
 
+        Assert.False(resultado.Valores.ContainsKey("tipo_documento_detectado"));
+    }
+
+    [Theory]
+    [InlineData("idDocument.driverLicense", "CNH")]
+    [InlineData("idDocument.nationalIdentityCard", "IDENTIDADE")]
+    public void Normalizar_ClassificaTiposOficiaisDoModeloDeIdentidade(string tipoAzure, string esperado)
+    {
+        var resultado = NormalizadorCamposOcr.Normalizar(TipoDocumento.Identidade,
+        [
+            new CampoOcrBruto("__tipo_azure", tipoAzure, 0.98m),
+            new CampoOcrBruto("FirstName", "Ana", 0.98m),
+            new CampoOcrBruto("LastName", "Silva", 0.97m)
+        ]);
+
         Assert.Equal(esperado, resultado.Valores["tipo_documento_detectado"]);
+        Assert.Equal(0.98m, resultado.Confiancas["tipo_documento_detectado"]);
+        Assert.Equal(tipoAzure, resultado.Valores["tipo_documento_azure"]);
     }
 
     [Fact]

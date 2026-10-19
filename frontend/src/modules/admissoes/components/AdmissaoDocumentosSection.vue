@@ -12,9 +12,9 @@ import type { AdmissaoDocumento } from '../types/admissao'
 import { agruparDocumentosAdmissao } from '../documentos'
 
 const props = defineProps<{ admissaoId: string; editable: boolean; canValidate: boolean }>()
-const emit = defineEmits<{ atualizado: [] }>()
 const documentos = ref<AdmissaoDocumento[]>([])
 const loading = ref(false)
+const carregamentoInicialConcluido = ref(false)
 const actionId = ref('')
 const error = ref('')
 const success = ref('')
@@ -69,6 +69,8 @@ const rotulosCampos: Record<string, string> = {
   nome_fantasia: 'Nome fantasia',
   cnpj: 'CNPJ',
   email: 'E-mail',
+  tipo_documento_azure: 'Tipo informado pela Azure',
+  tipo_documento_detectado: 'Tipo identificado',
 }
 
 function rotuloCampo(campo: string): string {
@@ -83,11 +85,16 @@ function possuiDetalhesOcr(documento: AdmissaoDocumento): boolean {
   return Object.keys(documento.camposExtraidos).length > 0 || documento.divergencias.length > 0
 }
 
+function confiancaCampo(documento: AdmissaoDocumento, campo: string): number | null {
+  return documento.confiancasCamposOcr?.[campo] ?? null
+}
+
 async function carregar() {
-  loading.value = true
+  loading.value = !carregamentoInicialConcluido.value
   error.value = ''
   try {
     documentos.value = await listarDocumentosAdmissao(props.admissaoId)
+    carregamentoInicialConcluido.value = true
     for (const documento of gruposDocumentos.value.flatMap((grupo) => grupo.documentos)) {
       if (documento.alternativas && !tipoIdentificacao.value[documento.id])
         tipoIdentificacao.value[documento.id] = documento.alternativas.find((item) => item.documentoId)?.tipoCodigo ?? 'IDENTIDADE'
@@ -105,7 +112,6 @@ async function executar(itemId: string, acao: () => Promise<void>, mensagem: str
     await acao()
     await carregar()
     success.value = mensagem
-    emit('atualizado')
     return true
   } catch (cause) {
     error.value = normalizeError(cause).message
@@ -181,7 +187,11 @@ async function remover(documento: AdmissaoDocumento) {
   await executar(documento.id, () => removerDocumentoAdmissao(props.admissaoId, documento.id), 'Documento removido.')
 }
 
-watch(() => props.admissaoId, () => void carregar(), { immediate: true })
+watch(() => props.admissaoId, () => {
+  documentos.value = []
+  carregamentoInicialConcluido.value = false
+  void carregar()
+}, { immediate: true })
 </script>
 
 <template>
@@ -208,7 +218,6 @@ watch(() => props.admissaoId, () => void carregar(), { immediate: true })
               <span v-if="documentoAtivo(documento).nomeArquivo" class="document-file">{{ documentoAtivo(documento).nomeArquivo }} · {{ tamanho(documentoAtivo(documento).tamanhoBytes) }} · {{ formatDate(documentoAtivo(documento).enviadoEm) }}</span>
               <span v-else class="document-file">Arquivo não enviado</span>
               <small v-if="documentoAtivo(documento).mensagemValidacao">{{ documentoAtivo(documento).mensagemValidacao }}</small>
-              <small v-if="documentoAtivo(documento).tipoDocumentoDetectado" class="document-detected-type">Tipo identificado: {{ documentoAtivo(documento).tipoDocumentoDetectado }}</small>
               <small v-if="documentoAtivo(documento).tipoDocumentoIncompativel" class="document-type-error">O arquivo não corresponde a este documento. Substitua-o pelo tipo solicitado; a revisão manual não pode ignorar essa incompatibilidade.</small>
             </div>
             <StatusBadge :label="status(documentoAtivo(documento)).label" :severity="status(documentoAtivo(documento)).severity" />
@@ -232,7 +241,7 @@ watch(() => props.admissaoId, () => void carregar(), { immediate: true })
                 </div>
               </div>
               <dl class="ocr-extracted-fields">
-                <div v-for="(valor, campo) in documentoAtivo(documento).camposExtraidos" :key="campo"><dt>{{ rotuloCampo(campo) }}</dt><dd>{{ valor }}</dd></div>
+                <div v-for="(valor, campo) in documentoAtivo(documento).camposExtraidos" :key="campo"><dt>{{ rotuloCampo(campo) }}</dt><dd>{{ valor }}<small v-if="confiancaCampo(documentoAtivo(documento), campo) !== null">OCR {{ percentual(confiancaCampo(documentoAtivo(documento), campo)) }}</small></dd></div>
               </dl>
             </details>
             <details v-if="documentoAtivo(documento).observacaoRevisao" class="manual-review-audit">
@@ -259,7 +268,6 @@ watch(() => props.admissaoId, () => void carregar(), { immediate: true })
         Compare o arquivo com os dados da admissão. A aprovação manual substitui a decisão automática e fica registrada com seu usuário e justificativa.
       </Message>
       <div class="manual-review-metadata">
-        <span v-if="documentoEmRevisao.tipoDocumentoDetectado">Tipo identificado <strong>{{ documentoEmRevisao.tipoDocumentoDetectado }}</strong></span>
         <span>Confiança OCR <strong>{{ percentual(documentoEmRevisao.confiancaOcr) }}</strong></span>
         <span v-if="documentoEmRevisao.mensagemValidacao">Resultado <strong>{{ documentoEmRevisao.mensagemValidacao }}</strong></span>
       </div>
@@ -273,7 +281,7 @@ watch(() => props.admissaoId, () => void carregar(), { immediate: true })
         </div>
       </div>
       <dl v-if="Object.keys(documentoEmRevisao.camposExtraidos).length" class="ocr-extracted-fields">
-        <div v-for="(valor, campo) in documentoEmRevisao.camposExtraidos" :key="campo"><dt>{{ rotuloCampo(campo) }}</dt><dd>{{ valor }}</dd></div>
+        <div v-for="(valor, campo) in documentoEmRevisao.camposExtraidos" :key="campo"><dt>{{ rotuloCampo(campo) }}</dt><dd>{{ valor }}<small v-if="confiancaCampo(documentoEmRevisao, campo) !== null">OCR {{ percentual(confiancaCampo(documentoEmRevisao, campo)) }}</small></dd></div>
       </dl>
       <div class="manual-review-attachment">
         <BaseButton label="Abrir arquivo" icon="pi pi-external-link" variant="secondary" :loading="actionId === documentoEmRevisao.id" @click="visualizar(documentoEmRevisao)" />

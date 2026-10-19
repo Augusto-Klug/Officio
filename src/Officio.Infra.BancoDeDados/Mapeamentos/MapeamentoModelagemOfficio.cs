@@ -368,6 +368,7 @@ internal static class MapeamentoModelagemOfficio
         builder.Entity<OcrExecucao>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.CategoriaResultado).HasMaxLength(80);
             entity.Property(e => e.PayloadRetorno).HasColumnType("nvarchar(max)");
             entity.HasOne(e => e.Documento).WithMany(e => e.ExecucoesOcr).HasForeignKey(e => e.DocumentoId).OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(e => e.Campos).HasField("_campos");

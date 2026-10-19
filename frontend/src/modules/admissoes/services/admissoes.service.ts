@@ -140,7 +140,24 @@ function normalizeDocumento(value: unknown): AdmissaoDocumento {
     observacaoRevisao: optionalString(field(item, 'observacaoRevisao')),
     revisadoPorNome: optionalString(field(item, 'revisadoPorNome')),
     revisadoEm: optionalString(field(item, 'revisadoEm')),
+    statusProcessamentoOcr: optionalString(field(item, 'statusProcessamentoOcr')),
+    categoriaResultadoOcr: optionalString(field(item, 'categoriaResultadoOcr')),
+    modeloOcr: optionalString(field(item, 'modeloOcr')),
+    statusHttpOcr: optionalNumber(field(item, 'statusHttpOcr')),
+    codigoErroOcr: optionalString(field(item, 'codigoErroOcr')),
+    idRequisicaoOcr: optionalString(field(item, 'idRequisicaoOcr')),
+    confiancasCamposOcr: normalizeConfiancas(field(item, 'confiancasCamposOcr')),
   }
+}
+
+function normalizeConfiancas(value: unknown): Record<string, number> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const confiancas: Record<string, number> = {}
+  for (const [campo, valor] of Object.entries(value)) {
+    const confianca = optionalNumber(valor)
+    if (confianca !== null) confiancas[campo] = confianca
+  }
+  return confiancas
 }
 
 export function normalizeDocumentosAdmissao(value: unknown): AdmissaoDocumento[] {

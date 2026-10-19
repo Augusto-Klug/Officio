@@ -34,4 +34,25 @@ public class ServicoOcrAzureTestes
         Assert.Null(opcoes.Locale);
         Assert.Empty(opcoes.Features);
     }
+
+    [Theory]
+    [InlineData(401, "CREDENCIAIS_INVALIDAS")]
+    [InlineData(403, "CREDENCIAIS_INVALIDAS")]
+    [InlineData(408, "TIMEOUT")]
+    [InlineData(413, "DOCUMENTO_REJEITADO")]
+    [InlineData(429, "LIMITE_REQUISICOES")]
+    [InlineData(503, "AZURE_INDISPONIVEL")]
+    [InlineData(400, "REQUISICAO_REJEITADA")]
+    [InlineData(0, "FALHA_REDE")]
+    public void ClassificarFalha_ConverteStatusHttpEmDiagnostico(int status, string categoria)
+        => Assert.Equal(categoria, ServicoOcrAzure.ClassificarFalha(status));
+
+    [Fact]
+    public void Desembrulhar_AggregateExceptionPreservaFalhaHttpDoAzure()
+    {
+        var falhaAzure = new RequestFailedException(429, "Rate limit", "TooManyRequests", null);
+        var aggregate = new AggregateException(new InvalidOperationException(), falhaAzure);
+
+        Assert.Same(falhaAzure, ServicoOcrAzure.Desembrulhar(aggregate));
+    }
 }

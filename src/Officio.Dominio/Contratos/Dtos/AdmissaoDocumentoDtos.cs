@@ -23,7 +23,15 @@ public record AdmissaoDocumentoDto(
     bool TipoDocumentoIncompativel = false,
     string? ObservacaoRevisao = null,
     string? RevisadoPorNome = null,
-    DateTime? RevisadoEm = null);
+    DateTime? RevisadoEm = null,
+    string? StatusProcessamentoOcr = null,
+    string? CategoriaResultadoOcr = null,
+    string? ModeloOcr = null,
+    int? StatusHttpOcr = null,
+    string? CodigoErroOcr = null,
+    string? IdRequisicaoOcr = null,
+    Dictionary<string, decimal>? ConfiancasCamposOcr = null,
+    string? DiagnosticoTecnicoOcr = null);
 
 public record ResumoValidacaoDocumentosAdmissaoDto(
     int Processados,

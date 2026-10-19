@@ -118,7 +118,16 @@ async function enviarDocumento(itemId: string, event: Event) {
   }
   actionId.value = itemId
   error.value = ''
-  try { await enviarDocumentoFichaAdmissao(token, itemId, arquivos); success.value = 'Documento enviado.'; await carregar() }
+  try {
+    await enviarDocumentoFichaAdmissao(token, itemId, arquivos)
+    success.value = 'Documento enviado.'
+    try {
+      const fichaAtualizada = await obterFichaAdmissao(token)
+      if (ficha.value) ficha.value.documentos = fichaAtualizada.documentos
+    } catch {
+      error.value = 'Documento enviado, mas não foi possível atualizar a lista. Recarregue a ficha para confirmar.'
+    }
+  }
   catch (cause) { error.value = normalizeError(cause).message }
   finally { actionId.value = '' }
 }

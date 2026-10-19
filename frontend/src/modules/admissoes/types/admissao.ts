@@ -77,6 +77,14 @@ export interface AdmissaoDocumento {
   observacaoRevisao?: string | null
   revisadoPorNome?: string | null
   revisadoEm?: string | null
+  statusProcessamentoOcr?: string | null
+  categoriaResultadoOcr?: string | null
+  modeloOcr?: string | null
+  statusHttpOcr?: number | null
+  codigoErroOcr?: string | null
+  idRequisicaoOcr?: string | null
+  confiancasCamposOcr?: Record<string, number> | null
+  diagnosticoTecnicoOcr?: string | null
   alternativas?: AdmissaoDocumento[]
 }
 
@@ -98,6 +106,7 @@ export interface ResultadoValidacaoDocumento {
   fallbackManual: boolean
   mensagem: string | null
   divergencias: DivergenciaDocumento[]
+  diagnosticoTecnicoOcr?: string | null
 }
 
 export interface LinkFichaAdmissao {

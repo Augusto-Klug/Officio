@@ -122,7 +122,7 @@ public class DocumentoServicoTestes
             {
                 ["razao_social"] = "Empresa Errada Ltda",
                 ["cnpj"] = "11222333000144"
-            }, 0.95m));
+            }, 0.95m, idRequisicao: "request-ocr-success-123", statusHttp: 200));
         var contexto = provedor.GetRequiredService<ContextoAplicacao>();
         contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
@@ -143,6 +143,8 @@ public class DocumentoServicoTestes
         var execucao = await contexto.OcrExecucoes.Include(item => item.Campos).SingleAsync();
         var validacao = await contexto.DocumentValidations.Include(item => item.Divergencias).SingleAsync();
         Assert.Equal("CONCLUIDO", execucao.StatusProcessamento);
+        Assert.Equal(200, execucao.StatusHttp);
+        Assert.Equal("request-ocr-success-123", execucao.IdExterno);
         Assert.Equal(2, execucao.Campos.Count);
         Assert.Equal(execucao.Id, validacao.OcrExecucaoId);
         Assert.Single(validacao.Divergencias);
@@ -264,6 +266,47 @@ public class DocumentoServicoTestes
     }
 
     [Fact]
+    public async Task ValidarAsync_QuandoFalhaOcrNaAdmissao_PreservaDiagnosticoSemMascararComoTipoDesconhecido()
+    {
+        var tenantId = Guid.NewGuid();
+        var (empresa, status, tipo, admissao, documento) = CriarDocumentoAdmissao(
+            tenantId, "IDENTIDADE", TipoDocumento.Identidade, "identidade.pdf");
+        var falha = ResultadoOcr.CriarFalha(
+            "A validacao automatica esta ocupada. Aguarde um pouco e tente novamente.",
+            "prebuilt-idDocument",
+            "LIMITE_REQUISICOES",
+            "TooManyRequests",
+            429,
+            "request-ocr-test-123",
+            "{\"excecoes\":[\"Azure.RequestFailedException: Too many requests\"],\"statusHttp\":429}");
+        await using var provedor = CriarProvedor(tenantId, falha);
+        var contexto = provedor.GetRequiredService<ContextoAplicacao>();
+        contexto.Empresas.Add(empresa);
+        contexto.StatusAdmissoes.Add(status);
+        contexto.TiposDocumento.Add(tipo);
+        contexto.Admissoes.Add(admissao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await provedor.GetRequiredService<IDocumentoServico>().ValidarAsync(documento.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.True(resultado.Valor!.FallbackManual);
+        Assert.Contains("A validacao automatica esta ocupada", resultado.Valor.Mensagem);
+        Assert.DoesNotContain("HTTP", resultado.Valor.Mensagem);
+        Assert.Equal(
+            "{\"excecoes\":[\"Azure.RequestFailedException: Too many requests\"],\"statusHttp\":429}",
+            resultado.Valor.DiagnosticoTecnicoOcr);
+        Assert.DoesNotContain("confirmar automaticamente o tipo", resultado.Valor.Mensagem, StringComparison.OrdinalIgnoreCase);
+        contexto.ChangeTracker.Clear();
+        var execucao = await contexto.OcrExecucoes.SingleAsync();
+        Assert.Equal("LIMITE_REQUISICOES", execucao.CategoriaResultado);
+        Assert.Equal(429, execucao.StatusHttp);
+        Assert.Equal("TooManyRequests", execucao.CodigoErro);
+        Assert.Equal("request-ocr-test-123", execucao.IdExterno);
+        Assert.Equal(resultado.Valor.DiagnosticoTecnicoOcr, execucao.PayloadRetorno);
+    }
+
+    [Fact]
     public async Task ValidarAsync_QuandoCadastroNaoExiste_SegueParaRevisaoManual()
     {
         var tenantId = Guid.NewGuid();
@@ -324,6 +367,7 @@ public class DocumentoServicoTestes
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.True(resultado.Valor!.FallbackManual);
         Assert.False(resultado.Valor.Valido);
+        Assert.Contains("razao social", resultado.Valor.Mensagem, StringComparison.OrdinalIgnoreCase);
         var divergencia = Assert.Single(resultado.Valor.Divergencias);
         Assert.Equal("razao_social", divergencia.Campo);
         Assert.Equal(string.Empty, divergencia.ValorDocumento);

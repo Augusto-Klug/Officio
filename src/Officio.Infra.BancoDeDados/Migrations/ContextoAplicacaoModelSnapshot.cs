@@ -1632,6 +1632,10 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CategoriaResultado")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<string>("CodigoErro")
                         .HasColumnType("nvarchar(max)");
 
@@ -1661,6 +1665,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<string>("Provedor")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("StatusHttp")
+                        .HasColumnType("int");
 
                     b.Property<string>("StatusProcessamento")
                         .IsRequired()

@@ -103,14 +103,37 @@ internal class DocumentoServico(
             execucaoOcr.Concluir(
                 resultadoOcr.ModeloUtilizado,
                 resultadoOcr.CamposExtraidos,
-                resultadoOcr.ConfiancasCampos);
+                resultadoOcr.ConfiancasCampos,
+                resultadoOcr.IdRequisicao,
+                resultadoOcr.StatusHttp);
         }
         else
         {
-            execucaoOcr.Falhar(resultadoOcr.ModeloUtilizado, resultadoOcr.Erro);
+            execucaoOcr.Falhar(
+                resultadoOcr.ModeloUtilizado,
+                resultadoOcr.Erro,
+                resultadoOcr.CategoriaResultado,
+                resultadoOcr.CodigoErro,
+                resultadoOcr.StatusHttp,
+                resultadoOcr.IdRequisicao,
+                resultadoOcr.DiagnosticoTecnico);
         }
 
         await documentoRepositorio.AdicionarExecucaoOcrAsync(execucaoOcr, ct);
+
+        if (!resultadoOcr.Sucesso)
+        {
+            return await CriarRevisaoManualAsync(
+                documento,
+                resultadoOcr.CamposExtraidos,
+                resultadoOcr.ConfiancaOcr,
+                [],
+                resultadoOcr.Erro ?? "OCR nao conseguiu processar o documento.",
+                admissaoDocumentoId,
+                execucaoOcr.Id,
+                ct,
+                resultadoOcr.DiagnosticoTecnico);
+        }
 
         var tipoDetectado = resultadoOcr.CamposExtraidos.GetValueOrDefault("tipo_documento_detectado");
         if (admissaoDocumentoId.HasValue)
@@ -137,19 +160,6 @@ internal class DocumentoServico(
                 return Resultado<ValidationResultDto>.CriarSucesso(
                     new ValidationResultDto(false, resultadoOcr.ConfiancaOcr, [], false, mensagemTipo));
             }
-        }
-
-        if (!resultadoOcr.Sucesso)
-        {
-            return await CriarRevisaoManualAsync(
-                documento,
-                [],
-                0m,
-                [],
-                "OCR indisponivel. Documento marcado para revisao manual.",
-                admissaoDocumentoId,
-                execucaoOcr.Id,
-                ct);
         }
 
         if (documento.Tipo == TipoDocumento.TituloEleitor &&
@@ -193,7 +203,7 @@ internal class DocumentoServico(
                 resultadoOcr.CamposExtraidos,
                 resultadoOcr.ConfiancaOcr,
                 divergencias,
-                "Um ou mais campos esperados nao foram identificados pelo OCR. Documento marcado para revisao manual.",
+                CriarMensagemCamposNaoIdentificados(divergencias),
                 admissaoDocumentoId,
                 execucaoOcr.Id,
                 ct);
@@ -230,7 +240,8 @@ internal class DocumentoServico(
         string mensagem,
         Guid? admissaoDocumentoId,
         Guid? ocrExecucaoId,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? diagnosticoTecnicoOcr = null)
     {
         var validacao = ValidacaoDocumento.RequireManualReview(
             documento.TenantId,
@@ -250,7 +261,33 @@ internal class DocumentoServico(
                 confiancaOcr,
                 divergencias.Select(MapearDivergencia).ToList(),
                 true,
-                mensagem));
+                mensagem,
+                diagnosticoTecnicoOcr));
+    }
+
+    private static string CriarMensagemCamposNaoIdentificados(IEnumerable<DivergenciaDocumento> divergencias)
+    {
+        var campos = divergencias
+            .Where(divergencia => string.IsNullOrWhiteSpace(divergencia.ValorDocumento))
+            .Select(divergencia => divergencia.Campo switch
+            {
+            "nome" => "nome",
+                "cpf" => "CPF",
+                "rg" => "RG",
+                "data_nascimento" => "data de nascimento",
+            "numero_titulo" => "numero do titulo",
+                _ => divergencia.Campo.Replace('_', ' ')
+            })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (campos.Count == 0)
+            return "Nao foi possivel ler alguns dados do documento. Confira se o arquivo esta legivel ou solicite uma conferencia manual.";
+
+        var camposFormatados = campos.Count == 1
+            ? campos[0]
+            : $"{string.Join(", ", campos.Take(campos.Count - 1))} e {campos[^1]}";
+        return $"Nao conseguimos identificar {camposFormatados} neste documento. Confira se o arquivo esta legivel e corresponde ao tipo selecionado.";
     }
 
     private static List<DivergenciaDocumento> CompararCampos(
