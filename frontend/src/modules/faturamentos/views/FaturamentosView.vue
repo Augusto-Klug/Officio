@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
@@ -13,6 +13,7 @@ import { normalizeError } from '../../../api/errors'
 import { formatCurrency } from '../../../utils/format'
 import { cancelarFaturamento, fecharCompetencia, fecharFaturamento, gerarCompetencia, listarFaturamentos, obterResumoFaturamento, recalcularCompetencia } from '../services/faturamentos.service'
 import type { FaturamentoMensal, ResumoFaturamentoCompetencia } from '../types/faturamento'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const hoje = new Date()
 const competenciaAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`
@@ -78,6 +79,8 @@ async function carregar() {
   catch (cause) { if (request === generation && !currentController.signal.aborted) error.value = normalizeError(cause).message }
   finally { if (request === generation) loading.value = false }
 }
+
+useRealtimePageRefresh('faturamento', carregar, computed(() => loading.value || !!actionId.value))
 
 async function recalcular() {
   if (!competencia.value || resumo.value.abertos === 0) return

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Admissoes;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
@@ -12,6 +13,32 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 
 public class AdmissaoServicoTestes
 {
+    [Fact]
+    public async Task OperacoesQueAlteramAdmissao_PublicamAtualizacaoAposPersistir()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (_, cliente) = await CriarClienteAsync(contexto, tenantId);
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, tenantId, publicador);
+
+        var criacao = await servico.CriarManualAsync(new(cliente.Id, CriarDados()));
+        var admissaoId = criacao.Valor;
+        var atualizacao = await servico.AtualizarAsync(new(admissaoId, CriarDados(nome: "Nome atualizado")));
+        var cancelamento = await servico.CancelarAsync(admissaoId);
+
+        Assert.True(criacao.Sucesso);
+        Assert.True(atualizacao.Sucesso);
+        Assert.True(cancelamento.Sucesso);
+        Assert.Equal(
+            [
+                new EventoAtualizacaoTempoReal(tenantId, EntidadesAtualizacaoTempoReal.Admissao, admissaoId),
+                new EventoAtualizacaoTempoReal(tenantId, EntidadesAtualizacaoTempoReal.Admissao, admissaoId),
+                new EventoAtualizacaoTempoReal(tenantId, EntidadesAtualizacaoTempoReal.Admissao, admissaoId)
+            ],
+            publicador.Eventos);
+    }
+
     [Fact]
     public async Task ConfiguracoesDocumentoPadrao_ComCatalogoParcial_CompletaSemDuplicar()
     {
@@ -92,7 +119,8 @@ public class AdmissaoServicoTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var (empresa, cliente) = await CriarClienteAsync(contexto, tenantId);
-        var servico = CriarServico(contexto, tenantId);
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, tenantId, publicador);
         var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(
             cliente.Id,
             CriarDados(cpf: "11789299900", dataAdmissao: new DateOnly(2026, 9, 21), funcao: "Analista")));
@@ -104,6 +132,7 @@ public class AdmissaoServicoTestes
 
         Assert.True(primeiraConclusao.Sucesso);
         Assert.True(segundaConclusao.Sucesso);
+        Assert.Equal(2, publicador.Eventos.Count);
         contexto.ChangeTracker.Clear();
         var funcionario = await contexto.EmpresaFuncionarios.SingleAsync();
         var empresaAtualizada = await contexto.Empresas.SingleAsync(item => item.Id == empresa.Id);
@@ -118,7 +147,8 @@ public class AdmissaoServicoTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var (_, cliente) = await CriarClienteAsync(contexto, tenantId);
-        var servico = CriarServico(contexto, tenantId);
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, tenantId, publicador);
         var criacao = await servico.CriarManualAsync(new CriarAdmissaoManualRequisicao(
             cliente.Id,
             CriarDados(dataAdmissao: new DateOnly(2026, 9, 21))));
@@ -128,6 +158,7 @@ public class AdmissaoServicoTestes
 
         Assert.False(resultado.Sucesso);
         Assert.Contains("documentos obrigatorios", resultado.Erro);
+        Assert.Single(publicador.Eventos);
         Assert.Empty(contexto.EmpresaFuncionarios);
     }
 
@@ -359,10 +390,28 @@ public class AdmissaoServicoTestes
     }
 
     private static IAdmissaoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
+        => CriarServico(contexto, tenantId, new PublicadorAtualizacaoTempoRealNulo());
+
+    private static IAdmissaoServico CriarServico(
+        ContextoAplicacao contexto,
+        Guid tenantId,
+        IPublicadorAtualizacaoTempoReal publicador)
         => new AdmissaoServico(
             new AdmissaoRepositorio(contexto),
             new ClienteRepositorio(contexto),
-            CriarEmpresaAtual(tenantId));
+            CriarEmpresaAtual(tenantId),
+            publicador);
+
+    private sealed class PublicadorAtualizacaoFake : IPublicadorAtualizacaoTempoReal
+    {
+        public List<EventoAtualizacaoTempoReal> Eventos { get; } = [];
+
+        public Task PublicarAsync(EventoAtualizacaoTempoReal evento, CancellationToken cancellationToken = default)
+        {
+            Eventos.Add(evento);
+            return Task.CompletedTask;
+        }
+    }
 
     private static ContextoAplicacao CriarContexto(Guid tenantId, string? nomeBanco = null)
     {

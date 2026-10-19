@@ -5,6 +5,7 @@ using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Servicos.Servicos;
@@ -42,6 +43,11 @@ public class AdmissaoDocumentoServicoTestes
 
         var remocao = await cenario.Servico.RemoverAsync(cenario.AdmissaoId, item.Id);
         Assert.True(remocao.Sucesso);
+        Assert.Equal(3, cenario.Publicador.Eventos.Count);
+        Assert.All(cenario.Publicador.Eventos, evento => Assert.Equal(
+            new EventoAtualizacaoTempoReal(
+                cenario.TenantId, EntidadesAtualizacaoTempoReal.Admissao, cenario.AdmissaoId),
+            evento));
         Assert.Empty(await contexto.Documents.ToListAsync());
         Assert.Null((await contexto.AdmissaoDocumentos.SingleAsync(documento => documento.Id == item.Id)).DocumentoId);
     }
@@ -85,6 +91,7 @@ public class AdmissaoDocumentoServicoTestes
         var resultado = await cenario.Servico.ValidarAsync(cenario.AdmissaoId, item.Id);
 
         Assert.True(resultado.Sucesso);
+        Assert.Equal(2, cenario.Publicador.Eventos.Count);
         contexto.ChangeTracker.Clear();
         var admissao = await contexto.Admissoes.Include(registro => registro.StatusAdmissao).SingleAsync();
         Assert.Equal(StatusAdmissaoCodigos.AguardandoValidacao, admissao.StatusAdmissao.Codigo);
@@ -106,6 +113,7 @@ public class AdmissaoDocumentoServicoTestes
             new AprovarDocumentoAdmissaoRequisicao(cenario.AdmissaoId, item.Id, "Conferido manualmente"));
 
         Assert.True(resultado.Sucesso);
+        Assert.Equal(2, cenario.Publicador.Eventos.Count);
         contexto.ChangeTracker.Clear();
         var validacao = await contexto.DocumentValidations.SingleAsync();
         Assert.Equal(StatusValidacao.Aprovado, validacao.Status);
@@ -190,7 +198,8 @@ public class AdmissaoDocumentoServicoTestes
 
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId, nomeBanco);
-        var servico = CriarServicoDocumento(contexto, tenantId, new ArmazenamentoFake(), null);
+        var servico = CriarServicoDocumento(
+            contexto, tenantId, new ArmazenamentoFake(), null, new PublicadorAtualizacaoTempoRealNulo());
 
         var resultado = await servico.ListarAsync(admissaoId);
 
@@ -216,6 +225,7 @@ public class AdmissaoDocumentoServicoTestes
 
         Assert.False(resultado.Sucesso);
         Assert.Contains("extensao", resultado.Erro);
+        Assert.Empty(cenario.Publicador.Eventos);
         Assert.Empty(await contexto.Documents.ToListAsync());
     }
 
@@ -243,7 +253,8 @@ public class AdmissaoDocumentoServicoTestes
 
         var empresaAtual = CriarEmpresaAtual(tenantId);
         var repositorio = new AdmissaoRepositorio(contexto);
-        var admissaoServico = new AdmissaoServico(repositorio, new ClienteRepositorio(contexto), empresaAtual);
+        var admissaoServico = new AdmissaoServico(
+            repositorio, new ClienteRepositorio(contexto), empresaAtual, new PublicadorAtualizacaoTempoRealNulo());
         var dados = new DadosAdmissaoRequisicao(
             "Funcionario Teste", "11789299900", "1234567", new DateOnly(1995, 5, 10), "Feminino", null, null, null, null, null,
             null, null, null, null, new DateOnly(2026, 9, 22), 2500m, null, "Analista",
@@ -256,15 +267,17 @@ public class AdmissaoDocumentoServicoTestes
         await contexto.SaveChangesAsync();
 
         var armazenamento = new ArmazenamentoFake();
-        var servico = CriarServicoDocumento(contexto, tenantId, armazenamento, resultadoValidacao);
-        return new(contexto, servico, armazenamento, tenantId, RevisorId, criacao.Valor);
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServicoDocumento(contexto, tenantId, armazenamento, resultadoValidacao, publicador);
+        return new(contexto, servico, armazenamento, publicador, tenantId, RevisorId, criacao.Valor);
     }
 
     private static AdmissaoDocumentoServico CriarServicoDocumento(
         ContextoAplicacao contexto,
         Guid tenantId,
         ArmazenamentoFake armazenamento,
-        Resultado<ValidationResultDto>? resultadoValidacao)
+        Resultado<ValidationResultDto>? resultadoValidacao,
+        IPublicadorAtualizacaoTempoReal publicador)
         => new(
             new AdmissaoRepositorio(contexto),
             new DocumentoServicoFake(resultadoValidacao),
@@ -273,7 +286,8 @@ public class AdmissaoDocumentoServicoTestes
             new ConversorImagensPdfFake(),
             CriarEmpresaAtual(tenantId),
             new UsuarioAtualFake(RevisorId),
-            NullLogger<AdmissaoDocumentoServico>.Instance);
+            NullLogger<AdmissaoDocumentoServico>.Instance,
+            publicador);
 
     private static readonly Guid RevisorId = Guid.NewGuid();
 
@@ -296,9 +310,21 @@ public class AdmissaoDocumentoServicoTestes
         ContextoAplicacao Contexto,
         AdmissaoDocumentoServico Servico,
         ArmazenamentoFake Armazenamento,
+        PublicadorAtualizacaoFake Publicador,
         Guid TenantId,
         Guid RevisorId,
         Guid AdmissaoId);
+
+    private sealed class PublicadorAtualizacaoFake : IPublicadorAtualizacaoTempoReal
+    {
+        public List<EventoAtualizacaoTempoReal> Eventos { get; } = [];
+
+        public Task PublicarAsync(EventoAtualizacaoTempoReal evento, CancellationToken cancellationToken = default)
+        {
+            Eventos.Add(evento);
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class UsuarioAtualFake(Guid userId) : IUsuarioAtual
     {

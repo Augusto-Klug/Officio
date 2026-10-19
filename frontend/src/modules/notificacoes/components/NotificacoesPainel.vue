@@ -14,6 +14,7 @@ import {
 } from '../services/notificacoes.service'
 import type { FiltroNotificacoes, Notificacao } from '../types/notificacao'
 import { formatSaoPauloDateTime } from '../../../utils/format'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const props = withDefaults(defineProps<{
   titulo?: string
@@ -45,6 +46,7 @@ let geracao = 0
 
 const naoLidas = computed(() => notificacoes.value.filter((item) => !item.lida).length)
 const possuiNaoLidas = computed(() => naoLidas.value > 0)
+useRealtimePageRefresh('notificacao', carregar, computed(() => carregando.value || marcandoTodas.value || marcando.value.size > 0))
 
 function informarNaoLidas() {
   emit('atualizarNaoLidas', naoLidas.value)

@@ -21,6 +21,12 @@ Autentique__Sandbox=true
 Autentique__OrganizationId=
 Autentique__FolderId=
 
+# URL base usada pelo sincronizador no host; a rota interna e anexada automaticamente.
+# No deploy servidor-teste, o Nginx local escuta em 127.0.0.1:8080 e encaminha /api/ para a API.
+# Configure o mesmo segredo aleatorio na API e no sincronizador.
+# TempoReal__CallbackUrl=http://127.0.0.1:8080
+# TempoReal__ChaveCompartilhada=
+
 # Links enviados por convite e redefinicao de senha.
 Acesso__FrontendBaseUrl=http://localhost:5173
 Acesso__ConviteExpiracaoHoras=48

@@ -1,5 +1,7 @@
 using Officio.WebApi.Extensoes;
 using Officio.WebApi.Saude;
+using Officio.WebApi.TempoReal;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var argumentosPrograma = args.AnalisarArgumentosPrograma();
@@ -34,6 +36,7 @@ app.UseCors();
 app.UsarMiddlewaresOfficio();
 
 app.MapControllers();
+app.MapHub<AtualizacoesHub>("/api/v1/tempo-real");
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = _ => false

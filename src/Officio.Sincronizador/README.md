@@ -13,6 +13,8 @@ dotnet run --project .\src\Officio.Sincronizador\Officio.Sincronizador.csproj
 
 O projeto usa `ConnectionStrings__DefaultConnection`, `Database__Password`, `Autentique__BaseUrl`, `Autentique__ApiToken` e `ConnectionStrings__AzureBlobStorage`. Em `Development`, carrega o `.env` encontrado na pasta atual ou em uma pasta ancestral. Variaveis do processo prevalecem sobre o arquivo.
 
+Para publicar atualizacoes SignalR depois de reconciliar uma assinatura, configure tambem `TempoReal__CallbackUrl` como URL base da aplicacao que encaminha `/api/` para a WebAPI e `TempoReal__ChaveCompartilhada` com um segredo aleatorio compartilhado com a API. O cliente HTTP acrescenta `/api/v1/interno/atualizacoes-tempo-real` a URL base. No deploy atual, o sincronizador roda como servico systemd no host e o Nginx `web` publica `127.0.0.1:8080`, encaminhando `/api/` para `api:8080`; portanto, use `TempoReal__CallbackUrl=http://127.0.0.1:8080` (nao `http://api:8080`, que nao resolve no host). Configure o mesmo segredo na API. Nao reutilize tokens de usuario nem versione o segredo. O callback tem timeout de 5 segundos e falhas de publicacao sao registradas como warning sem interromper o processamento do job.
+
 ## Agendamento no Linux
 
 Publique o projeto para Linux e instale os arquivos `deploy/systemd` no host. Configure o fuso do sistema para `America/Sao_Paulo` para que o timer rode diariamente as 07h10 locais.

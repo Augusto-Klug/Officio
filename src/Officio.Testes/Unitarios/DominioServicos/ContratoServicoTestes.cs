@@ -5,6 +5,7 @@ using Officio.Dominio.Contratos;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
@@ -416,7 +417,13 @@ public class ContratoServicoTestes
         contexto.StatusAssinaturas.Add(status);
         contexto.AssinaturaSolicitacoes.Add(solicitacao);
         await contexto.SaveChangesAsync();
-        var servico = CriarServico(contexto, tenantId);
+        var publicador = new PublicadorAtualizacaoTempoRealFake();
+        var servico = CriarServico(
+            contexto,
+            tenantId,
+            new ServicoPdfFake(),
+            new ServicoAssinaturaFake(),
+            publicadorAtualizacaoTempoReal: publicador);
         var payload = """
             {"event":"document.finished","document":{"id":"doc-autentique-1"},"created_at":"2026-08-30T10:00:00Z"}
             """;
@@ -427,6 +434,9 @@ public class ContratoServicoTestes
         Assert.Equal(StatusContrato.Ativo, contrato.Status);
         Assert.NotNull(contrato.AssinadoEm);
         Assert.Single(contexto.AssinaturaEventos);
+        Assert.Equal(
+            new EventoAtualizacaoTempoReal(tenantId, EntidadesAtualizacaoTempoReal.Contrato, contrato.Id),
+            Assert.Single(publicador.Atualizacoes));
     }
 
     [Fact]
@@ -581,6 +591,7 @@ public class ContratoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         var (_, contrato, _) = await CriarContratoComSolicitacaoAsync(contexto, tenantId);
         var armazenamento = new ServicoArmazenamentoFake();
+        var publicador = new PublicadorAtualizacaoTempoRealFake();
         var assinatura = new ServicoAssinaturaFake(
             documentoAssinado: ResultadoDocumentoAssinado.CriarSucesso(
                 new MemoryStream([10, 20, 30]),
@@ -590,7 +601,8 @@ public class ContratoServicoTestes
             tenantId,
             new ServicoPdfFake(),
             assinatura,
-            armazenamento);
+            armazenamento,
+            publicadorAtualizacaoTempoReal: publicador);
         var payload = """
             {"event":"document.finished","document":{"id":"doc-autentique-1"},"created_at":"2026-08-30T10:00:00Z"}
             """;
@@ -685,12 +697,14 @@ public class ContratoServicoTestes
             documentoAssinado: ResultadoDocumentoAssinado.CriarSucesso(
                 new MemoryStream([10, 20, 30]),
                 "contrato-final.pdf"));
+        var publicador = new PublicadorAtualizacaoTempoRealFake();
         var servico = CriarServico(
             contexto,
             tenantId,
             new ServicoPdfFake(),
             assinatura,
-            armazenamento);
+            armazenamento,
+            publicadorAtualizacaoTempoReal: publicador);
         var payload = """
             {
               "event": {
@@ -716,6 +730,7 @@ public class ContratoServicoTestes
         Assert.Null(contrato.AssinadoEm);
         Assert.Empty(contexto.Documents);
         Assert.Empty(armazenamento.Envios);
+        Assert.Empty(publicador.Atualizacoes);
     }
 
     [Fact]
@@ -927,7 +942,8 @@ public class ContratoServicoTestes
         IServicoPdf servicoPdf,
         IServicoAssinatura servicoAssinatura,
         IServicoArmazenamento? servicoArmazenamento = null,
-        ServicoEmpresaAtual? empresaAtual = null)
+        ServicoEmpresaAtual? empresaAtual = null,
+        IPublicadorAtualizacaoTempoReal? publicadorAtualizacaoTempoReal = null)
         => new ContratoServico(
             new ContratoRepositorio(contexto),
             new ParceiroRepositorio(contexto),
@@ -938,7 +954,21 @@ public class ContratoServicoTestes
             servicoAssinatura,
             servicoArmazenamento ?? new ServicoArmazenamentoFake(),
             empresaAtual ?? CriarEmpresaAtual(tenantId),
+            publicadorAtualizacaoTempoReal ?? new PublicadorAtualizacaoTempoRealFake(),
             NullLogger<ContratoServico>.Instance);
+
+    private sealed class PublicadorAtualizacaoTempoRealFake : IPublicadorAtualizacaoTempoReal
+    {
+        public List<EventoAtualizacaoTempoReal> Atualizacoes { get; } = [];
+
+        public Task PublicarAsync(
+            EventoAtualizacaoTempoReal evento,
+            CancellationToken cancellationToken = default)
+        {
+            Atualizacoes.Add(evento);
+            return Task.CompletedTask;
+        }
+    }
 
     private static ContextoAplicacao CriarContexto(Guid tenantId)
         => CriarContexto(tenantId, CriarEmpresaAtual(tenantId));

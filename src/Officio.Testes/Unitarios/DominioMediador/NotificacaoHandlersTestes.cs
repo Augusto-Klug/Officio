@@ -132,6 +132,103 @@ public class NotificacaoHandlersTestes
     }
 
     [Fact]
+    public async Task MarcarTodasComoLidas_PublicaUmaInvalidacaoQuandoExistemMudancas()
+    {
+        var tenantId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        contexto.Notifications.AddRange(
+            Notificacao.Create(tenantId, usuarioId, "TIPO_1", "Primeira"),
+            Notificacao.Create(tenantId, usuarioId, "TIPO_2", "Segunda"));
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, usuarioId, publicador);
+
+        await servico.MarcarTodasComoLidasAsync();
+
+        var evento = Assert.Single(publicador.Eventos);
+        Assert.Equal(tenantId, evento.ParceiroId);
+        Assert.Equal(EntidadesAtualizacaoTempoReal.Notificacao, evento.Entidade);
+        Assert.Null(evento.Id);
+    }
+
+    [Fact]
+    public async Task NotificarTenant_PublicaInvalidacaoDoParceiroAposCriarNotificacoes()
+    {
+        var tenantId = Guid.NewGuid();
+        var usuario = Usuario.Create(tenantId, "Usuario", "usuario@officio.test", "hash", "Admin");
+        await using var contexto = CriarContexto(tenantId);
+        contexto.Users.Add(usuario);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, usuario.Id, publicador);
+
+        await servico.NotificarTenantAsync(tenantId, "EVENTO", "Titulo", "Conteudo privado", Guid.NewGuid());
+
+        var evento = Assert.Single(publicador.Eventos);
+        Assert.Equal(tenantId, evento.ParceiroId);
+        Assert.Equal(EntidadesAtualizacaoTempoReal.Notificacao, evento.Entidade);
+        Assert.Null(evento.Id);
+    }
+
+    [Fact]
+    public async Task NotificarTenant_SemNovasNotificacoes_NaoPublicaEvento()
+    {
+        var tenantId = Guid.NewGuid();
+        var usuario = Usuario.Create(tenantId, "Usuario", "usuario@officio.test", "hash", "Admin");
+        await using var contexto = CriarContexto(tenantId);
+        contexto.Users.Add(usuario);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, usuario.Id, publicador);
+        var referenciaId = Guid.NewGuid();
+        await servico.NotificarTenantAsync(tenantId, "EVENTO", "Titulo", null, referenciaId);
+        publicador.Eventos.Clear();
+
+        await servico.NotificarTenantAsync(tenantId, "EVENTO", "Titulo", null, referenciaId);
+
+        Assert.Empty(publicador.Eventos);
+    }
+
+    [Fact]
+    public async Task MarcarComoLida_PublicaInvalidacaoAposAlteracao()
+    {
+        var tenantId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var notificacao = Notificacao.Create(tenantId, usuarioId, "TIPO", "Titulo");
+        await using var contexto = CriarContexto(tenantId);
+        contexto.Notifications.Add(notificacao);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, usuarioId, publicador);
+
+        await servico.MarcarComoLidaAsync(notificacao.Id);
+
+        var evento = Assert.Single(publicador.Eventos);
+        Assert.Equal(tenantId, evento.ParceiroId);
+        Assert.Equal(EntidadesAtualizacaoTempoReal.Notificacao, evento.Entidade);
+        Assert.Null(evento.Id);
+    }
+
+    [Fact]
+    public async Task MarcarComoLida_SeJaEstiverLida_NaoPublicaEvento()
+    {
+        var tenantId = Guid.NewGuid();
+        var usuarioId = Guid.NewGuid();
+        var notificacao = Notificacao.Create(tenantId, usuarioId, "TIPO", "Titulo");
+        notificacao.MarcarComoLida();
+        await using var contexto = CriarContexto(tenantId);
+        contexto.Notifications.Add(notificacao);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = CriarServico(contexto, usuarioId, publicador);
+
+        await servico.MarcarComoLidaAsync(notificacao.Id);
+
+        Assert.Empty(publicador.Eventos);
+    }
+
+    [Fact]
     public async Task EventoContratoAssinado_NotificaUsuariosAtivosDoTenant()
     {
         var tenantId = Guid.NewGuid();
@@ -259,8 +356,9 @@ public class NotificacaoHandlersTestes
 
     private static NotificacaoServico CriarServico(
         ContextoAplicacao contexto,
-        Guid usuarioId)
-        => new(new NotificacaoRepositorio(contexto), new UsuarioAtualFake(usuarioId));
+        Guid usuarioId,
+        IPublicadorAtualizacaoTempoReal? publicador = null)
+        => new(new NotificacaoRepositorio(contexto), new UsuarioAtualFake(usuarioId), publicador ?? new PublicadorAtualizacaoFake());
 
     private static ContextoAplicacao CriarContexto(Guid tenantId)
     {
@@ -295,5 +393,16 @@ public class NotificacaoHandlersTestes
             CancellationToken cancellationToken = default)
             where TNotification : MediatR.INotification
             => Publish((object)notification, cancellationToken);
+    }
+
+    private sealed class PublicadorAtualizacaoFake : IPublicadorAtualizacaoTempoReal
+    {
+        public List<EventoAtualizacaoTempoReal> Eventos { get; } = [];
+
+        public Task PublicarAsync(EventoAtualizacaoTempoReal evento, CancellationToken cancellationToken = default)
+        {
+            Eventos.Add(evento);
+            return Task.CompletedTask;
+        }
     }
 }

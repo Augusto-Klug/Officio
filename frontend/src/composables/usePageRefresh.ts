@@ -1,6 +1,6 @@
 import { onBeforeUnmount, onMounted, ref, toValue, type MaybeRefOrGetter } from 'vue'
 
-export type PageRefreshReason = 'manual' | 'focus' | 'online' | 'polling'
+export type PageRefreshReason = 'manual' | 'focus' | 'online' | 'polling' | 'realtime'
 
 interface PageRefreshOptions {
   busy?: MaybeRefOrGetter<boolean>
@@ -72,5 +72,6 @@ export function usePageRefresh(
   return {
     refreshing,
     refreshNow: () => run('manual'),
+    refreshAutomatically: () => run('realtime'),
   }
 }

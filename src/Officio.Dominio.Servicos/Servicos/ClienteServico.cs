@@ -2,13 +2,15 @@ using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
 public class ClienteServico(
     IClienteRepositorio clienteRepositorio,
-    IServicoEnderecoComercial servicoEnderecoComercial) : IClienteServico
+    IServicoEnderecoComercial servicoEnderecoComercial,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IClienteServico
 {
     public async Task<Resultado<List<ClienteDto>>> ListarAsync(
         string? busca = null,
@@ -75,6 +77,7 @@ public class ClienteServico(
         }
 
         await clienteRepositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(cliente, ct);
 
         return Resultado<Guid>.CriarSucesso(cliente.Id);
     }
@@ -97,9 +100,15 @@ public class ClienteServico(
         }
 
         await clienteRepositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(cliente, ct);
 
         return Resultado<bool>.CriarSucesso(true);
     }
+
+    private Task PublicarAtualizacaoAsync(Cliente cliente, CancellationToken ct)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(cliente.TenantId, EntidadesAtualizacaoTempoReal.Cliente, cliente.Id),
+            ct);
 
     private static ClienteDto Mapear(Cliente cliente)
         => new(

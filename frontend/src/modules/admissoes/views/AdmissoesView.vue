@@ -23,6 +23,7 @@ import AdmissaoDocumentosDialog from '../components/AdmissaoDocumentosDialog.vue
 import AdmissaoFormDialog from '../components/AdmissaoFormDialog.vue'
 import { atualizarAdmissao, cancelarAdmissao, concluirAdmissao, concluirRevisaoDocumentalAdmissao, criarAdmissao, enviarLinkFichaAdmissaoPorEmail, gerarLinkFichaAdmissao, gerarLinkFichaEmpresaAdmissao, listarAdmissoes, obterAdmissao, revogarLinkFichaAdmissao, revogarLinkFichaEmpresaAdmissao } from '../services/admissoes.service'
 import { statusAdmissaoOptions, type AdmissaoDetalhe, type AdmissaoResumo, type DadosAdmissaoPayload } from '../types/admissao'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,6 +71,7 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 const terminal = (item: AdmissaoResumo) => item.status === 'CONCLUIDA' || item.status === 'CANCELADA'
 const statusSeverity = (codigo: string) => codigo === 'CONCLUIDA' ? 'success' : codigo === 'CANCELADA' ? 'danger' : ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR'].includes(codigo) ? 'info' : 'warn'
+useRealtimePageRefresh('admissao', refreshRealtime, computed(() => loading.value || detailLoading.value || !!actionId.value || saving.value || linkLoading.value))
 
 async function load() {
   if (searchTimer) clearTimeout(searchTimer)
@@ -120,6 +122,15 @@ async function carregarDetalhe(item: AdmissaoResumo): Promise<AdmissaoDetalhe | 
   try { return await obterAdmissao(item.id) }
   catch (cause) { error.value = normalizeError(cause).message; return null }
   finally { detailLoading.value = false }
+}
+
+async function refreshRealtime() {
+  await load()
+  const detalheAtual = selected.value
+  if (!detailOpen.value || !detalheAtual) return
+  const atualizado = await carregarDetalhe(detalheAtual)
+  if (atualizado && detailOpen.value && selected.value?.id === detalheAtual.id)
+    selected.value = atualizado
 }
 
 async function abrirDetalhe(item: AdmissaoResumo) {

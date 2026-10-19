@@ -5,6 +5,7 @@ using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
@@ -17,7 +18,8 @@ public sealed class AdmissaoDocumentoServico(
     IConversorImagensPdf conversorImagensPdf,
     IEmpresaAtual empresaAtual,
     IUsuarioAtual usuarioAtual,
-    ILogger<AdmissaoDocumentoServico> logger) : IAdmissaoDocumentoServico
+    ILogger<AdmissaoDocumentoServico> logger,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IAdmissaoDocumentoServico
 {
     private const int TamanhoMaximoUploadBytes = 10 * 1024 * 1024;
     private const int QuantidadeMaximaArquivos = 10;
@@ -179,6 +181,7 @@ public sealed class AdmissaoDocumentoServico(
                 await repositorio.RemoverDocumentoAsync(documentoAlternativo, ct);
             }
             await repositorio.SalvarAlteracoesAsync(ct);
+            await PublicarAtualizacaoAsync(item, ct);
         }
         catch
         {
@@ -231,6 +234,7 @@ public sealed class AdmissaoDocumentoServico(
         if (!resultado.Sucesso)
             return resultado;
 
+        await PublicarAtualizacaoAsync(item, ct);
         return resultado;
     }
 
@@ -262,6 +266,7 @@ public sealed class AdmissaoDocumentoServico(
 
         validacao.ApproveManually(usuarioAtual.UserId, requisicao.Observacao);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(item, ct);
 
         return Resultado<bool>.CriarSucesso(true);
     }
@@ -282,9 +287,18 @@ public sealed class AdmissaoDocumentoServico(
         item.RemoverDocumento();
         await repositorio.RemoverDocumentoAsync(documento, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(item, ct);
         await TentarExcluirAsync(documento.CaminhoStorage, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
+
+    private Task PublicarAtualizacaoAsync(AdmissaoDocumento item, CancellationToken ct)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(
+                item.Admissao.TenantId,
+                EntidadesAtualizacaoTempoReal.Admissao,
+                item.AdmissaoId),
+            ct);
 
     private static string? ValidarItemEditavel(AdmissaoDocumento? item)
     {

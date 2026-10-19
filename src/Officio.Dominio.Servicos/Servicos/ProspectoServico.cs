@@ -5,6 +5,7 @@ using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Comum;
+using Officio.Dominio.Eventos;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
@@ -12,7 +13,8 @@ internal class ProspectoServico(
     IProspectoRepositorio prospectoRepositorio,
     IServicoEnderecoComercial servicoEnderecoComercial,
     ILocalidadeServico localidadeServico,
-    IEmpresaAtual empresaAtual) : IProspectoServico
+    IEmpresaAtual empresaAtual,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IProspectoServico
 {
     public async Task<Resultado<ProspectoCriadoDto>> CriarAsync(
         CriarProspectoRequisicao requisicao,
@@ -50,6 +52,7 @@ internal class ProspectoServico(
         }
 
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(prospecto.Id, ct);
 
         return Resultado<ProspectoCriadoDto>.CriarSucesso(
             new ProspectoCriadoDto(prospecto.Id, prospecto.RazaoSocial));
@@ -112,6 +115,7 @@ internal class ProspectoServico(
             }
         }
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(prospecto.Id, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -127,6 +131,7 @@ internal class ProspectoServico(
 
         prospectoRepositorio.Remover(prospecto);
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(id, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -217,9 +222,18 @@ internal class ProspectoServico(
         await prospectoRepositorio.AdicionarAsync(cliente, ct);
 
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(prospecto.Id, ct);
+        await publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(prospecto.TenantId, EntidadesAtualizacaoTempoReal.Cliente, cliente.Id),
+            ct);
 
         return Resultado<Guid>.CriarSucesso(cliente.Id);
     }
+
+    private Task PublicarAtualizacaoAsync(Guid prospectoId, CancellationToken ct)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(empresaAtual.TenantId, EntidadesAtualizacaoTempoReal.Prospecto, prospectoId),
+            ct);
 
     public async Task<Resultado<PagedResult<ProspectoDto>>> ObterAsync(
         ObterProspectosFiltro filtro,

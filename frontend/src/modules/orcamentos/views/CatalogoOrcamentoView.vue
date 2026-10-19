@@ -15,6 +15,7 @@ import BaseInput from '../../../components/base/BaseInput.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 import { formatCurrency } from '../../../utils/format'
 import {
   alterarAtivoItemCatalogoOrcamento,
@@ -188,6 +189,7 @@ async function load() {
 }
 
 watch(incluirInativos, () => { void load() })
+useRealtimePageRefresh('catalogo-orcamento', load, computed(() => loading.value || saving.value || changingStatus.value))
 void load()
 onBeforeUnmount(() => controller?.abort())
 </script>

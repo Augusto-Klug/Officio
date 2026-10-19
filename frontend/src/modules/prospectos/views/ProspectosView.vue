@@ -20,6 +20,7 @@ import { prospectoNaEtapaInicial, statusOptions, type Prospecto, type Prospectos
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatDate } from '../../../utils/format'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const route = useRoute()
 const router = useRouter()
@@ -72,7 +73,8 @@ async function refreshData(reason: PageRefreshReason) {
   await load({ background: true, reportErrors: reason === 'manual' })
 }
 
-const { refreshing, refreshNow } = usePageRefresh(refreshData, { busy: loading })
+const { refreshing, refreshNow, refreshAutomatically } = usePageRefresh(refreshData, { busy: loading })
+useRealtimePageRefresh('prospecto', refreshAutomatically, computed(() => loading.value || refreshing.value))
 function applyFilters() {
   clearTimeout(timer)
   void router.replace({ query: { ...route.query, pagina: undefined, busca: busca.value.trim() || undefined, status: status.value || undefined } })

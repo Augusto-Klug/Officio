@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Modulos;
 using Officio.Infra.BancoDeDados.Modulos;
 using Officio.Infraestrutura.Modulos;
 using Officio.WebApi.Conversores;
 using Officio.WebApi.Servicos.Webhooks;
+using Officio.WebApi.TempoReal;
 using System.Text;
 
 namespace Officio.WebApi.Extensoes;
@@ -37,6 +39,8 @@ public static class ExtensoesServiceCollection
         services.AdicionarMediadores(configuration);
         services.AdicionarBancoDeDados(configuration);
         services.AdicionarInfraestrutura(configuration);
+        services.AddSignalR();
+        services.AddSingleton<IPublicadorAtualizacaoTempoReal, PublicadorAtualizacaoSignalR>();
 
         services.AddHttpContextAccessor();
         services.AddScoped<IProspectoViewModelConversor, ProspectoViewModelConversor>();
@@ -63,6 +67,18 @@ public static class ExtensoesServiceCollection
                     ValidAudience = configuration["Jwt:Audience"] ?? "Officio",
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(jwtKey))
+                };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var token = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(token) &&
+                            context.HttpContext.Request.Path.StartsWithSegments("/api/v1/tempo-real"))
+                            context.Token = token;
+
+                        return Task.CompletedTask;
+                    }
                 };
             });
 

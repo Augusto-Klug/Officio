@@ -26,6 +26,7 @@
     <ProjectReference Include="..\Officio.Dominio.Servicos\Officio.Dominio.Servicos.csproj" />
     <ProjectReference Include="..\Officio.Infra.BancoDeDados\Officio.Infra.BancoDeDados.csproj" />
     <ProjectReference Include="..\Officio.Infraestrutura\Officio.Infraestrutura.csproj" />
+    <ProjectReference Include="..\Officio.Sincronizador\Officio.Sincronizador.csproj" Aliases="Sincronizador" />
     <ProjectReference Include="..\Officio.WebApi\Officio.WebApi.csproj" />
   </ItemGroup>
 

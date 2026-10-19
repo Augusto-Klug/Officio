@@ -17,6 +17,7 @@ import type { Cliente } from '../../clientes/types/cliente'
 import AdmissaoFormDialog from '../components/AdmissaoFormDialog.vue'
 import { criarAdmissao, listarEmpresasComAdmissoes } from '../services/admissoes.service'
 import type { DadosAdmissaoPayload, EmpresaAdmissoesResumo } from '../types/admissao'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const router = useRouter()
 const empresas = ref<EmpresaAdmissoesResumo[]>([])
@@ -52,6 +53,8 @@ async function load() {
     if (request === generation) loading.value = false
   }
 }
+
+useRealtimePageRefresh('admissao', load, loading)
 
 function agendarBusca() {
   if (searchTimer) clearTimeout(searchTimer)

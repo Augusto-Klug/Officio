@@ -385,7 +385,8 @@ public class OrcamentoHandlersTestes
         => new OrcamentoServico(
             new OrcamentoRepositorio(contexto),
             new ProspectoRepositorio(contexto),
-            CriarEmpresaAtual(tenantId));
+            CriarEmpresaAtual(tenantId),
+            new PublicadorAtualizacaoTempoRealNulo());
 
     private static ContextoAplicacao CriarContexto(Guid tenantId, string? nomeBanco = null)
     {

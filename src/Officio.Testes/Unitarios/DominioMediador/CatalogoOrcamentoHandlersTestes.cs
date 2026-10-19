@@ -143,7 +143,8 @@ public class CatalogoOrcamentoHandlersTestes
         => new OrcamentoServico(
             new OrcamentoRepositorio(contexto),
             new ProspectoRepositorio(contexto),
-            CriarEmpresaAtual(tenantId));
+            CriarEmpresaAtual(tenantId),
+            new PublicadorAtualizacaoTempoRealNulo());
 
     private static ServicoEmpresaAtual CriarEmpresaAtual(Guid tenantId)
     {

@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
+using Officio.Dominio.Interfaces;
 using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
@@ -13,13 +15,78 @@ namespace Officio.Testes.Unitarios.DominioServicos;
 public class FaturamentoServicoTestes
 {
     [Fact]
+    public async Task GerarCompetenciaAsync_PublicaSomenteFaturamentosCriados()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 800m, 4, 1);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto), publicador);
+        var competencia = new DateOnly(2026, 9, 1);
+
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        var evento = Assert.Single(publicador.Eventos);
+        Assert.Equal(tenantId, evento.ParceiroId);
+        Assert.Equal(EntidadesAtualizacaoTempoReal.Faturamento, evento.Entidade);
+        Assert.Equal(await contexto.FaturamentosMensais.Select(item => item.Id).SingleAsync(), evento.Id);
+    }
+
+    [Fact]
+    public async Task RecalcularCompetenciaAsync_PublicaAposPersistirRecalculo()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 800m, 4, 1);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto), publicador);
+        var competencia = new DateOnly(2026, 9, 1);
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+        publicador.Eventos.Clear();
+        (await contexto.Empresas.SingleAsync()).AtualizarQuantidadesOperacionais(5, 2);
+        await contexto.SaveChangesAsync();
+
+        await servico.RecalcularCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        var evento = Assert.Single(publicador.Eventos);
+        Assert.Equal(tenantId, evento.ParceiroId);
+        Assert.Equal(EntidadesAtualizacaoTempoReal.Faturamento, evento.Entidade);
+        Assert.Equal(await contexto.FaturamentosMensais.Select(item => item.Id).SingleAsync(), evento.Id);
+    }
+
+    [Fact]
+    public async Task FecharCompetenciaAsync_SemTransicoesNaoPublicaNovoEvento()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 700m, 3, 1);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto), publicador);
+        var competencia = new DateOnly(2026, 9, 1);
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+        publicador.Eventos.Clear();
+
+        await servico.FecharCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+        await servico.FecharCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
+
+        var evento = Assert.Single(publicador.Eventos);
+        Assert.Equal(tenantId, evento.ParceiroId);
+        Assert.Equal(EntidadesAtualizacaoTempoReal.Faturamento, evento.Entidade);
+        Assert.Equal(await contexto.FaturamentosMensais.Select(item => item.Id).SingleAsync(), evento.Id);
+    }
+
+    [Fact]
     public async Task GerarCompetenciaAsync_CriaSnapshotEIgnoraContratoJaCalculado()
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         AdicionarContratoAtivo(contexto, tenantId, 800m, 4, 1);
         await contexto.SaveChangesAsync();
-        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var servico = CriarServico(contexto);
 
         var primeiro = await servico.GerarCompetenciaAsync(
             new GerarFaturamentoCompetenciaRequisicao(new DateOnly(2026, 9, 20)));
@@ -48,7 +115,7 @@ public class FaturamentoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         AdicionarContratoAtivo(contexto, tenantId, 500m, 2, 0);
         await contexto.SaveChangesAsync();
-        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var servico = CriarServico(contexto);
         await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(new DateOnly(2026, 9, 1)));
         var faturamentoId = await contexto.FaturamentosMensais.Select(item => item.Id).SingleAsync();
 
@@ -60,6 +127,32 @@ public class FaturamentoServicoTestes
         Assert.Contains("fechado", cancelamento.Erro, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AlterarStatusIndividual_PublicaEventoDaTransicaoPersistida(bool fechar)
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        AdicionarContratoAtivo(contexto, tenantId, 500m, 2, 0);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto), publicador);
+        await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(new DateOnly(2026, 9, 1)));
+        publicador.Eventos.Clear();
+        var faturamentoId = await contexto.FaturamentosMensais.Select(item => item.Id).SingleAsync();
+
+        var resultado = fechar
+            ? await servico.FecharAsync(faturamentoId)
+            : await servico.CancelarAsync(faturamentoId);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        var evento = Assert.Single(publicador.Eventos);
+        Assert.Equal(tenantId, evento.ParceiroId);
+        Assert.Equal(EntidadesAtualizacaoTempoReal.Faturamento, evento.Entidade);
+        Assert.Equal(faturamentoId, evento.Id);
+    }
+
     [Fact]
     public async Task GerarCompetenciaAsync_UsaSomenteItensRecorrentesECalculaValorPorFolha()
     {
@@ -67,7 +160,7 @@ public class FaturamentoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         AdicionarContratoAtivo(contexto, tenantId, 800m, 4, 1, 20m, 300m);
         await contexto.SaveChangesAsync();
-        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var servico = CriarServico(contexto);
 
         var resultado = await servico.GerarCompetenciaAsync(
             new GerarFaturamentoCompetenciaRequisicao(new DateOnly(2026, 9, 1)));
@@ -87,7 +180,7 @@ public class FaturamentoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         AdicionarContratoAtivo(contexto, tenantId, 800m, 4, 1, 20m);
         await contexto.SaveChangesAsync();
-        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var servico = CriarServico(contexto);
         var competencia = new DateOnly(2026, 9, 1);
         await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
         var empresa = await contexto.Empresas.SingleAsync();
@@ -116,7 +209,7 @@ public class FaturamentoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         AdicionarContratoAtivo(contexto, tenantId, 500m, 2, 0, 10m);
         await contexto.SaveChangesAsync();
-        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var servico = CriarServico(contexto);
         var competencia = new DateOnly(2026, 9, 1);
         await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
         var faturamentoId = await contexto.FaturamentosMensais.Select(item => item.Id).SingleAsync();
@@ -144,7 +237,7 @@ public class FaturamentoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         AdicionarContratoAtivo(contexto, tenantId, 500m, 2, 0);
         await contexto.SaveChangesAsync();
-        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var servico = CriarServico(contexto);
         var competencia = new DateOnly(2026, 9, 1);
         await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
 
@@ -167,7 +260,7 @@ public class FaturamentoServicoTestes
         await using var contexto = CriarContexto(tenantId);
         AdicionarContratoAtivo(contexto, tenantId, 700m, 3, 1, 15m);
         await contexto.SaveChangesAsync();
-        var servico = new FaturamentoServico(new FaturamentoRepositorio(contexto));
+        var servico = CriarServico(contexto);
         var competencia = new DateOnly(2026, 9, 1);
         await servico.GerarCompetenciaAsync(new GerarFaturamentoCompetenciaRequisicao(competencia));
 
@@ -242,5 +335,19 @@ public class FaturamentoServicoTestes
         var empresaAtual = new ServicoEmpresaAtual();
         empresaAtual.SetTenant(tenantId);
         return new ContextoAplicacao(options, empresaAtual, new PublicadorEventosFake());
+    }
+
+    private static FaturamentoServico CriarServico(ContextoAplicacao contexto)
+        => new(new FaturamentoRepositorio(contexto), new PublicadorAtualizacaoFake());
+
+    private sealed class PublicadorAtualizacaoFake : IPublicadorAtualizacaoTempoReal
+    {
+        public List<EventoAtualizacaoTempoReal> Eventos { get; } = [];
+
+        public Task PublicarAsync(EventoAtualizacaoTempoReal evento, CancellationToken cancellationToken = default)
+        {
+            Eventos.Add(evento);
+            return Task.CompletedTask;
+        }
     }
 }

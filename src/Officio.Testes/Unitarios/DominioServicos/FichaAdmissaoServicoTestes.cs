@@ -5,6 +5,7 @@ using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
@@ -27,6 +28,11 @@ public class FichaAdmissaoServicoTestes
         Assert.True(primeiro.Sucesso);
         Assert.True(segundo.Sucesso);
         Assert.NotEqual(primeiro.Valor!.Token, segundo.Valor!.Token);
+        Assert.Equal(2, cenario.Publicador.Eventos.Count);
+        Assert.All(cenario.Publicador.Eventos, evento => Assert.Equal(
+            new EventoAtualizacaoTempoReal(
+                cenario.TenantId, EntidadesAtualizacaoTempoReal.Admissao, cenario.AdmissaoId),
+            evento));
         contexto.ChangeTracker.Clear();
         var admissao = await contexto.Admissoes.IgnoreQueryFilters().SingleAsync();
         Assert.NotEqual(segundo.Valor.Token, admissao.TokenAcessoHash);
@@ -48,6 +54,7 @@ public class FichaAdmissaoServicoTestes
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.Equal("admitido@example.com", cenario.Email.UltimoDestinatario);
         Assert.Contains($"https://officio.test/ficha-admissao/{link.Valor.Token}", cenario.Email.UltimoCorpo);
+        Assert.Single(cenario.Publicador.Eventos);
     }
 
     [Fact]
@@ -70,6 +77,7 @@ public class FichaAdmissaoServicoTestes
         Assert.Equal("Analista", admissao.Funcao);
         Assert.Equal(3500m, admissao.Salario);
         Assert.Equal(new DateOnly(2026, 10, 1), admissao.DataAdmissaoPrevista);
+        Assert.Equal(2, cenario.Publicador.Eventos.Count);
     }
 
     [Fact]
@@ -83,6 +91,7 @@ public class FichaAdmissaoServicoTestes
 
         Assert.False(resultado.Sucesso);
         Assert.Contains("documentos obrigatorios", resultado.Erro);
+        Assert.Single(cenario.Publicador.Eventos);
     }
 
     [Fact]
@@ -119,6 +128,7 @@ public class FichaAdmissaoServicoTestes
             .SingleAsync();
         Assert.Null(admissao.TokenAcessoHash);
         Assert.Equal(StatusAdmissaoCodigos.Rascunho, admissao.StatusAdmissao.Codigo);
+        Assert.Equal(2, cenario.Publicador.Eventos.Count);
     }
 
     [Fact]
@@ -140,6 +150,7 @@ public class FichaAdmissaoServicoTestes
         Assert.NotNull(admissao.PreenchimentoFuncionarioConcluidoEm);
         Assert.Equal(StatusAdmissaoCodigos.AguardandoValidacao, admissao.StatusAdmissao.Codigo);
         Assert.Equal(0, cenario.DocumentoServico.Validacoes);
+        Assert.Equal(2, cenario.Publicador.Eventos.Count);
         Assert.False((await cenario.Servico.AtualizarAsync(link.Valor.Token,
             new("Funcionario Teste", new DateOnly(1995, 5, 10), "Feminino", "Solteiro(a)", null, null, null, []))).Sucesso);
     }
@@ -164,6 +175,7 @@ public class FichaAdmissaoServicoTestes
 
         var revisao = await cenario.AdmissaoServico.ConcluirRevisaoDocumentalAsync(cenario.AdmissaoId);
         Assert.True(revisao.Sucesso, revisao.Erro);
+        Assert.Equal(3, cenario.Publicador.Eventos.Count);
         var linkEmpresa = await cenario.Servico.GerarLinkEmpresaAsync(cenario.AdmissaoId);
         Assert.True(linkEmpresa.Sucesso, linkEmpresa.Erro);
         Assert.NotEqual(linkFuncionario.Valor.Token, linkEmpresa.Valor!.Token);
@@ -204,6 +216,7 @@ public class FichaAdmissaoServicoTestes
         Assert.Equal("12345-6", admissao.Conta);
         Assert.Equal("Corrente", admissao.TipoConta);
         Assert.NotNull(admissao.PreenchimentoEmpresaConcluidoEm);
+        Assert.Equal(8, cenario.Publicador.Eventos.Count);
     }
 
     private static async Task<Cenario> CriarCenarioAsync()
@@ -221,7 +234,8 @@ public class FichaAdmissaoServicoTestes
         await contexto.SaveChangesAsync();
 
         var repositorio = new AdmissaoRepositorio(contexto);
-        var admissaoServico = new AdmissaoServico(repositorio, new ClienteRepositorio(contexto), empresaAtual);
+        var publicador = new PublicadorAtualizacaoFake();
+        var admissaoServico = new AdmissaoServico(repositorio, new ClienteRepositorio(contexto), empresaAtual, publicador);
         var dados = new DadosAdmissaoRequisicao(
             "Funcionario Teste", "11789299900", "1234567", new DateOnly(1995, 5, 10), "Feminino", null,
             null, "47999999999", null, null, null, null, null, null, new DateOnly(2026, 10, 1),
@@ -235,8 +249,9 @@ public class FichaAdmissaoServicoTestes
             })
             .Build();
         var email = new EmailFake();
-        var servico = new FichaAdmissaoServico(repositorio, documentoServico, empresaAtual, email, configuracao);
-        return new(contexto, servico, documentoServico, admissaoServico, empresaAtual, email, tenantId, criacao.Valor);
+        var servico = new FichaAdmissaoServico(repositorio, documentoServico, empresaAtual, email, configuracao, publicador);
+        publicador.Eventos.Clear();
+        return new(contexto, servico, documentoServico, admissaoServico, empresaAtual, email, publicador, tenantId, criacao.Valor);
     }
 
     private static async Task PreencherDocumentosObrigatoriosAsync(ContextoAplicacao contexto, Cenario cenario)
@@ -267,8 +282,20 @@ public class FichaAdmissaoServicoTestes
         AdmissaoServico AdmissaoServico,
         ServicoEmpresaAtual EmpresaAtual,
         EmailFake Email,
+        PublicadorAtualizacaoFake Publicador,
         Guid TenantId,
         Guid AdmissaoId);
+
+    private sealed class PublicadorAtualizacaoFake : IPublicadorAtualizacaoTempoReal
+    {
+        public List<EventoAtualizacaoTempoReal> Eventos { get; } = [];
+
+        public Task PublicarAsync(EventoAtualizacaoTempoReal evento, CancellationToken cancellationToken = default)
+        {
+            Eventos.Add(evento);
+            return Task.CompletedTask;
+        }
+    }
 
     private sealed class DocumentoAdmissaoServicoFake : IAdmissaoDocumentoServico
     {

@@ -30,6 +30,7 @@ public static class InstalarDependenciasServicos
         servicos.TryAddScoped<IDashboardServico, DashboardServico>();
         servicos.TryAddScoped<IFaturamentoServico, FaturamentoServico>();
         servicos.TryAddScoped<IFormularioAberturaServico, FormularioAberturaServico>();
+        servicos.TryAddSingleton<IPublicadorAtualizacaoTempoReal, PublicadorAtualizacaoTempoRealNulo>();
         servicos.TryAddSingleton(TimeProvider.System);
 
         return servicos;
