@@ -1,13 +1,15 @@
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
 public class NotificacaoServico(
     INotificacaoRepositorio notificacaoRepositorio,
-    IUsuarioAtual usuarioAtual) : INotificacaoServico
+    IUsuarioAtual usuarioAtual,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : INotificacaoServico
 {
     public async Task<Resultado<List<NotificacaoDto>>> ListarAsync(
         bool? lida = null,
@@ -39,8 +41,12 @@ public class NotificacaoServico(
         if (notificacao is null)
             return Resultado<bool>.CriarFalha("Notificacao nao encontrada.");
 
+        if (notificacao.Lida)
+            return Resultado<bool>.CriarSucesso(true);
+
         notificacao.MarcarComoLida();
         await notificacaoRepositorio.SalvarAlteracoesAsync(cancellationToken);
+        await PublicarInvalidacaoAsync(notificacao.TenantId, cancellationToken);
 
         return Resultado<bool>.CriarSucesso(true);
     }
@@ -59,7 +65,10 @@ public class NotificacaoServico(
             notificacao.MarcarComoLida();
 
         if (notificacoes.Count > 0)
+        {
             await notificacaoRepositorio.SalvarAlteracoesAsync(cancellationToken);
+            await PublicarInvalidacaoAsync(notificacoes[0].TenantId, cancellationToken);
+        }
 
         return Resultado<int>.CriarSucesso(notificacoes.Count);
     }
@@ -99,7 +108,13 @@ public class NotificacaoServico(
 
         await notificacaoRepositorio.AdicionarAsync(notificacoes, cancellationToken);
         await notificacaoRepositorio.SalvarAlteracoesAsync(cancellationToken);
+        await PublicarInvalidacaoAsync(tenantId, cancellationToken);
     }
+
+    private Task PublicarInvalidacaoAsync(Guid parceiroId, CancellationToken cancellationToken)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(parceiroId, EntidadesAtualizacaoTempoReal.Notificacao),
+            cancellationToken);
 
     private static NotificacaoDto Mapear(Notificacao notificacao)
         => new(

@@ -3,6 +3,7 @@ using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
@@ -10,7 +11,8 @@ namespace Officio.Dominio.Servicos.Servicos;
 public class OrcamentoServico(
     IOrcamentoRepositorio repositorio,
     IProspectoRepositorio prospectoRepositorio,
-    IEmpresaAtual empresaAtual) : IOrcamentoServico
+    IEmpresaAtual empresaAtual,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IOrcamentoServico
 {
     public async Task<Resultado<Guid>> CriarAsync(CriarOrcamentoRequisicao requisicao, CancellationToken ct = default)
     {
@@ -34,6 +36,7 @@ public class OrcamentoServico(
         orcamento.SubstituirItens(itens.Valor!);
         await repositorio.AdicionarAsync(orcamento, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(orcamento.Id, ct);
 
         return Resultado<Guid>.CriarSucesso(orcamento.Id);
     }
@@ -60,6 +63,7 @@ public class OrcamentoServico(
         orcamento.SubstituirItens(itens.Valor!);
         await repositorio.AdicionarItensAsync(itens.Valor!, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(orcamento.Id, ct);
 
         return Resultado<Guid>.CriarSucesso(orcamento.Id);
     }
@@ -99,6 +103,7 @@ public class OrcamentoServico(
 
         await repositorio.RemoverAsync(orcamento, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(orcamentoId, ct);
 
         return Resultado<bool>.CriarSucesso(true);
     }
@@ -123,6 +128,7 @@ public class OrcamentoServico(
 
         await repositorio.AdicionarItemCatalogoAsync(item, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(item.Id, ct, EntidadesAtualizacaoTempoReal.CatalogoOrcamento);
 
         return Resultado<Guid>.CriarSucesso(item.Id);
     }
@@ -148,6 +154,7 @@ public class OrcamentoServico(
             requisicao.ValorReferencia,
             requisicao.NaturezaCobranca);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(item.Id, ct, EntidadesAtualizacaoTempoReal.CatalogoOrcamento);
 
         return Resultado<Guid>.CriarSucesso(item.Id);
     }
@@ -166,6 +173,7 @@ public class OrcamentoServico(
             item.Desativar();
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(item.Id, ct, EntidadesAtualizacaoTempoReal.CatalogoOrcamento);
 
         return Resultado<Guid>.CriarSucesso(item.Id);
     }
@@ -216,6 +224,9 @@ public class OrcamentoServico(
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(orcamento.Id, ct);
+        if (requisicao.Status == StatusOrcamento.Enviado)
+            await PublicarAtualizacaoAsync(orcamento.ProspectId, ct, EntidadesAtualizacaoTempoReal.Prospecto);
 
         return Resultado<bool>.CriarSucesso(true);
     }
@@ -236,6 +247,7 @@ public class OrcamentoServico(
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(orcamento.Id, ct);
 
         return Resultado<bool>.CriarSucesso(true);
     }
@@ -258,9 +270,18 @@ public class OrcamentoServico(
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(orcamento.Id, ct);
 
         return Resultado<bool>.CriarSucesso(true);
     }
+
+    private Task PublicarAtualizacaoAsync(
+        Guid id,
+        CancellationToken ct,
+        string entidade = EntidadesAtualizacaoTempoReal.Orcamento)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(empresaAtual.TenantId, entidade, id),
+            ct);
 
     private async Task<ResultadoOperacao<List<ItemOrcamento>>> CriarItensParaNovoOrcamentoAsync(
         IEnumerable<ItemOrcamentoRequisicao> itens,

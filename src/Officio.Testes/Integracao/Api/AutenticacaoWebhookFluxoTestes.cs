@@ -27,6 +27,32 @@ public class AutenticacaoWebhookFluxoTestes(OfficioWebApplicationFactory factory
     }
 
     [Fact]
+    public async Task SignalR_NegotiateExigeTokenEAutenticaPeloAccessTokenDaUrl()
+    {
+        await factory.PrepararTenantAsync();
+        using var cliente = factory.CreateClient();
+
+        var semToken = await cliente.PostAsync(
+            "/api/v1/tempo-real/negotiate?negotiateVersion=1",
+            content: null);
+        Assert.Equal(HttpStatusCode.Unauthorized, semToken.StatusCode);
+
+        var login = await cliente.PostAsJsonAsync("/api/v1/autenticacao/Login", new
+        {
+            email = "admin@integracao.test",
+            senha = "Tenant@123"
+        });
+        var loginJson = await login.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+        var token = loginJson!["token"]!.GetValue<string>();
+
+        var negociacao = await cliente.PostAsync(
+            $"/api/v1/tempo-real/negotiate?negotiateVersion=1&access_token={Uri.EscapeDataString(token)}",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.OK, negociacao.StatusCode);
+    }
+
+    [Fact]
     public async Task WebhookAutentique_ComHmacValidoAceitaEEnfileiraPayload()
     {
         await factory.ReiniciarBancoAsync();

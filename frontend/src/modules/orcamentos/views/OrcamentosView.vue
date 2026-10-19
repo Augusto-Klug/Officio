@@ -20,6 +20,7 @@ import { normalizeError } from '../../../api/errors'
 import { formatCurrency, formatDate } from '../../../utils/format'
 import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, excluirOrcamento, listarCatalogoOrcamento, listarContratosAtivosParaConversao, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
 import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type ContratoAtivoResumo, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const route = useRoute()
 const router = useRouter()
@@ -76,6 +77,8 @@ async function load() {
   catch (cause) { if (!axios.isCancel(cause)) error.value = normalizeError(cause).message }
   finally { loading.value = false }
 }
+
+useRealtimePageRefresh(['orcamento', 'catalogo-orcamento'], refreshRealtime, computed(() => loading.value || catalogLoading.value || saving.value || !!actionId.value || !!detailLoadingId.value))
 
 function abrirCriacao() {
   editingId.value = ''
@@ -141,6 +144,11 @@ async function carregarCatalogo(incluirInativos: boolean) {
   } finally {
     if (catalogController === currentController) catalogLoading.value = false
   }
+}
+
+async function refreshRealtime() {
+  await load()
+  if (createOpen.value) await carregarCatalogo(!!editingId.value)
 }
 
 function opcoesCatalogo(item: NovoItemOrcamento) {

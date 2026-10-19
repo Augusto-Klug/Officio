@@ -19,6 +19,7 @@ import { formatarCpf, formatarDocumentoFiscal, formatarTelefone } from '../../..
 import { listarClientes, obterCliente, vincularCodigoSci } from '../services/clientes.service'
 import type { Cliente, ClienteDetalhe } from '../types/cliente'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const clientes = ref<Cliente[]>([])
 const router = useRouter()
@@ -73,7 +74,8 @@ async function refreshData(reason: PageRefreshReason) {
   await load({ background: true, reportErrors: reason === 'manual' })
 }
 
-const { refreshing, refreshNow } = usePageRefresh(refreshData, { busy: loading })
+const { refreshing, refreshNow, refreshAutomatically } = usePageRefresh(refreshData, { busy: loading })
+useRealtimePageRefresh('cliente', refreshAutomatically, computed(() => loading.value || refreshing.value))
 
 async function abrirDetalhe(item: Cliente) {
   detalheOpen.value = true

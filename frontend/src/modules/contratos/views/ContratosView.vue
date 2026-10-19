@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import Column from 'primevue/column'
@@ -19,6 +19,7 @@ import { formatarCpf, somenteDigitos } from '../../../utils/inputMasks'
 import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, obterPdfAssinado } from '../services/contratos.service'
 import type { Contrato, EmpresaContratoFiltro } from '../types/contrato'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,7 +53,6 @@ const empresaOptions = computed(() => empresas.value.map((empresa) => ({
   label: empresa.cnpj ? `${empresa.razaoSocial} · ${formatCnpj(empresa.cnpj)}` : empresa.razaoSocial,
   value: empresa.id,
 })))
-const possuiContratoEmTransicao = computed(() => contratos.value.some((contrato) => contrato.status === 'AguardandoAssinatura'))
 const paginaOcupada = computed(() => loading.value || !!actionId.value)
 
 async function load(options: { background?: boolean; reportErrors?: boolean } = {}) {
@@ -79,11 +79,10 @@ async function refreshData(reason: PageRefreshReason) {
   await load({ background: true, reportErrors: reason === 'manual' })
 }
 
-const { refreshing, refreshNow } = usePageRefresh(refreshData, {
+const { refreshing, refreshNow, refreshAutomatically } = usePageRefresh(refreshData, {
   busy: paginaOcupada,
-  pollingEnabled: possuiContratoEmTransicao,
-  pollingIntervalMs: 15_000,
 })
+useRealtimePageRefresh('contrato', refreshAutomatically, computed(() => paginaOcupada.value || refreshing.value))
 
 async function loadEmpresas() {
   empresasController?.abort()

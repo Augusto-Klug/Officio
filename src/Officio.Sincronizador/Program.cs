@@ -7,6 +7,8 @@ using Officio.Dominio.Mediador.Modulos;
 using Officio.Infra.BancoDeDados.Modulos;
 using Officio.Infraestrutura.Modulos;
 using Officio.Sincronizador.Configuracao;
+using Officio.Sincronizador.TempoReal;
+using Officio.Dominio.Interfaces;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration.AdicionarArquivoEnv(builder.Environment);
@@ -14,6 +16,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AdicionarMediadores(builder.Configuration);
 builder.Services.AdicionarBancoDeDados(builder.Configuration);
 builder.Services.AdicionarInfraestrutura(builder.Configuration);
+builder.Services.AddHttpClient<IPublicadorAtualizacaoTempoReal, PublicadorAtualizacaoTempoRealHttp>(
+    cliente => cliente.Timeout = TimeSpan.FromSeconds(5));
 
 using var host = builder.Build();
 var fusoBrasil = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");

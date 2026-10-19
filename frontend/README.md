@@ -53,6 +53,10 @@ Para usar o perfil HTTP do backend, altere somente `API_PROXY_TARGET=http://loca
 
 Em produção, configure o servidor para entregar `index.html` nas rotas SPA e encaminhar `/api` para o backend. Alternativamente, defina uma URL absoluta em `VITE_API_BASE_URL` **antes do build** e configure CORS no servidor para a origem exata do frontend. As variáveis Vite são públicas e incorporadas ao bundle; nunca contêm segredos.
 
+## Atualizacoes em tempo real
+
+As telas de contratos, admissoes, prospectos, orcamentos, catalogo de itens, clientes, notificacoes, faturamento e dashboard compartilham uma conexao autenticada em `/api/v1/tempo-real`. O evento `Atualizacao` invalida a tela e ela consulta novamente os endpoints HTTP; detalhes abertos de admissao e o catalogo do formulario de orcamento tambem sao recarregados. A conexao WebSocket e encaminhada pelo proxy Vite local (`ws: true`) e pelo Nginx do piloto. Reconexao e atualizacao manual/ao voltar para a aba servem como fallback; eventos nao ficam armazenados para clientes desconectados.
+
 ## Arquitetura
 
 Organização híbrida: infraestrutura de frontend e componentes genéricos compartilhados; código de negócio agrupado por feature. Views coordenam interação e estado da tela, services concentram chamadas e adaptação dos DTOs, types descrevem o contrato interno. Não há repositories, use-cases ou camadas domain/application no frontend.

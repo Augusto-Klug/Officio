@@ -9,7 +9,8 @@ public class IntermediarioEmpresa(RequestDelegate next)
     [
         "/api/v1/autenticacao",
         "/api/v1/admissoes-publicas",
-        "/api/v1/contratos/webhook/autentique"
+        "/api/v1/contratos/webhook/autentique",
+        "/api/v1/interno/atualizacoes-tempo-real"
     ];
 
     public async Task InvokeAsync(

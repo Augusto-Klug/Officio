@@ -146,7 +146,10 @@ public class ClienteHandlersTestes
     }
 
     private static ClienteServico CriarServico(ContextoAplicacao contexto)
-        => new(new ClienteRepositorio(contexto), new ServicoEnderecoComercialFake());
+        => new(
+            new ClienteRepositorio(contexto),
+            new ServicoEnderecoComercialFake(),
+            new PublicadorAtualizacaoTempoRealNulo());
 
     private static ServicoEmpresaAtual CriarEmpresaAtual(Guid tenantId)
     {

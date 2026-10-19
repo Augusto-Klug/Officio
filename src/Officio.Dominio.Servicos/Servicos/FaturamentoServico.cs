@@ -3,11 +3,14 @@ using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
-public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturamentoServico
+public class FaturamentoServico(
+    IFaturamentoRepositorio repositorio,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IFaturamentoServico
 {
     public async Task<Resultado<ResultadoGeracaoFaturamentoDto>> GerarCompetenciaAsync(
         GerarFaturamentoCompetenciaRequisicao requisicao,
@@ -37,6 +40,7 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacoesAsync(gerados, ct);
         return Resultado<ResultadoGeracaoFaturamentoDto>.CriarSucesso(new(
             competencia,
             gerados.Count,
@@ -63,6 +67,7 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacoesAsync(abertos, ct);
         return Resultado<ResultadoRecalculoFaturamentoDto>.CriarSucesso(new(
             competencia,
             abertos.Count,
@@ -83,6 +88,7 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
             faturamento.Fechar(statusFechado.Id);
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacoesAsync(abertos, ct);
         return Resultado<ResultadoFechamentoFaturamentoDto>.CriarSucesso(new(
             competencia,
             abertos.Count,
@@ -151,8 +157,22 @@ public class FaturamentoServico(IFaturamentoRepositorio repositorio) : IFaturame
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(faturamento, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
+
+    private Task PublicarAtualizacoesAsync(
+        IEnumerable<FaturamentoMensal> faturamentos,
+        CancellationToken ct)
+        => Task.WhenAll(faturamentos.Select(item => PublicarAtualizacaoAsync(item, ct)));
+
+    private Task PublicarAtualizacaoAsync(FaturamentoMensal faturamento, CancellationToken ct)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(
+                faturamento.TenantId,
+                EntidadesAtualizacaoTempoReal.Faturamento,
+                faturamento.Id),
+            ct);
 
     private static DateOnly NormalizarCompetencia(DateOnly competencia)
         => new(competencia.Year, competencia.Month, 1);

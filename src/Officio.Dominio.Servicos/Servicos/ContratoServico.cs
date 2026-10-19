@@ -1,4 +1,5 @@
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Enumeradores;
@@ -19,6 +20,7 @@ public class ContratoServico(
     IServicoAssinatura servicoAssinatura,
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal,
     ILogger<ContratoServico> logger) : IContratoServico
 {
     private static readonly HashSet<string> EventosAutentiqueProcessaveis = new(StringComparer.OrdinalIgnoreCase)
@@ -65,6 +67,9 @@ public class ContratoServico(
 
         await contratoRepositorio.AdicionarAsync(contrato, ct);
         await contratoRepositorio.SalvarAlteracoesAsync(ct);
+        await publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(contrato.TenantId, EntidadesAtualizacaoTempoReal.Contrato, contrato.Id),
+            ct);
 
         return Resultado<Guid>.CriarSucesso(contrato.Id);
     }
@@ -133,6 +138,10 @@ public class ContratoServico(
                 contrato.Encerrar();
 
             await contratoRepositorio.SalvarAlteracoesAsync(ct);
+            foreach (var contrato in grupoTenant)
+                await publicadorAtualizacaoTempoReal.PublicarAsync(
+                    new EventoAtualizacaoTempoReal(grupoTenant.Key, EntidadesAtualizacaoTempoReal.Contrato, contrato.Id),
+                    ct);
         }
 
         logger.LogInformation(
@@ -188,6 +197,9 @@ public class ContratoServico(
 
         contrato.SetPdfPath(caminho);
         await contratoRepositorio.SalvarAlteracoesAsync(cancellationToken);
+        await publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(contrato.TenantId, EntidadesAtualizacaoTempoReal.Contrato, contrato.Id),
+            cancellationToken);
 
         var url = await servicoArmazenamento.ObterUrlPreAssinadaAsync(caminho, TimeSpan.FromHours(1), cancellationToken);
 
@@ -288,6 +300,9 @@ public class ContratoServico(
 
         await contratoRepositorio.AdicionarSolicitacaoAssinaturaAsync(solicitacaoAssinatura, cancellationToken);
         await contratoRepositorio.SalvarAlteracoesAsync(cancellationToken);
+        await publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(contrato.TenantId, EntidadesAtualizacaoTempoReal.Contrato, contrato.Id),
+            cancellationToken);
 
         return Resultado<SendForSignatureResultDto>.CriarSucesso(
             new SendForSignatureResultDto(
@@ -540,6 +555,9 @@ public class ContratoServico(
         solicitacao.Contrato.MarkAsSigned(dataConclusao);
 
         await contratoRepositorio.SalvarAlteracoesAsync(ct);
+        await publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(solicitacao.TenantId, EntidadesAtualizacaoTempoReal.Contrato, solicitacao.ContratoId),
+            ct);
 
         if (!documentoAssinadoJaArmazenado)
         {

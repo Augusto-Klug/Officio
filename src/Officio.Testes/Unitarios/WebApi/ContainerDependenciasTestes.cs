@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Servicos.Servicos;
 using Officio.Infraestrutura.Servicos;
@@ -31,6 +32,7 @@ public class ContainerDependenciasTestes
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddRouting();
+        services.AddSingleton<IHostApplicationLifetime, HostApplicationLifetimeFake>();
         services.AddSingleton<IConfiguration>(config);
         services.AdicionarServicosOfficio(config);
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -52,5 +54,18 @@ public class ContainerDependenciasTestes
             Assert.IsType(tipoOcrIndisponivel, scope.ServiceProvider.GetRequiredService<IServicoOcr>());
         }
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IDocumentoServico>());
+    }
+
+    private sealed class HostApplicationLifetimeFake : IHostApplicationLifetime
+    {
+        private readonly CancellationTokenSource applicationStarted = new();
+        private readonly CancellationTokenSource applicationStopping = new();
+        private readonly CancellationTokenSource applicationStopped = new();
+
+        public CancellationToken ApplicationStarted => applicationStarted.Token;
+        public CancellationToken ApplicationStopping => applicationStopping.Token;
+        public CancellationToken ApplicationStopped => applicationStopped.Token;
+
+        public void StopApplication() => applicationStopping.Cancel();
     }
 }

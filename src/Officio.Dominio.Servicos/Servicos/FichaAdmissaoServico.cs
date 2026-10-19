@@ -8,6 +8,7 @@ using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
@@ -17,7 +18,8 @@ public sealed class FichaAdmissaoServico(
     IAdmissaoDocumentoServico documentoServico,
     IEmpresaAtual empresaAtual,
     IServicoEmail servicoEmail,
-    IConfiguration configuracao) : IFichaAdmissaoServico
+    IConfiguration configuracao,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IFichaAdmissaoServico
 {
     private static readonly TimeSpan ValidadeLink = TimeSpan.FromDays(7);
 
@@ -40,6 +42,7 @@ public sealed class FichaAdmissaoServico(
             StatusAdmissaoCodigos.AguardandoAdmitido, "Aguardando admitido", 2, ct);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<GerarLinkFichaAdmissaoDto>.CriarSucesso(new(token, expiraEm));
     }
 
@@ -64,6 +67,7 @@ public sealed class FichaAdmissaoServico(
             StatusAdmissaoCodigos.AguardandoEmpregador, "Aguardando empregador", 5, ct);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<GerarLinkFichaAdmissaoDto>.CriarSucesso(new(token, expiraEm));
     }
 
@@ -81,6 +85,7 @@ public sealed class FichaAdmissaoServico(
             admissao.AlterarStatus(status.Id);
         }
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -98,6 +103,7 @@ public sealed class FichaAdmissaoServico(
             admissao.AlterarStatus(status.Id);
         }
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -135,6 +141,7 @@ public sealed class FichaAdmissaoServico(
 
         await repositorio.AdicionarDependentesAsync(admissao.Dependentes, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -159,6 +166,7 @@ public sealed class FichaAdmissaoServico(
         admissao.MarcarPreenchimentoFuncionarioConcluido();
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -193,6 +201,7 @@ public sealed class FichaAdmissaoServico(
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(resultado.Valor!, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -213,8 +222,17 @@ public sealed class FichaAdmissaoServico(
             StatusAdmissaoCodigos.LiberadoPeloEmpregador, "Liberado pelo empregador", 6, ct);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
+
+    private Task PublicarAtualizacaoAsync(Admissao admissao, CancellationToken ct)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(
+                admissao.TenantId,
+                EntidadesAtualizacaoTempoReal.Admissao,
+                admissao.Id),
+            ct);
 
     public async Task<Resultado<bool>> EnviarLinkPorEmailAsync(
         EnviarLinkFichaAdmissaoEmailRequisicao requisicao,

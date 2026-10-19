@@ -8,6 +8,8 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import { formatCurrency, formatDate } from '../../../utils/format'
 import { carregarDashboard } from '../services/dashboard.service'
 import type { DashboardAlerta, DashboardProjecaoReceita, DashboardVisaoGeral } from '../types/dashboard'
+import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
+import { ENTIDADES_DASHBOARD } from '../../../realtime/atualizacoes-realtime.service'
 
 const visaoGeral = ref<DashboardVisaoGeral | null>(null)
 const alertas = ref<DashboardAlerta[]>([])
@@ -54,6 +56,7 @@ async function carregar() {
 }
 
 onMounted(carregar)
+useRealtimePageRefresh(ENTIDADES_DASHBOARD, carregar, loading)
 onBeforeUnmount(() => controller?.abort())
 </script>
 

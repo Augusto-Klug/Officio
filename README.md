@@ -376,6 +376,14 @@ O bootstrap e idempotente: se o e-mail ja existe, ele nao altera nome, perfil ou
 - reinicie o Vite depois de alterar `.env`;
 - deixe `VITE_API_BASE_URL=/api` para usar o proxy local e evitar problemas de CORS.
 
+### Atualizacoes em tempo real
+
+O frontend mantem uma conexao SignalR autenticada pelo endpoint `/api/v1/tempo-real`. Quando ha uma alteracao persistida, a API publica uma invalidacao no grupo do parceiro; as telas de contratos, admissoes, prospectos, orcamentos, catalogo de itens, clientes, notificacoes, faturamento e dashboard consultam novamente seus endpoints HTTP. Detalhes abertos de admissao e o catalogo do formulario de orcamento tambem sao recarregados. O evento nao transporta dados de negocio, e os botoes de atualizacao manual continuam como fallback. Clientes desconectados nao recebem historico; ao reconectar, as telas inscritas recarregam os dados.
+
+O proxy local do Vite e o Nginx do piloto encaminham WebSockets. Como o `Officio.Sincronizador` roda como processo separado, ele publica pelo callback interno `/api/v1/interno/atualizacoes-tempo-real`, protegido pelo header `X-Officio-Internal-Key`. Configure `TempoReal__ChaveCompartilhada` com o mesmo segredo forte na API e no sincronizador. No sincronizador, configure tambem `TempoReal__CallbackUrl`; no servidor-teste atual, use `http://127.0.0.1:8080`, publicado pelo Nginx local. O callback e best-effort: uma indisponibilidade nao desfaz a reconciliacao e a tela sera atualizada ao reconectar ou atualizar manualmente.
+
+Nao ha migration, Redis nem servico pago novo. As notificacoes sao volateis e nao usam outbox; uma queda entre a gravacao no banco e a publicacao pode perder a invalidacao, por isso o cliente sempre refaz leitura HTTP e mantem atualizacao manual.
+
 ### Quero usar HTTPS local
 
 Confie no certificado de desenvolvimento e use os perfis HTTPS:

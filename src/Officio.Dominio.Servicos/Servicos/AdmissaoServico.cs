@@ -3,6 +3,7 @@ using Officio.Dominio.Contratos;
 using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Dominio.Servicos.Servicos;
@@ -10,7 +11,8 @@ namespace Officio.Dominio.Servicos.Servicos;
 public class AdmissaoServico(
     IAdmissaoRepositorio repositorio,
     IClienteRepositorio clienteRepositorio,
-    IEmpresaAtual empresaAtual) : IAdmissaoServico
+    IEmpresaAtual empresaAtual,
+    IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IAdmissaoServico
 {
     public async Task<Resultado<Guid>> CriarManualAsync(
         CriarAdmissaoManualRequisicao requisicao,
@@ -52,6 +54,7 @@ public class AdmissaoServico(
 
         await repositorio.AdicionarAsync(admissao, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<Guid>.CriarSucesso(admissao.Id);
     }
 
@@ -80,6 +83,7 @@ public class AdmissaoServico(
 
         await repositorio.AdicionarDependentesAsync(admissao.Dependentes, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<Guid>.CriarSucesso(admissao.Id);
     }
 
@@ -143,6 +147,7 @@ public class AdmissaoServico(
             StatusAdmissaoCodigos.DocumentosValidados, "Documentos validados", 4, ct);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -185,6 +190,7 @@ public class AdmissaoServico(
         admissao.Empresa.IncrementarQuantidadeFuncionarios();
         await repositorio.AdicionarFuncionarioAsync(funcionario, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -201,8 +207,17 @@ public class AdmissaoServico(
         var status = await ObterStatusAsync(StatusAdmissaoCodigos.Cancelada, ct);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
+
+    private Task PublicarAtualizacaoAsync(Admissao admissao, CancellationToken ct)
+        => publicadorAtualizacaoTempoReal.PublicarAsync(
+            new EventoAtualizacaoTempoReal(
+                admissao.TenantId,
+                EntidadesAtualizacaoTempoReal.Admissao,
+                admissao.Id),
+            ct);
 
     private static void AplicarDados(Admissao admissao, DadosAdmissaoRequisicao dados)
     {

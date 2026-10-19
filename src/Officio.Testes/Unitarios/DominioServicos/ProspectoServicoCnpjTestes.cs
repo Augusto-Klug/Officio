@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Eventos;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos.Response;
 using Officio.Dominio.Servicos.Modulos;
@@ -26,8 +27,10 @@ public class ProspectoServicoCnpjTestes
             empresaAtual, new PublicadorEventosFake());
 
         var servicos = new ServiceCollection();
+        var publicador = new PublicadorAtualizacaoFake();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
+        servicos.AddSingleton<IPublicadorAtualizacaoTempoReal>(publicador);
         servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(
             Resultado<EnderecoCepLocalidade?>.CriarSucesso(new EnderecoCepLocalidade(
                 "89000000", "Rua Central", null, "Centro", "Blumenau", "SC", "4202404"))));
@@ -61,6 +64,7 @@ public class ProspectoServicoCnpjTestes
             TipoEmpresa: "Sociedade limitada"));
 
         Assert.True(criacao.Sucesso, criacao.Erro);
+        Assert.Contains(new EventoAtualizacaoTempoReal(tenant, EntidadesAtualizacaoTempoReal.Prospecto, criacao.Valor!.Id), publicador.Eventos);
         var prospecto = await db.Prospects.SingleAsync();
         Assert.Equal("Empresa Completa", prospecto.NomeFantasia);
         Assert.Equal("SC", prospecto.Uf);
@@ -81,6 +85,57 @@ public class ProspectoServicoCnpjTestes
         var endereco = await db.Enderecos.SingleAsync();
         Assert.Equal(endereco.Id, empresa.EnderecoId);
         Assert.Equal(endereco.Id, cliente.EnderecoId);
+        Assert.Contains(new EventoAtualizacaoTempoReal(tenant, EntidadesAtualizacaoTempoReal.Prospecto, prospecto.Id), publicador.Eventos);
+        Assert.Contains(new EventoAtualizacaoTempoReal(tenant, EntidadesAtualizacaoTempoReal.Cliente, conversao.Valor), publicador.Eventos);
+    }
+
+    [Fact]
+    public async Task AtualizarAsync_AposPersistir_PublicaAtualizacaoDoProspecto()
+    {
+        var tenant = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenant);
+        await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            empresaAtual, new PublicadorEventosFake());
+        var prospecto = Prospecto.Create(tenant, "Nome original", "99093538000155", null);
+        db.Prospects.Add(prospecto);
+        await db.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        await using var provedor = CriarServico(db, empresaAtual, publicador);
+        var servico = provedor.GetRequiredService<IProspectoServico>();
+
+        var resultado = await servico.AtualizarAsync(
+            prospecto.Id,
+            new CriarProspectoRequisicao("Nome atualizado", "99093538000155", null, null));
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(new EventoAtualizacaoTempoReal(tenant, EntidadesAtualizacaoTempoReal.Prospecto, prospecto.Id),
+            Assert.Single(publicador.Eventos));
+    }
+
+    [Fact]
+    public async Task ExcluirAsync_AposPersistir_PublicaAtualizacaoDoProspecto()
+    {
+        var tenant = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenant);
+        await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            empresaAtual, new PublicadorEventosFake());
+        var prospecto = Prospecto.Create(tenant, "Nome para excluir", "99093538000155", null);
+        db.Prospects.Add(prospecto);
+        await db.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        await using var provedor = CriarServico(db, empresaAtual, publicador);
+        var servico = provedor.GetRequiredService<IProspectoServico>();
+
+        var resultado = await servico.ExcluirAsync(prospecto.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Empty(await db.Prospects.ToListAsync());
+        Assert.Equal(new EventoAtualizacaoTempoReal(tenant, EntidadesAtualizacaoTempoReal.Prospecto, prospecto.Id),
+            Assert.Single(publicador.Eventos));
     }
 
     [Fact]
@@ -163,8 +218,10 @@ public class ProspectoServicoCnpjTestes
         await db.SaveChangesAsync();
 
         var servicos = new ServiceCollection();
+        var publicador = new PublicadorAtualizacaoFake();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
+        servicos.AddSingleton<IPublicadorAtualizacaoTempoReal>(publicador);
         servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(
             Resultado<EnderecoCepLocalidade?>.CriarSucesso(null)));
         servicos.AdicionarServicos(new ConfigurationBuilder().Build());
@@ -182,6 +239,8 @@ public class ProspectoServicoCnpjTestes
         var statusCliente = Assert.Single(db.StatusClientes);
         Assert.Equal("ATIVO", statusCliente.Codigo);
         Assert.Equal(statusCliente.Id, cliente.StatusClienteId);
+        Assert.Contains(new EventoAtualizacaoTempoReal(tenant, EntidadesAtualizacaoTempoReal.Prospecto, prospecto.Id), publicador.Eventos);
+        Assert.Contains(new EventoAtualizacaoTempoReal(tenant, EntidadesAtualizacaoTempoReal.Cliente, resultado.Valor), publicador.Eventos);
     }
 
     [Fact]
@@ -301,5 +360,31 @@ public class ProspectoServicoCnpjTestes
             string cep,
             CancellationToken cancellationToken = default)
             => Task.FromResult(resultadoCep);
+    }
+
+    private sealed class PublicadorAtualizacaoFake : IPublicadorAtualizacaoTempoReal
+    {
+        public List<EventoAtualizacaoTempoReal> Eventos { get; } = [];
+
+        public Task PublicarAsync(EventoAtualizacaoTempoReal evento, CancellationToken cancellationToken = default)
+        {
+            Eventos.Add(evento);
+            return Task.CompletedTask;
+        }
+    }
+
+    private static ServiceProvider CriarServico(
+        ContextoAplicacao contexto,
+        IEmpresaAtual empresaAtual,
+        IPublicadorAtualizacaoTempoReal publicador)
+    {
+        var servicos = new ServiceCollection();
+        servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(contexto));
+        servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
+        servicos.AddSingleton<IPublicadorAtualizacaoTempoReal>(publicador);
+        servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(
+            Resultado<EnderecoCepLocalidade?>.CriarSucesso(null)));
+        servicos.AdicionarServicos(new ConfigurationBuilder().Build());
+        return servicos.BuildServiceProvider();
     }
 }
