@@ -12,12 +12,39 @@ exporters:
   prometheus:
     endpoint: 0.0.0.0:9464
     namespace: officio
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 128
+    spike_limit_mib: 32
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  transform/stacktrace:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(body, Concat([body, attributes["exception.stacktrace"]], "\n")) where attributes["exception.stacktrace"] != nil
+          - delete_key(attributes, "exception.stacktrace") where attributes["exception.stacktrace"] != nil
+          - set(body, Concat([body, attributes["StackTrace"]], "\n")) where attributes["StackTrace"] != nil
+          - delete_key(attributes, "StackTrace") where attributes["StackTrace"] != nil
+          - delete_key(attributes, "exception.message") where attributes["exception.message"] != nil
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
+      processors: [memory_limiter, batch]
       exporters: [otlp_grpc/jaeger]
     metrics:
       receivers: [otlp]
+      processors: [memory_limiter, batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/stacktrace, batch]
+      exporters: [otlphttp/loki]

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Officio.WebApi.Servicos.Webhooks;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
@@ -44,7 +45,15 @@ public static class ExtensoesObservabilidade
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation()
                 .AddMeter(MetricasWebhookAutentique.MeterName)
-                .AddOtlpExporter(options => options.Endpoint = endpointUri));
+                .AddOtlpExporter(options => options.Endpoint = endpointUri))
+            .WithLogging(
+                logs => logs.AddOtlpExporter(options => options.Endpoint = endpointUri),
+                options =>
+                {
+                    options.IncludeFormattedMessage = true;
+                    options.ParseStateValues = true;
+                    options.IncludeScopes = false;
+                });
 
         return services;
     }

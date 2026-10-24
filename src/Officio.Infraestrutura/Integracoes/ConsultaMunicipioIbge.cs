@@ -1,16 +1,22 @@
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
+using System.Diagnostics;
+using System.Net.Http;
+using Microsoft.Extensions.Logging;
 using Officio.Dominio.Interfaces;
 
 namespace Officio.Infraestrutura.Integracoes;
 
-internal sealed class ConsultaMunicipioIbge(HttpClient httpClient) : IConsultaMunicipioIbge
+internal sealed class ConsultaMunicipioIbge(
+    HttpClient httpClient,
+    ILogger<ConsultaMunicipioIbge> logger) : IConsultaMunicipioIbge
 {
     public async Task<IReadOnlyCollection<EstadoIbge>> ListarEstadosAsync(
         CancellationToken cancellationToken = default)
     {
-        var estados = await httpClient.GetFromJsonAsync<List<RespostaEstadoIbge>>(
+        var estados = await ConsultarAsync<List<RespostaEstadoIbge>>(
+            "ListarEstados",
             "api/v1/localidades/estados?orderBy=nome",
             cancellationToken);
 
@@ -27,7 +33,7 @@ internal sealed class ConsultaMunicipioIbge(HttpClient httpClient) : IConsultaMu
         CancellationToken cancellationToken = default)
     {
         var ufNormalizada = uf.Trim().ToUpperInvariant();
-        var municipios = await ObterMunicipiosAsync(ufNormalizada, cancellationToken);
+        var municipios = await ObterMunicipiosAsync("ListarMunicipios", ufNormalizada, cancellationToken);
 
         return municipios
             .Select(municipio => new MunicipioIbge(
@@ -43,7 +49,7 @@ internal sealed class ConsultaMunicipioIbge(HttpClient httpClient) : IConsultaMu
         CancellationToken cancellationToken = default)
     {
         var ufNormalizada = uf.Trim().ToUpperInvariant();
-        var municipios = await ObterMunicipiosAsync(ufNormalizada, cancellationToken);
+        var municipios = await ObterMunicipiosAsync("ResolverMunicipio", ufNormalizada, cancellationToken);
 
         var municipio = municipios?.FirstOrDefault(item =>
             string.Equals(Normalizar(item.Nome), Normalizar(nome), StringComparison.Ordinal));
@@ -57,11 +63,44 @@ internal sealed class ConsultaMunicipioIbge(HttpClient httpClient) : IConsultaMu
     }
 
     private async Task<IReadOnlyCollection<RespostaMunicipioIbge>> ObterMunicipiosAsync(
+        string operacao,
         string uf,
         CancellationToken cancellationToken)
-        => await httpClient.GetFromJsonAsync<List<RespostaMunicipioIbge>>(
+        => await ConsultarAsync<List<RespostaMunicipioIbge>>(
+            operacao,
             $"api/v1/localidades/estados/{Uri.EscapeDataString(uf)}/municipios?orderBy=nome",
             cancellationToken) ?? [];
+
+    private async Task<T?> ConsultarAsync<T>(string operacao, string caminho, CancellationToken cancellationToken)
+    {
+        var timer = Stopwatch.StartNew();
+        try
+        {
+            var resultado = await httpClient.GetFromJsonAsync<T>(caminho, cancellationToken);
+            var quantidade = resultado is System.Collections.ICollection colecao ? colecao.Count : (int?)null;
+            logger.LogInformation(
+                "Consulta IBGE concluida. Operacao={Operacao} Quantidade={Quantidade} DuracaoMs={DuracaoMs}",
+                operacao,
+                quantidade,
+                timer.ElapsedMilliseconds);
+            return resultado;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                "Falha na consulta IBGE. Operacao={Operacao} TipoExcecao={TipoExcecao} StatusHttp={StatusHttp} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+                operacao,
+                exception.GetType().Name,
+                (exception as HttpRequestException)?.StatusCode,
+                timer.ElapsedMilliseconds,
+                exception.StackTrace);
+            throw;
+        }
+    }
 
     private static string Normalizar(string valor)
     {

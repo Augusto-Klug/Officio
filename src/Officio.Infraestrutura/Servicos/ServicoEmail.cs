@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Mail;
+using System.Diagnostics;
 
 namespace Officio.Infraestrutura.Servicos;
 
@@ -10,11 +11,10 @@ public class ServicoEmail(ILogger<ServicoEmail> logger, IConfiguration configura
 {
     public async Task SendAsync(string to, string subject, string body, CancellationToken ct = default)
     {
+        var timer = Stopwatch.StartNew();
         if (configuration.GetValue<bool>("Email:ExporConteudoNoLog"))
         {
-            logger.LogWarning(
-                "Envio de e-mail suprimido pela configuracao Email:ExporConteudoNoLog. Assunto={Subject}",
-                subject);
+            logger.LogWarning("Envio de e-mail suprimido pela configuracao Email:ExporConteudoNoLog.");
             return;
         }
 
@@ -35,8 +35,21 @@ public class ServicoEmail(ILogger<ServicoEmail> logger, IConfiguration configura
         if (!string.IsNullOrWhiteSpace(usuario))
             cliente.Credentials = new NetworkCredential(usuario, senha);
 
-        await cliente.SendMailAsync(mensagem, ct);
-        logger.LogInformation("E-mail enviado por SMTP. Assunto={Subject}", subject);
+        logger.LogDebug("Iniciando envio de e-mail por SMTP.");
+        try
+        {
+            await cliente.SendMailAsync(mensagem, ct);
+            logger.LogInformation("E-mail enviado por SMTP. DuracaoMs={DuracaoMs}", timer.ElapsedMilliseconds);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(
+                "Falha no envio de e-mail por SMTP. TipoExcecao={TipoExcecao} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+                exception.GetType().Name,
+                timer.ElapsedMilliseconds,
+                exception.StackTrace);
+            throw;
+        }
     }
 }
 

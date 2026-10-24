@@ -35,7 +35,7 @@ Acesso__RedefinicaoSenhaExpiracaoHoras=1
 # Somente para frontend hospedado em origem diferente da API; informe a origem exata, sem caminho.
 # Cors__AllowedOrigins__0=https://<seu-frontend>.azurestaticapps.net
 
-# Em desenvolvimento, true suprime o envio e registra apenas o assunto, sem expor links ou tokens.
+# Em desenvolvimento, true suprime o envio sem registrar assunto, destinatario ou conteudo.
 Email__ExporConteudoNoLog=false
 Email__Smtp__Host=
 Email__Smtp__Port=587
@@ -49,8 +49,9 @@ Email__Smtp__Password=
 # Grafana: http://localhost:3000 (admin/admin na primeira inicializacao)
 # Jaeger (traces): http://localhost:16686 | Prometheus (metricas): http://localhost:9090
 # Alertmanager: http://localhost:9093 | Caixa de e-mail de teste Mailpit: http://localhost:8025
-# O Collector recebe OTLP gRPC da API em localhost:4317 e encaminha traces/metricas.
-# Alertas locais sao capturados pelo Mailpit; nao enviam e-mails para destinatarios reais.
+# O Collector recebe OTLP gRPC em localhost:4317 e encaminha traces, metricas e logs.
+# Logs sao armazenados pelo Loki e consultados no Grafana. Alertas locais vao para o Mailpit.
+# Mailpit nao envia e-mails para destinatarios reais.
 Observabilidade__Otlp__Endpoint=
 # Use 1.0 para testes locais; em producao, ajuste conforme volume/custo.
 Observabilidade__TraceSampleRatio=1.0

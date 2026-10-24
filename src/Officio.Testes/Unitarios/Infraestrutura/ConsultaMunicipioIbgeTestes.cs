@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.Logging.Abstractions;
 using Officio.Infraestrutura.Integracoes;
 
 namespace Officio.Testes.Unitarios.Infraestrutura;
@@ -20,7 +21,7 @@ public class ConsultaMunicipioIbgeTestes
         {
             BaseAddress = new Uri("https://servicodados.ibge.gov.br/")
         };
-        var consulta = new ConsultaMunicipioIbge(httpClient);
+        var consulta = new ConsultaMunicipioIbge(httpClient, NullLogger<ConsultaMunicipioIbge>.Instance);
 
         var municipio = await consulta.ObterPorNomeUfAsync("blumenau", "sc");
 

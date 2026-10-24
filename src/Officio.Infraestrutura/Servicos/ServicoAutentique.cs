@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Officio.Dominio.Interfaces;
@@ -16,6 +17,7 @@ public class ServicoAutentique(
         SolicitacaoAssinatura request,
         CancellationToken ct = default)
     {
+        var timer = Stopwatch.StartNew();
         if (string.IsNullOrWhiteSpace(options.Value.ApiToken))
         {
             logger.LogWarning("Autentique sem ApiToken configurado. Ativando fallback manual.");
@@ -45,21 +47,26 @@ public class ServicoAutentique(
                     assinatura.Link?.ShortLink ?? CriarLinkAssinatura(assinatura.PublicId ?? documento.Id)))
                 .ToList();
 
+            logger.LogInformation(
+                "Documento enviado para assinatura Autentique. DocumentoId={DocumentoId} Signatarios={Signatarios} DuracaoMs={DuracaoMs}",
+                documento.Id,
+                links.Count,
+                timer.ElapsedMilliseconds);
             return ResultadoAssinatura.CriarSucesso(documento.Id, links);
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "Autentique indisponivel. Ativando fallback manual.");
+            LogarFalhaIntegracao("CriarDocumento", ex, timer.ElapsedMilliseconds);
             return CriarFallbackManual();
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Autentique excedeu o tempo de resposta. Ativando fallback manual.");
+            LogarFalhaIntegracao("CriarDocumento", ex, timer.ElapsedMilliseconds);
             return CriarFallbackManual();
         }
         catch (JsonException ex)
         {
-            logger.LogWarning(ex, "Autentique retornou JSON inesperado. Ativando fallback manual.");
+            LogarFalhaIntegracao("CriarDocumento", ex, timer.ElapsedMilliseconds);
             return CriarFallbackManual();
         }
     }
@@ -68,6 +75,7 @@ public class ServicoAutentique(
         string documentoId,
         CancellationToken ct = default)
     {
+        var timer = Stopwatch.StartNew();
         if (string.IsNullOrWhiteSpace(options.Value.ApiToken))
             return ResultadoDocumentoAssinado.CriarFalha("Autentique sem ApiToken configurado.");
 
@@ -90,21 +98,25 @@ public class ServicoAutentique(
                 ? $"{documentoId}-assinado.pdf"
                 : $"{documento.Name}-assinado.pdf";
 
+            logger.LogInformation(
+                "PDF assinado obtido da Autentique. DocumentoId={DocumentoId} DuracaoMs={DuracaoMs}",
+                documentoId,
+                timer.ElapsedMilliseconds);
             return ResultadoDocumentoAssinado.CriarSucesso(conteudo, nomeArquivo);
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "Falha ao baixar PDF assinado do Autentique para o documento {DocumentoId}.", documentoId);
+            LogarFalhaIntegracao("BaixarDocumentoAssinado", ex, timer.ElapsedMilliseconds, documentoId);
             return ResultadoDocumentoAssinado.CriarFalha("Falha ao baixar PDF assinado do Autentique.");
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Timeout ao baixar PDF assinado do Autentique para o documento {DocumentoId}.", documentoId);
+            LogarFalhaIntegracao("BaixarDocumentoAssinado", ex, timer.ElapsedMilliseconds, documentoId);
             return ResultadoDocumentoAssinado.CriarFalha("Timeout ao baixar PDF assinado do Autentique.");
         }
         catch (JsonException ex)
         {
-            logger.LogWarning(ex, "Autentique retornou JSON inesperado ao consultar documento {DocumentoId}.", documentoId);
+            LogarFalhaIntegracao("BaixarDocumentoAssinado", ex, timer.ElapsedMilliseconds, documentoId);
             return ResultadoDocumentoAssinado.CriarFalha("Autentique retornou JSON inesperado ao consultar o documento.");
         }
     }
@@ -113,6 +125,7 @@ public class ServicoAutentique(
         string documentoId,
         CancellationToken ct = default)
     {
+        var timer = Stopwatch.StartNew();
         if (string.IsNullOrWhiteSpace(options.Value.ApiToken))
             return ResultadoEstadoAssinatura.CriarFalha("Autentique sem ApiToken configurado.");
 
@@ -139,21 +152,26 @@ public class ServicoAutentique(
                 ? concluidas.Max()
                 : null;
 
+            logger.LogInformation(
+                "Estado da assinatura consultado na Autentique. DocumentoId={DocumentoId} Concluido={Concluido} DuracaoMs={DuracaoMs}",
+                documentoId,
+                concluido,
+                timer.ElapsedMilliseconds);
             return ResultadoEstadoAssinatura.CriarSucesso(concluido, concluidoEm);
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "Falha ao consultar estado do documento {DocumentoId} na Autentique.", documentoId);
+            LogarFalhaIntegracao("ConsultarEstadoDocumento", ex, timer.ElapsedMilliseconds, documentoId);
             return ResultadoEstadoAssinatura.CriarFalha("Falha de comunicacao ao consultar a Autentique.");
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Timeout ao consultar estado do documento {DocumentoId} na Autentique.", documentoId);
+            LogarFalhaIntegracao("ConsultarEstadoDocumento", ex, timer.ElapsedMilliseconds, documentoId);
             return ResultadoEstadoAssinatura.CriarFalha("Timeout ao consultar a Autentique.");
         }
         catch (JsonException ex)
         {
-            logger.LogWarning(ex, "Autentique retornou JSON inesperado para o documento {DocumentoId}.", documentoId);
+            LogarFalhaIntegracao("ConsultarEstadoDocumento", ex, timer.ElapsedMilliseconds, documentoId);
             return ResultadoEstadoAssinatura.CriarFalha("Autentique retornou resposta inesperada.");
         }
     }
@@ -166,10 +184,31 @@ public class ServicoAutentique(
         if (erros is null || erros.Count == 0)
             return;
 
+        var codigos = erros
+            .Select(erro => erro.Extensions is not null &&
+                erro.Extensions.TryGetValue("code", out var valor) &&
+                valor.ValueKind == JsonValueKind.String
+                    ? valor.GetString()
+                    : null)
+            .Where(codigo => !string.IsNullOrWhiteSpace(codigo))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
         logger.LogWarning(
-            "Autentique retornou erros GraphQL: {Erros}",
-            JsonSerializer.Serialize(erros, RequisicaoBuilder.JsonOpcoes.Padrao));
+            "Autentique retornou erros GraphQL. Quantidade={Quantidade} Codigos={Codigos}",
+            erros.Count,
+            string.Join(",", codigos));
     }
+
+    private void LogarFalhaIntegracao(string operacao, Exception exception, long duracaoMs, string? documentoId = null)
+        => logger.LogWarning(
+            "Falha na integracao Autentique. Operacao={Operacao} DocumentoId={DocumentoId} TipoExcecao={TipoExcecao} StatusHttp={StatusHttp} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+            operacao,
+            documentoId,
+            exception.GetType().Name,
+            (exception as HttpRequestException)?.StatusCode,
+            duracaoMs,
+            exception.StackTrace);
 
     private static ResultadoAssinatura CriarFallbackManual()
         => ResultadoAssinatura.CriarFalha(

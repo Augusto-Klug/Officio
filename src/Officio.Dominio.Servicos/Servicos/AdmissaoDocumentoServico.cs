@@ -98,7 +98,12 @@ public sealed class AdmissaoDocumentoServico(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                logger.LogWarning(exception, "Imagem invalida enviada para o item {ItemId} da admissao {AdmissaoId}.", item.Id, item.AdmissaoId);
+                logger.LogWarning(
+                    "Falha ao estimar qualidade da imagem do documento. ItemId={ItemId} AdmissaoId={AdmissaoId} TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
+                    item.Id,
+                    item.AdmissaoId,
+                    exception.GetType().FullName,
+                    exception.StackTrace);
                 return Resultado<ResultadoDocumentoAdmissaoDto>.CriarFalha(
                     "Uma das imagens esta invalida ou em formato nao suportado. Confira o arquivo e tente novamente.");
             }
@@ -122,7 +127,11 @@ public sealed class AdmissaoDocumentoServico(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger.LogWarning(exception, "Nao foi possivel combinar as imagens do documento da admissao {AdmissaoId}.", item!.AdmissaoId);
+            logger.LogWarning(
+                "Falha ao combinar imagens do documento de admissao. AdmissaoId={AdmissaoId} TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
+                item!.AdmissaoId,
+                exception.GetType().FullName,
+                exception.StackTrace);
             return Resultado<ResultadoDocumentoAdmissaoDto>.CriarFalha(
                 "Nao foi possivel ler uma das imagens. Confira os arquivos e tente novamente.");
         }
@@ -417,7 +426,9 @@ public sealed class AdmissaoDocumentoServico(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Nao foi possivel excluir o arquivo {Caminho} do armazenamento.", caminho);
+            logger.LogWarning(
+                "Nao foi possivel excluir arquivo temporario do armazenamento. TipoExcecao={TipoExcecao}",
+                exception.GetType().Name);
         }
     }
 }

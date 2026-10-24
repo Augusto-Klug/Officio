@@ -38,7 +38,10 @@ internal sealed class ProcessadorWebhookAutentique(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Erro no ciclo de processamento da inbox de webhooks Autentique.");
+                logger.LogError(
+                    "Erro no ciclo da inbox Autentique. TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
+                    ex.GetType().FullName,
+                    ex.StackTrace);
                 await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
             }
         }
@@ -64,10 +67,10 @@ internal sealed class ProcessadorWebhookAutentique(
             {
                 erro = resultado.Erro ?? "O servico de dominio rejeitou o evento sem informar o motivo.";
                 logger.LogWarning(
-                    "Falha ao processar webhook Autentique. EventoId={EventoId} Tentativa={Tentativa} Erro={Erro}",
+                    "Falha ao processar webhook Autentique. EventoId={EventoId} Tentativa={Tentativa} MotivoInformado={MotivoInformado}",
                     item.Id,
                     item.Tentativa,
-                    erro);
+                    resultado.Erro is not null);
             }
             sucesso = resultado.Sucesso;
         }
@@ -78,15 +81,23 @@ internal sealed class ProcessadorWebhookAutentique(
         catch (Exception ex)
         {
             erro = $"{ex.GetType().Name}: {ex.Message}";
-            logger.LogError(ex,
-                "Erro ao processar webhook Autentique. EventoId={EventoId} Tentativa={Tentativa}",
+            logger.LogError(
+                "Erro ao processar webhook Autentique. EventoId={EventoId} Tentativa={Tentativa} TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
                 item.Id,
-                item.Tentativa);
+                item.Tentativa,
+                ex.GetType().FullName,
+                ex.StackTrace);
         }
         finally
         {
             var duracaoMs = Stopwatch.GetElapsedTime(inicio).TotalMilliseconds;
             MetricasWebhookAutentique.RegistrarProcessamento(sucesso, duracaoMs);
+            logger.LogInformation(
+                "Processamento de webhook Autentique finalizado. EventoId={EventoId} Tentativa={Tentativa} Resultado={Resultado} DuracaoMs={DuracaoMs}",
+                item.Id,
+                item.Tentativa,
+                sucesso ? "sucesso" : "falha",
+                duracaoMs);
             atividade?.SetTag("webhook.processing.result", sucesso ? "success" : "failure");
             if (!sucesso)
                 atividade?.SetStatus(ActivityStatusCode.Error);

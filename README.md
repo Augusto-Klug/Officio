@@ -384,6 +384,10 @@ O proxy local do Vite e o Nginx do piloto encaminham WebSockets. Como o `Officio
 
 Nao ha migration, Redis nem servico pago novo. As notificacoes sao volateis e nao usam outbox; uma queda entre a gravacao no banco e a publicacao pode perder a invalidacao, por isso o cliente sempre refaz leitura HTTP e mantem atualizacao manual.
 
+### Observabilidade no piloto
+
+Metricas, traces e logs sao opcionais e podem rodar ao lado do SQL/API/web com limites de recursos. Para habilitar a stack no piloto, siga [src/observabilidade/README.md](src/observabilidade/README.md). A API mantem logs JSON no Docker e os envia via OTLP para Loki, consultavel pelo Grafana; Loki nao publica porta externa e a retencao e de sete dias. Alertas continuam direcionados ao Mailpit local ate configurar um destino operacional.
+
 ### Quero usar HTTPS local
 
 Confie no certificado de desenvolvimento e use os perfis HTTPS:

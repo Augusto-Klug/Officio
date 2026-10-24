@@ -1,0 +1,8 @@
+services:
+  api:
+    environment:
+      Observabilidade__Otlp__Endpoint: http://otel-collector:4317
+      Observabilidade__TraceSampleRatio: "1.0"
+    depends_on:
+      otel-collector:
+        condition: service_started
