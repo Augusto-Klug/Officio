@@ -1,7 +1,12 @@
 import axios from 'axios'
 
 export class ApiError extends Error {
-  constructor(message: string, public status?: number, public fields: Record<string, string[]> = {}) {
+  constructor(
+    message: string,
+    public status?: number,
+    public fields: Record<string, string[]> = {},
+    public code?: string,
+  ) {
     super(message)
     this.name = 'ApiError'
   }
@@ -24,8 +29,9 @@ export function normalizeError(error: unknown): ApiError {
         if (Array.isArray(value)) fields[key] = value.filter((item): item is string => typeof item === 'string')
       }
     }
+    const code = typeof data.code === 'string' ? data.code : undefined
     const message = [data.error, data.erro, data.message, data.detail, ...Object.values(fields).flat(), data.title].find((value) => typeof value === 'string' && value.trim())
-    return new ApiError(typeof message === 'string' ? message : fallback, status, fields)
+    return new ApiError(typeof message === 'string' ? message : fallback, status, fields, code)
   }
   return new ApiError(fallback, status)
 }

@@ -6,7 +6,9 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IProspectoServico
 {
-    Task<Resultado<ProspectoDetalheDto>> ObterPorIdAsync(Guid id, CancellationToken ct = default);
+    Task<Resultado<bool>> AtualizarSociosAsync(Guid id, CriarProspectoRequisicao requisicao, CancellationToken ct = default);
+    Task<List<TipoRelacaoSocietariaDto>> ListarTiposRelacaoSocietariaAsync(CancellationToken ct = default);
+    Task<Resultado<ProspectoDetalheDto>> ObterPorIdAsync(Guid id, CancellationToken ct = default, bool incluirSociosCliente = false);
     Task<Resultado<bool>> AtualizarAsync(Guid id, CriarProspectoRequisicao requisicao, CancellationToken ct = default);
     Task<Resultado<bool>> ExcluirAsync(Guid id, CancellationToken ct = default);
 

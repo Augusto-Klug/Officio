@@ -9,6 +9,7 @@ describe('contrato HTTP de contratos', () => {
     id: 'con-1', numero: 'CTR-2026-0001', prospectoId: 'pro-1', clienteId: null,
     orcamentoId: 'orc-1', razaoSocial: 'Empresa Teste', status: 'AguardandoAssinatura',
     valorTotal: 500, diaVencimento: 10, dataInicio: '2026-09-19T00:00:00', dataFim: null,
+    duracaoAnos: 4, competenciaInicialHonorarios: '2026-09-01', valorHonorarioMensal: 500, valorUnitarioPorFolha: 25,
     clausulasExtras: null, pdfGerado: true,
     pdfAssinadoDisponivel: false, assinadoEm: null,
   }
@@ -16,6 +17,7 @@ describe('contrato HTTP de contratos', () => {
   it('normaliza os indicadores usados pelas ações da tela', () => {
     expect(normalizeContratos([contract])[0]).toMatchObject({
       id: 'con-1', status: 'AguardandoAssinatura', pdfGerado: true, pdfAssinadoDisponivel: false,
+      duracaoAnos: 4, competenciaInicialHonorarios: '2026-09-01', valorHonorarioMensal: 500, valorUnitarioPorFolha: 25,
     })
   })
 

@@ -6,6 +6,8 @@ namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.Converter
 public record ConverterOrcamentoParaContratoComando(
     Guid OrcamentoId,
     DateTime DataInicio,
-    DateTime? DataFim,
+    int DuracaoAnos,
+    DateOnly? CompetenciaInicialHonorarios,
     bool ConfirmarSubstituicaoContratoAtivo,
-    string? ClausulasExtras) : IRequest<Resultado<Guid>>;
+    string? ClausulasExtras,
+    Guid? RepresentanteSocioId = null) : IRequest<Resultado<Guid>>;

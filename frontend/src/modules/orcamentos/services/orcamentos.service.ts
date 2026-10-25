@@ -1,4 +1,8 @@
 import { http } from '../../../api/http'
+import type { RepresentantesContrato } from '../components/representante'
+export async function obterRepresentantesContrato(id: string, signal?: AbortSignal): Promise<RepresentantesContrato> {
+  return (await http.get<RepresentantesContrato>(`/v1/orcamentos/ObterRepresentantes/${id}`, { signal })).data
+}
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
 import type { AtualizarOrcamentoPayload, ContratoAtivoResumo, ConverterContratoPayload, CriarOrcamentoPayload, ItemCatalogoOrcamento, ItemCatalogoOrcamentoPayload, ItemOrcamento, Orcamento } from '../types/orcamento'
 
@@ -110,8 +114,8 @@ export async function excluirOrcamento(id: string): Promise<void> {
   await http.delete(`/v1/orcamentos/Excluir/${id}`)
 }
 
-export async function aceitarOrcamento(id: string): Promise<void> {
-  await http.post(`/v1/orcamentos/Aceitar/${id}`)
+export async function aceitarOrcamento(id: string, confirmarSubstituicao = false): Promise<void> {
+  await http.post(`/v1/orcamentos/Aceitar/${id}`, { confirmarSubstituicao })
 }
 
 export async function listarContratosAtivosParaConversao(id: string): Promise<ContratoAtivoResumo[]> {

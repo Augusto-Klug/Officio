@@ -606,6 +606,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<Guid?>("ClientId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateOnly?>("CompetenciaInicialHonorarios")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
@@ -619,6 +622,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<int>("DiaVencimento")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DuracaoAnos")
                         .HasColumnType("int");
 
                     b.Property<Guid>("EmpresaId")
@@ -639,6 +645,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("ProspectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RepresentanteSocioId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
@@ -669,6 +678,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("OrcamentoVersaoAceitaId");
 
                     b.HasIndex("ProspectId");
+
+                    b.HasIndex("RepresentanteSocioId");
 
                     b.HasIndex("StatusContratoId");
 
@@ -1087,12 +1098,15 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("EstadoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Logradouro")
                         .IsRequired()
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
-                    b.Property<Guid>("MunicipioId")
+                    b.Property<Guid?>("MunicipioId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Numero")
@@ -1100,6 +1114,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("nvarchar(30)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EstadoId");
 
                     b.HasIndex("MunicipioId");
 
@@ -1762,6 +1778,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TenantId", "ProspectId");
 
+                    b.HasIndex("TenantId", "ProspectId", "Status")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Budgets_TenantId_ProspectId_Aceito")
+                        .HasFilter("[Status] = 'Aceito'");
+
                     b.ToTable("Orcamentos", (string)null);
                 });
 
@@ -1920,12 +1941,19 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(14)
                         .HasColumnType("nvarchar(14)");
 
+                    b.Property<string>("Crc")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid?>("EnderecoId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -1941,10 +1969,16 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Cnpj")
                         .IsUnique();
+
+                    b.HasIndex("EnderecoId");
 
                     b.ToTable("Parceiros", (string)null);
                 });
@@ -2072,7 +2106,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("nvarchar(250)");
 
                     b.Property<string>("Profissao")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
 
                     b.Property<string>("ReciboUltimaIrpf")
                         .HasColumnType("nvarchar(max)");
@@ -2092,9 +2127,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Cpf")
-                        .IsUnique()
-                        .HasFilter("[Cpf] IS NOT NULL");
+                    b.HasIndex("Cpf");
 
                     b.HasIndex("EnderecoId");
 
@@ -2324,6 +2357,60 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.ToTable("RegistrosAuditoria", (string)null);
                 });
 
+            modelBuilder.Entity("Officio.Dominio.Entidades.ResponsavelTecnico", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Cpf")
+                        .IsRequired()
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<string>("Crc")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CriadoPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EnderecoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid>("ParceiroId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Profissao")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnderecoId");
+
+                    b.HasIndex("ParceiroId")
+                        .IsUnique();
+
+                    b.ToTable("ResponsaveisTecnicos", (string)null);
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.SecaoOrcamento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2366,21 +2453,18 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<Guid?>("ClientId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Cpf")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CriadoPorId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<decimal?>("Participacao")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
-                    b.Property<decimal>("Participacao")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<Guid>("PessoaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ProspectId")
                         .HasColumnType("uniqueidentifier");
@@ -2388,11 +2472,18 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("TipoRelacaoId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClientId");
 
+                    b.HasIndex("PessoaId");
+
                     b.HasIndex("ProspectId");
+
+                    b.HasIndex("TipoRelacaoId");
 
                     b.ToTable("Socios", (string)null);
                 });
@@ -3232,6 +3323,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Officio.Dominio.Entidades.Socio", "RepresentanteSocio")
+                        .WithMany()
+                        .HasForeignKey("RepresentanteSocioId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Officio.Dominio.Entidades.StatusContratoDominio", "StatusContratoDominio")
                         .WithMany()
                         .HasForeignKey("StatusContratoId")
@@ -3248,6 +3344,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Navigation("OrcamentoVersaoAceita");
 
                     b.Navigation("Prospecto");
+
+                    b.Navigation("RepresentanteSocio");
 
                     b.Navigation("StatusContratoDominio");
                 });
@@ -3395,11 +3493,17 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
             modelBuilder.Entity("Officio.Dominio.Entidades.Endereco", b =>
                 {
+                    b.HasOne("Officio.Dominio.Entidades.Estado", "Estado")
+                        .WithMany()
+                        .HasForeignKey("EstadoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Officio.Dominio.Entidades.Municipio", "Municipio")
                         .WithMany()
                         .HasForeignKey("MunicipioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Estado");
 
                     b.Navigation("Municipio");
                 });
@@ -3572,6 +3676,16 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Navigation("StatusOrcamento");
                 });
 
+            modelBuilder.Entity("Officio.Dominio.Entidades.Parceiro", b =>
+                {
+                    b.HasOne("Officio.Dominio.Entidades.Endereco", "Endereco")
+                        .WithMany()
+                        .HasForeignKey("EnderecoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Endereco");
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.PerfilPermissao", b =>
                 {
                     b.HasOne("Officio.Dominio.Entidades.PerfilUsuario", "PerfilUsuario")
@@ -3659,6 +3773,24 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Navigation("TipoRelacao");
                 });
 
+            modelBuilder.Entity("Officio.Dominio.Entidades.ResponsavelTecnico", b =>
+                {
+                    b.HasOne("Officio.Dominio.Entidades.Endereco", "Endereco")
+                        .WithMany()
+                        .HasForeignKey("EnderecoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Officio.Dominio.Entidades.Parceiro", "Parceiro")
+                        .WithOne("ResponsavelTecnico")
+                        .HasForeignKey("Officio.Dominio.Entidades.ResponsavelTecnico", "ParceiroId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Endereco");
+
+                    b.Navigation("Parceiro");
+                });
+
             modelBuilder.Entity("Officio.Dominio.Entidades.Socio", b =>
                 {
                     b.HasOne("Officio.Dominio.Entidades.Cliente", null)
@@ -3666,10 +3798,25 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasForeignKey("ClientId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("Officio.Dominio.Entidades.Pessoa", "Pessoa")
+                        .WithMany()
+                        .HasForeignKey("PessoaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Officio.Dominio.Entidades.Prospecto", null)
                         .WithMany("Socios")
                         .HasForeignKey("ProspectId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Officio.Dominio.Entidades.TipoRelacao", "TipoRelacao")
+                        .WithMany()
+                        .HasForeignKey("TipoRelacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Pessoa");
+
+                    b.Navigation("TipoRelacao");
                 });
 
             modelBuilder.Entity("Officio.Dominio.Entidades.TokenRedefinicaoSenha", b =>
@@ -3843,6 +3990,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
             modelBuilder.Entity("Officio.Dominio.Entidades.Parceiro", b =>
                 {
                     b.Navigation("Empresas");
+
+                    b.Navigation("ResponsavelTecnico");
 
                     b.Navigation("Usuarios");
                 });

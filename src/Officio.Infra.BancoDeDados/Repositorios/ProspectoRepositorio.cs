@@ -9,6 +9,18 @@ namespace Officio.Infra.BancoDeDados.Repositorios;
 internal class ProspectoRepositorio(
     ContextoAplicacao contexto) : RepositorioBase<ContextoAplicacao, Guid>(contexto), IProspectoRepositorio
 {
+    public Task<bool> SociosPossuemContratosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+        => Contexto.Contracts.AnyAsync(c => c.RepresentanteSocioId.HasValue && ids.Contains(c.RepresentanteSocioId.Value), ct);
+    public Task<List<Socio>> ObterSociosClienteAsync(Guid clienteId, CancellationToken ct = default)
+        => Contexto.Socios.Where(s => s.ClientId == clienteId).Include(s => s.TipoRelacao)
+            .Include(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Municipio).ThenInclude(m => m.Estado)
+            .Include(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Estado).ToListAsync(ct);
+    public Task<List<TipoRelacao>> ListarTiposRelacaoSocietariaAsync(CancellationToken ct = default)
+        => Contexto.TiposRelacao.Where(t => t.Ativo && (t.Codigo == "SOCIO" || t.Codigo == "SOCIO_ADMINISTRADOR"))
+            .OrderBy(t => t.Codigo).ToListAsync(ct);
+    public Task<TipoRelacao?> ObterTipoRelacaoSocietariaAsync(Guid id, CancellationToken ct = default)
+        => Contexto.TiposRelacao.FirstOrDefaultAsync(t => t.Id == id && t.Ativo &&
+            (t.Codigo == "SOCIO" || t.Codigo == "SOCIO_ADMINISTRADOR"), ct);
     public async Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default, Guid? ignorarProspectoId = null)
         => await VerificarExistenciaAsync<Prospecto>(
             p => (!ignorarProspectoId.HasValue || p.Id != ignorarProspectoId.Value) && p.Cnpj != null && p.Cnpj
@@ -19,7 +31,9 @@ internal class ProspectoRepositorio(
 
     public async Task<Prospecto?> ObterComSociosAsync(Guid prospectoId, CancellationToken cancellationToken = default)
         => await Contexto.Prospects
-            .Include(p => p.Socios)
+            .Include(p => p.Socios).ThenInclude(s => s.TipoRelacao)
+            .Include(p => p.Socios).ThenInclude(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Municipio).ThenInclude(m => m.Estado)
+            .Include(p => p.Socios).ThenInclude(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Estado)
             .Include(p => p.Municipio).ThenInclude(m => m!.Estado)
             .FirstOrDefaultAsync(p => p.Id == prospectoId, cancellationToken);
 
@@ -53,7 +67,11 @@ internal class ProspectoRepositorio(
             cancellationToken);
 
     public Task<Empresa?> ObterEmpresaPorCnpjAsync(string cnpj, CancellationToken cancellationToken = default)
-        => Contexto.Empresas.FirstOrDefaultAsync(empresa => empresa.Cnpj == cnpj, cancellationToken);
+        => Contexto.Empresas
+            .Include(empresa => empresa.Endereco)
+                .ThenInclude(endereco => endereco!.Municipio)
+                    .ThenInclude(municipio => municipio.Estado)
+            .FirstOrDefaultAsync(empresa => empresa.Cnpj == cnpj, cancellationToken);
 
     public Task<Municipio?> ObterMunicipioPorCodigoIbgeAsync(
         string codigoIbge,

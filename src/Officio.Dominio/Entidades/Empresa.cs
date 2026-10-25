@@ -79,7 +79,7 @@ public class Empresa : EntidadeAuditavel
 
         return CriarConstituida(
             prospecto.TenantId,
-            prospecto.Cnpj,
+            DocumentoFiscal.SomenteDigitos(prospecto.Cnpj)!,
             prospecto.RazaoSocial,
             prospecto.NomeFantasia,
             email: prospecto.Email,

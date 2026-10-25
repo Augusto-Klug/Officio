@@ -27,7 +27,9 @@ internal static class ContratoOrcamentoViewModelConversor
         => new(
             orcamentoId,
             viewModel.DataInicio,
-            viewModel.DataFim,
+            viewModel.DuracaoAnos,
+            viewModel.CompetenciaInicialHonorarios,
             viewModel.ConfirmarSubstituicaoContratoAtivo,
-            viewModel.ClausulasExtras);
+            viewModel.ClausulasExtras,
+            viewModel.RepresentanteSocioId);
 }

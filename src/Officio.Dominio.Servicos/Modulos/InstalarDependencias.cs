@@ -13,6 +13,7 @@ public static class InstalarDependenciasServicos
         IConfiguration configuracao)
     {
         servicos.TryAddScoped<IProspectoServico, ProspectoServico>();
+        servicos.TryAddScoped<IContabilidadeServico, ContabilidadeServico>();
         servicos.TryAddScoped<IServicoEnderecoComercial, ServicoEnderecoComercial>();
         servicos.TryAddScoped<ILocalidadeServico, LocalidadeServico>();
         servicos.TryAddSingleton<IConsultaMunicipioIbge, ConsultaMunicipioIbgeIndisponivel>();

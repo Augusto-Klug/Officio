@@ -48,6 +48,7 @@ const error = ref('')
 const success = ref('')
 const search = ref('')
 const incluirInativos = ref(false)
+const secoesExpandidas = ref<string[]>(Object.keys(secaoPorNome))
 const dialogOpen = ref(false)
 const confirmOpen = ref(false)
 const editingId = ref('')
@@ -65,7 +66,19 @@ const itensFiltrados = computed(() => {
     `${item.descricao} ${labelSecao(item.secao)} ${labelTipo(item.tipo)}`.toLocaleLowerCase('pt-BR').includes(termo),
   )
 })
+const secoesCatalogo = computed(() => {
+  const grupos = new Map<string, ItemCatalogoOrcamento[]>()
+  for (const item of itensFiltrados.value) {
+    const grupo = grupos.get(item.secao)
+    if (grupo) grupo.push(item)
+    else grupos.set(item.secao, [item])
+  }
+  return Array.from(grupos, ([secao, itens]) => ({ secao, itens }))
+    .sort((a, b) => (secaoPorNome[a.secao] ?? Number.MAX_SAFE_INTEGER) - (secaoPorNome[b.secao] ?? Number.MAX_SAFE_INTEGER))
+})
 const totalAtivos = computed(() => itens.value.filter((item) => item.ativo).length)
+const itensAgrupados = computed(() => secoesCatalogo.value.flatMap((grupo) => grupo.itens))
+const quantidadePorSecao = computed(() => new Map(secoesCatalogo.value.map((grupo) => [grupo.secao, grupo.itens.length])))
 
 function novoFormulario(): FormularioCatalogo {
   return { descricao: '', secao: 1, tipo: 1, naturezaCobranca: 1, valorReferencia: null }
@@ -216,9 +229,19 @@ onBeforeUnmount(() => controller?.abort())
 
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando catálogo...</p></div>
     <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="load" /></div>
-    <DataTable v-else :value="itensFiltrados" data-key="id" class="work-table catalog-table" :table-props="{ 'aria-label': 'Itens do catálogo de orçamento' }">
+    <div v-else-if="!secoesCatalogo.length" class="empty-state"><i class="pi pi-list" /><h3>{{ search ? 'Nenhum item encontrado' : 'Catálogo vazio' }}</h3><p>{{ search ? 'Ajuste a busca ou limpe o filtro.' : 'Cadastre os serviços usados nas propostas.' }}</p><BaseButton v-if="!search" label="Cadastrar primeiro item" icon="pi pi-plus" @click="abrirCriacao" /></div>
+    <DataTable v-else v-model:expanded-row-groups="secoesExpandidas" :value="itensAgrupados" data-key="id" size="small"
+      row-group-mode="subheader" group-rows-by="secao" expandable-row-groups class="work-table catalog-table"
+      :pt="{ rowGroupHeaderCell: { colspan: 6 }, rowToggleButton: { 'aria-label': 'Expandir ou recolher seção' } }"
+      :table-props="{ 'aria-label': 'Itens do catálogo de orçamento' }">
+      <template #groupheader="{ data }">
+        <span class="catalog-section-heading">
+          <strong>{{ labelSecao(data.secao) }}</strong>
+          <span>{{ quantidadePorSecao.get(data.secao) }} {{ quantidadePorSecao.get(data.secao) === 1 ? 'item' : 'itens' }}</span>
+        </span>
+      </template>
       <Column field="descricao" header="Serviço">
-        <template #body="{ data }"><div class="catalog-service"><strong>{{ data.descricao }}</strong><span>{{ labelSecao(data.secao) }}</span></div></template>
+        <template #body="{ data }"><div class="catalog-service"><strong>{{ data.descricao }}</strong></div></template>
       </Column>
       <Column field="tipo" header="Tipo"><template #body="{ data }">{{ labelTipo(data.tipo) }}</template></Column>
       <Column field="naturezaCobranca" header="Cobrança"><template #body="{ data }">{{ labelCobranca(data.naturezaCobranca) }}</template></Column>
@@ -230,7 +253,6 @@ onBeforeUnmount(() => controller?.abort())
         <BaseButton label="Editar" icon="pi pi-pencil" variant="text" :disabled="changingStatus" @click="abrirEdicao(data)" />
         <BaseButton :label="data.ativo ? 'Desativar' : 'Reativar'" :icon="data.ativo ? 'pi pi-ban' : 'pi pi-check'" variant="text" :disabled="changingStatus" @click="pedirAlteracaoStatus(data)" />
       </div></template></Column>
-      <template #empty><div class="empty-state"><i class="pi pi-list" /><h3>{{ search ? 'Nenhum item encontrado' : 'Catálogo vazio' }}</h3><p>{{ search ? 'Ajuste a busca ou limpe o filtro.' : 'Cadastre os serviços usados nas propostas.' }}</p><BaseButton v-if="!search" label="Cadastrar primeiro item" icon="pi pi-plus" @click="abrirCriacao" /></div></template>
     </DataTable>
   </BaseCard>
 
@@ -263,14 +285,26 @@ onBeforeUnmount(() => controller?.abort())
 .catalog-toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--officio-muted); font-size: 12px; white-space: nowrap; }
 .catalog-toggle input { width: 16px; height: 16px; accent-color: var(--officio-green); }
 .catalog-service { display: grid; gap: 4px; }
-.catalog-service span { color: var(--officio-muted); font-size: 12px; }
-.catalog-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.catalog-section-heading { display: inline-flex; align-items: center; gap: 12px; vertical-align: middle; }
+.catalog-section-heading strong { color: var(--officio-green); font-size: 14px; font-weight: 600; }
+.catalog-section-heading span { color: var(--officio-muted); font-size: 12px; white-space: nowrap; }
+.catalog-table :deep(.p-datatable-tbody > .p-datatable-row-group-header > td) { background: #eef3f0; border-block: 1px solid var(--officio-border); padding: 8px 20px; }
+.catalog-table :deep(.p-datatable-row-toggle-button) { width: 24px; height: 24px; margin-right: 8px; color: var(--officio-muted); vertical-align: middle; }
+.catalog-table :deep(.p-datatable-table-container) { overflow-x: auto; }
+.catalog-table :deep(.p-datatable-thead > tr > th),
+.catalog-table :deep(.p-datatable-tbody > tr > td) { padding: 8px 12px; }
+.catalog-table :deep(th:first-child),
+.catalog-table :deep(td:first-child) { padding-left: 20px; }
+.catalog-table :deep(th:last-child) { width: 210px; }
+.catalog-table :deep(.p-datatable-tbody > tr:last-child > td) { border-bottom: 0; }
+.catalog-service strong { font-weight: 500; }
+.catalog-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap; }
+.catalog-actions :deep(.base-button.p-button) { min-height: 32px; padding: 4px 8px; font-size: 12px; }
 .form-note { margin: 0; color: var(--officio-muted); font-size: 13px; }
 
 @media (max-width: 700px) {
   .list-heading { align-items: flex-start; flex-direction: column; }
   .catalog-toolbar { padding-inline: 16px; }
   .catalog-toolbar > :deep(.p-button) { margin-left: auto; }
-  .catalog-actions { align-items: flex-start; flex-direction: column; }
 }
 </style>

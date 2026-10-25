@@ -15,6 +15,10 @@ internal sealed class ParceiroMap : IEntityTypeConfiguration<Parceiro>
         builder.Property(parceiro => parceiro.NomeFantasia).HasMaxLength(300);
         builder.Property(parceiro => parceiro.Cnpj).HasMaxLength(14).IsRequired();
         builder.Property(parceiro => parceiro.Email).HasMaxLength(250);
+        builder.Property(parceiro => parceiro.Telefone).HasMaxLength(30);
+        builder.Property(parceiro => parceiro.Crc).HasMaxLength(50);
+        builder.HasOne(parceiro => parceiro.Endereco).WithMany()
+            .HasForeignKey(parceiro => parceiro.EnderecoId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(parceiro => parceiro.Cnpj).IsUnique();
     }
 }

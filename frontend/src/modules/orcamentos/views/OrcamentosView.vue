@@ -16,10 +16,15 @@ import BaseCard from '../../../components/base/BaseCard.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import OrcamentoDetalheDialog from '../components/OrcamentoDetalheDialog.vue'
+import RepresentanteSelecao from '../components/RepresentanteSelecao.vue'
+import { extrairPendenciasContrato } from '../components/contrato-pendencias'
+import ProspectoCadastroDialog from '../../prospectos/components/ProspectoCadastroDialog.vue'
+import { useRepresentantesContrato } from '../components/useRepresentantesContrato'
 import { normalizeError } from '../../../api/errors'
+import { deveAbrirConfirmacaoSubstituicao } from '../services/aceite-orcamento'
 import { formatCurrency, formatDate } from '../../../utils/format'
 import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, excluirOrcamento, listarCatalogoOrcamento, listarContratosAtivosParaConversao, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
-import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type ContratoAtivoResumo, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
+import { naturezaCobrancaOptions, naturezaCobrancaPorNome, rotuloStatusOrcamento, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type ContratoAtivoResumo, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
 import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const route = useRoute()
@@ -36,19 +41,27 @@ const createOpen = ref(false)
 const detailOpen = ref(false)
 const convertOpen = ref(false)
 const confirmationOpen = ref(false)
+const aceitarSubstituicaoOpen = ref(false)
 const deleteOpen = ref(false)
 const selected = ref<Orcamento | null>(null)
 const activeContracts = ref<ContratoAtivoResumo[]>([])
 const deleteTarget = ref<Orcamento | null>(null)
+const aceitePendente = ref<Orcamento | null>(null)
 const editingId = ref('')
 const saving = ref(false)
 const formError = ref('')
+const formPendencias = ref<string[]>([])
 const form = ref(novoFormulario())
 const catalogo = ref<ItemCatalogoOrcamento[]>([])
 const catalogLoading = ref(false)
 const catalogError = ref('')
 const catalogoAtivoCount = computed(() => catalogo.value.filter((item) => item.ativo).length)
-const conversion = ref({ dataInicio: hojeLocal(), dataFim: '', clausulasExtras: '' })
+const conversion = ref(novaConversao())
+const competenciaEditada = ref(false)
+const { dados: representantes, selecionadoId: representanteId, carregando: representantesLoading,
+  erro: representantesError, cadastroAberto: editarSociosOpen, pronto: representantePronto,
+  carregar: carregarRepresentantes, editar: completarCadastro, retornar: retornarDaEdicao }
+  = useRepresentantesContrato(() => selected.value?.id || '', convertOpen)
 let controller: AbortController | undefined
 let catalogController: AbortController | undefined
 
@@ -67,6 +80,26 @@ function hojeLocal(): string {
   const local = new Date(agora.getTime() - agora.getTimezoneOffset() * 60_000)
   return local.toISOString().slice(0, 10)
 }
+
+function mesAnoDaData(data: string): string {
+  const partes = /^(\d{4})-(\d{2})-\d{2}$/.exec(data)
+  return partes ? `${partes[1]}-${partes[2]}` : ''
+}
+
+function novaConversao() {
+  const dataInicio = hojeLocal()
+  return {
+    dataInicio,
+    duracaoAnos: 4,
+    competenciaInicialHonorarios: mesAnoDaData(dataInicio),
+    clausulasExtras: '',
+  }
+}
+
+watch(() => conversion.value.dataInicio, (dataInicio) => {
+  if (!competenciaEditada.value)
+    conversion.value.competenciaInicialHonorarios = mesAnoDaData(dataInicio)
+})
 
 async function load() {
   controller?.abort()
@@ -161,12 +194,24 @@ function selecionarItemCatalogo(item: NovoItemOrcamento, id: string) {
   if (id === item.itemCatalogoOrcamentoId) return
   const catalogItem = catalogo.value.find((entry) => entry.id === id && entry.ativo)
   if (!catalogItem) return
+  const natureza = naturezaCobrancaPorNome[catalogItem.naturezaCobranca] ?? 1
+  const limitePorNatureza: Record<number, string> = {
+    [naturezaCobrancaPorNome.HonorarioMensal]: 'O orçamento já possui um item com natureza Honorário mensal. Inclua no máximo um item dessa natureza.',
+    [naturezaCobrancaPorNome.PorFolha]: 'O orçamento já possui um item com natureza Por folha. Inclua no máximo um item dessa natureza.',
+  }
+  const duplicada = Object.hasOwn(limitePorNatureza, natureza) && form.value.itens.some((outro) =>
+    outro !== item && (outro.itemCatalogoOrcamentoId || outro.itemOrcamentoId) && outro.naturezaCobranca === natureza)
+  if (duplicada) {
+    formError.value = limitePorNatureza[natureza]
+    return
+  }
+  formError.value = ''
   item.itemOrcamentoId = undefined
   item.itemCatalogoOrcamentoId = catalogItem.id
   item.descricao = catalogItem.descricao
   item.secao = secaoPorNome[catalogItem.secao] ?? 1
   item.tipo = tipoPorNome[catalogItem.tipo] ?? 1
-  item.naturezaCobranca = naturezaCobrancaPorNome[catalogItem.naturezaCobranca] ?? 1
+  item.naturezaCobranca = natureza
   item.valorUnitario = catalogItem.valorReferencia ?? 0
 }
 
@@ -195,6 +240,16 @@ async function salvar() {
     formError.value = 'Cada serviço pode ser adicionado uma vez. Ajuste a quantidade para incluir mais unidades.'
     return
   }
+  for (const natureza of [naturezaCobrancaPorNome.HonorarioMensal, naturezaCobrancaPorNome.PorFolha]) {
+    const quantidadeNatureza = form.value.itens.filter((item) =>
+      (item.itemCatalogoOrcamentoId || item.itemOrcamentoId) && item.naturezaCobranca === natureza).length
+    if (quantidadeNatureza > 1) {
+      formError.value = natureza === naturezaCobrancaPorNome.HonorarioMensal
+        ? 'O orçamento já possui um item com natureza Honorário mensal. Inclua no máximo um item dessa natureza.'
+        : 'O orçamento já possui um item com natureza Por folha. Inclua no máximo um item dessa natureza.'
+      return
+    }
+  }
   if (!form.value.titulo.trim()) { formError.value = 'Informe o título do orçamento.'; return }
   if (form.value.diaVencimento < 1 || form.value.diaVencimento > 31) { formError.value = 'O dia de vencimento deve estar entre 1 e 31.'; return }
   if (form.value.itens.some((item) => !item.descricao.trim() || item.quantidade < 1 || item.valorUnitario < 0)) {
@@ -219,13 +274,45 @@ async function salvar() {
   finally { saving.value = false }
 }
 
-async function aceitar(item: Orcamento) {
+async function executarAceite(item: Orcamento, confirmarSubstituicao: boolean) {
   if (actionId.value) return
   actionId.value = item.id
   error.value = ''
-  try { await aceitarOrcamento(item.id); detailOpen.value = false; success.value = 'Orçamento aceito.'; await load() }
-  catch (cause) { error.value = normalizeError(cause).message }
+  try {
+    await aceitarOrcamento(item.id, confirmarSubstituicao)
+    aceitarSubstituicaoOpen.value = false
+    aceitePendente.value = null
+    detailOpen.value = false
+    success.value = confirmarSubstituicao ? 'Orçamento substituído e aceito.' : 'Orçamento aceito.'
+    await load()
+  } catch (cause) {
+    const erro = normalizeError(cause)
+    if (deveAbrirConfirmacaoSubstituicao(erro, confirmarSubstituicao)) {
+      aceitePendente.value = item
+      aceitarSubstituicaoOpen.value = true
+      return
+    }
+    aceitarSubstituicaoOpen.value = false
+    aceitePendente.value = null
+    error.value = erro.message
+  }
   finally { actionId.value = '' }
+}
+
+async function aceitar(item: Orcamento) {
+  if (actionId.value) return
+  await executarAceite(item, false)
+}
+
+async function confirmarAceiteSubstituicao() {
+  if (aceitePendente.value)
+    await executarAceite(aceitePendente.value, true)
+}
+
+function cancelarAceiteSubstituicao() {
+  if (actionId.value) return
+  aceitarSubstituicaoOpen.value = false
+  aceitePendente.value = null
 }
 
 function solicitarExclusao(item: Orcamento) {
@@ -255,10 +342,14 @@ async function confirmarExclusao() {
 function abrirConversao(item: Orcamento) {
   selected.value = item
   formError.value = ''
-  conversion.value = { dataInicio: hojeLocal(), dataFim: '', clausulasExtras: '' }
+  formPendencias.value = []
+  conversion.value = novaConversao()
+  competenciaEditada.value = false
   activeContracts.value = []
   detailOpen.value = false
   convertOpen.value = true
+  representantes.value = { prospectoId: '', socios: [] }
+  void carregarRepresentantes()
 }
 
 function podeEditar(status: string) {
@@ -266,16 +357,26 @@ function podeEditar(status: string) {
 }
 
 function podeAceitar(status: string) {
-  return !['Aceito', 'Recusado', 'Expirado'].includes(status)
+  return !['Aceito', 'Recusado', 'Expirado', 'Substituido'].includes(status)
 }
 
 async function converter(confirmarSubstituicaoContratoAtivo = false) {
   const orcamentoSelecionado = selected.value
   if (!orcamentoSelecionado) return
-  if (!conversion.value.dataInicio) { formError.value = 'Informe a data de início.'; return }
-  if (conversion.value.dataFim && conversion.value.dataFim < conversion.value.dataInicio) { formError.value = 'A data final não pode ser anterior à data de início.'; return }
-  saving.value = true
+  if (saving.value) return
   formError.value = ''
+  formPendencias.value = []
+  if (!representantePronto.value) { formError.value = 'Selecione um representante com cadastro completo.'; return }
+  if (!conversion.value.dataInicio) { formError.value = 'Informe a data de início.'; return }
+  if (!Number.isInteger(conversion.value.duracaoAnos) || conversion.value.duracaoAnos < 1 || conversion.value.duracaoAnos > 100) {
+    formError.value = 'Informe uma duração entre 1 e 100 anos.'
+    return
+  }
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(conversion.value.competenciaInicialHonorarios)) {
+    formError.value = 'Informe a competência inicial dos honorários no formato MM/AAAA.'
+    return
+  }
+  saving.value = true
   try {
     if (!confirmarSubstituicaoContratoAtivo) {
       activeContracts.value = await listarContratosAtivosParaConversao(orcamentoSelecionado.id)
@@ -287,8 +388,10 @@ async function converter(confirmarSubstituicaoContratoAtivo = false) {
     }
 
     await converterOrcamento(orcamentoSelecionado.id, {
+      representanteSocioId: representanteId.value!,
       dataInicio: conversion.value.dataInicio,
-      dataFim: conversion.value.dataFim || undefined,
+      duracaoAnos: conversion.value.duracaoAnos,
+      competenciaInicialHonorarios: `${conversion.value.competenciaInicialHonorarios}-01`,
       confirmarSubstituicaoContratoAtivo,
       clausulasExtras: conversion.value.clausulasExtras.trim() || undefined,
     })
@@ -308,7 +411,9 @@ async function converter(confirmarSubstituicaoContratoAtivo = false) {
         // Preserve the original conversion error if the follow-up lookup also fails.
       }
     }
-    formError.value = normalizeError(cause).message
+    const erro = normalizeError(cause)
+    formError.value = erro.message
+    formPendencias.value = extrairPendenciasContrato(erro.fields)
   }
   finally { saving.value = false }
 }
@@ -341,7 +446,7 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
     <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="load" /></div>
     <DataTable v-else :value="orcamentos" data-key="id" class="work-table" :table-props="{ 'aria-label': 'Orçamentos do prospecto' }">
       <Column field="titulo" header="Proposta"><template #body="{ data }"><div class="company-cell"><strong>{{ data.titulo || 'Sem título' }}</strong><span>{{ data.itens.length }} {{ data.itens.length === 1 ? 'item' : 'itens' }}</span></div></template></Column>
-      <Column field="status" header="Status"><template #body="{ data }"><StatusBadge :label="data.status" :severity="severity(data.status)" /></template></Column>
+      <Column field="status" header="Status"><template #body="{ data }"><StatusBadge :label="rotuloStatusOrcamento(data.status)" :severity="severity(data.status)" /></template></Column>
       <Column field="valorTotal" header="Valor"><template #body="{ data }"><span class="numeric">{{ formatCurrency(data.valorTotal) }}</span></template></Column>
       <Column field="diaVencimento" header="Vencimento"><template #body="{ data }">Dia {{ data.diaVencimento }}</template></Column>
       <Column header="Ações"><template #body="{ data }"><div class="budget-row-actions"><BaseButton label="Visualizar" icon="pi pi-eye" variant="text" :loading="detailLoadingId === data.id" :disabled="!!actionId || (!!detailLoadingId && detailLoadingId !== data.id)" @click="abrirDetalhe(data)" /><BaseButton v-if="podeEditar(data.status)" label="Editar" icon="pi pi-pencil" variant="text" :disabled="!!actionId || !!detailLoadingId" @click="abrirEdicao(data)" /><BaseButton v-if="data.status === 'Rascunho'" label="Excluir" icon="pi pi-trash" variant="text" :loading="actionId === data.id" :disabled="!!detailLoadingId || (!!actionId && actionId !== data.id)" @click="solicitarExclusao(data)" /><BaseButton v-if="podeAceitar(data.status)" label="Aceitar" icon="pi pi-check" variant="text" :loading="actionId === data.id" :disabled="!!detailLoadingId || (!!actionId && actionId !== data.id)" @click="aceitar(data)" /><BaseButton v-if="data.status === 'Aceito'" label="Gerar contrato" icon="pi pi-file" variant="text" :disabled="!!actionId || !!detailLoadingId" @click="abrirConversao(data)" /></div></template></Column>
@@ -350,6 +455,15 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
   </BaseCard>
 
   <OrcamentoDetalheDialog v-model:visible="detailOpen" :orcamento="selected" :busy="!!actionId" @editar="abrirEdicao" @aceitar="aceitar" @converter="abrirConversao" />
+
+  <Dialog v-model:visible="aceitarSubstituicaoOpen" modal header="Substituir orçamento aceito" class="workflow-dialog" :style="{ width: 'min(500px, 94vw)' }" :closable="false" :close-on-escape="false">
+    <p class="confirmation-copy">Já existe um orçamento aceito para este prospecto. Deseja substituí-lo pelo novo orçamento?</p>
+    <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+    <template #footer>
+      <BaseButton label="Cancelar" variant="text" :disabled="!!actionId" @click="cancelarAceiteSubstituicao" />
+      <BaseButton label="Substituir orçamento" icon="pi pi-refresh" :loading="actionId === aceitePendente?.id" @click="confirmarAceiteSubstituicao" />
+    </template>
+  </Dialog>
 
   <Dialog v-model:visible="deleteOpen" modal header="Excluir orçamento em rascunho" class="workflow-dialog" :style="{ width: 'min(480px, 94vw)' }">
     <p class="confirmation-copy">O orçamento <strong>{{ deleteTarget?.titulo || 'sem título' }}</strong> e seus itens serão excluídos permanentemente. Apenas orçamentos em rascunho podem ser removidos.</p>
@@ -392,12 +506,30 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
   </Dialog>
 
   <Dialog v-model:visible="convertOpen" modal header="Gerar contrato" class="workflow-dialog" :style="{ width: 'min(620px, 94vw)' }">
-    <form id="contract-form" class="dialog-form" @submit.prevent="converter()">
-      <Message v-if="formError" severity="error" :closable="false">{{ formError }}</Message>
-      <div class="form-grid two-columns"><div class="field"><label for="contract-start">Início</label><InputText id="contract-start" v-model="conversion.dataInicio" type="date" /></div><div class="field"><label for="contract-end">Fim (opcional)</label><InputText id="contract-end" v-model="conversion.dataFim" type="date" /></div></div>
-      <div class="field"><label for="extra-clauses">Cláusulas extras</label><Textarea id="extra-clauses" v-model="conversion.clausulasExtras" rows="4" auto-resize /></div>
+    <form id="contract-form" class="dialog-form contract-form" @submit.prevent="converter()">
+      <RepresentanteSelecao v-model="representanteId" :socios="representantes.socios" :loading="representantesLoading" :error="representantesError" :disabled="saving" @editar="completarCadastro" @atualizar="carregarRepresentantes" />
+      <Message v-if="formError" severity="error" :closable="false" role="alert">
+        <div class="contract-error-content">
+          <p>{{ formError }}</p>
+          <ul v-if="formPendencias.length" class="contract-pending-list">
+            <li v-for="pendencia in formPendencias" :key="pendencia">{{ pendencia }}</li>
+          </ul>
+        </div>
+      </Message>
+      <section class="contract-section">
+        <h3>Vigência</h3>
+        <div class="form-grid two-columns contract-term-grid">
+          <div class="field"><label for="contract-start">Data de início da vigência</label><InputText id="contract-start" v-model="conversion.dataInicio" type="date" required /></div>
+          <div class="field"><label for="contract-duration">Duração (anos)</label><InputNumber input-id="contract-duration" v-model="conversion.duracaoAnos" :min="1" :max="100" :use-grouping="false" required /></div>
+          <div class="field"><label for="contract-competence">Competência inicial dos honorários (MM/AAAA)</label><InputText id="contract-competence" v-model="conversion.competenciaInicialHonorarios" type="month" required @update:model-value="competenciaEditada = true" /><small>Por padrão, acompanha o mês e o ano do início da vigência.</small></div>
+        </div>
+      </section>
+      <section class="contract-section">
+        <h3>Cláusulas adicionais</h3>
+        <div class="field"><label for="extra-clauses">Texto das cláusulas</label><Textarea id="extra-clauses" v-model="conversion.clausulasExtras" rows="4" auto-resize /></div>
+      </section>
     </form>
-    <template #footer><BaseButton label="Cancelar" variant="text" @click="convertOpen = false" /><BaseButton label="Gerar contrato" type="submit" form="contract-form" :loading="saving" /></template>
+    <template #footer><BaseButton label="Cancelar" variant="text" :disabled="saving" @click="convertOpen = false" /><BaseButton label="Gerar contrato" type="submit" form="contract-form" :disabled="!representantePronto" :loading="saving" /></template>
   </Dialog>
 
   <Dialog v-model:visible="confirmationOpen" modal header="Contrato ativo encontrado" class="workflow-dialog" :style="{ width: 'min(540px, 94vw)' }" :closable="false" :close-on-escape="false">
@@ -414,9 +546,18 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
       <BaseButton label="Gerar contrato" icon="pi pi-file" :loading="saving" @click="converter(true)" />
     </template>
   </Dialog>
+  <ProspectoCadastroDialog :visible="editarSociosOpen" :prospecto-id="representantes.prospectoId" somente-socios @update:visible="retornarDaEdicao" />
 </template>
 
 <style scoped>
+.contract-form { gap: 18px; }
+.contract-section { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--officio-border); }
+.contract-section h3 { margin: 0; font-size: 15px; font-weight: 650; }
+.contract-term-grid { gap: 16px; }
+.contract-error-content p { margin: 0; font-weight: 600; }
+.contract-pending-list { display: grid; gap: 5px; margin: 8px 0 0; padding-left: 20px; }
+.contract-duration :deep(.p-inputtext) { background: #f7f9f8; color: var(--officio-muted); }
+
 .catalog-budget-row {
   grid-template-columns: minmax(0, 1fr) minmax(84px, 110px) minmax(145px, 170px) 36px;
   align-items: start;

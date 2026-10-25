@@ -10,6 +10,10 @@ export interface Contrato {
   diaVencimento: number
   dataInicio: string
   dataFim: string | null
+  duracaoAnos: number | null
+  competenciaInicialHonorarios: string | null
+  valorHonorarioMensal: number | null
+  valorUnitarioPorFolha: number | null
   clausulasExtras: string | null
   pdfGerado: boolean
   pdfAssinadoDisponivel: boolean

@@ -25,6 +25,76 @@ public class OrcamentoTestes
     }
 
     [Fact]
+    public void AdicionarItem_PermiteUmHonorarioMensalEMantemValorUnitario()
+    {
+        var tenantId = Guid.NewGuid();
+        var orcamento = Orcamento.Criar(tenantId, Guid.NewGuid(), "Proposta", 10, null);
+        var mensal = CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.HonorarioMensal, 1, 800m, 1);
+
+        orcamento.AdicionarItem(mensal);
+
+        Assert.Equal(800m, Assert.Single(orcamento.Itens).ValorUnitario);
+        Assert.Equal(800m, orcamento.ValorTotal);
+    }
+
+    [Fact]
+    public void AdicionarItem_BloqueiaSegundoHonorarioMensal()
+    {
+        var tenantId = Guid.NewGuid();
+        var orcamento = Orcamento.Criar(tenantId, Guid.NewGuid(), "Proposta", 10, null);
+        orcamento.AdicionarItem(CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.HonorarioMensal, 1, 800m, 1));
+
+        var erro = Assert.Throws<InvalidOperationException>(() =>
+            orcamento.AdicionarItem(CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.HonorarioMensal, 1, 900m, 2)));
+
+        Assert.Contains("Honorario mensal", erro.Message);
+        Assert.Single(orcamento.Itens);
+    }
+
+    [Fact]
+    public void AdicionarItem_PermiteUmPorFolhaEPreservaPrecoUnitario()
+    {
+        var tenantId = Guid.NewGuid();
+        var orcamento = Orcamento.Criar(tenantId, Guid.NewGuid(), "Proposta", 10, null);
+        var porFolha = CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.PorFolha, 25, 3.5m, 1);
+
+        orcamento.AdicionarItem(porFolha);
+
+        Assert.Equal(3.5m, porFolha.ValorUnitario);
+        Assert.Equal(87.5m, porFolha.ValorTotal);
+    }
+
+    [Fact]
+    public void AdicionarItem_BloqueiaSegundoPorFolha()
+    {
+        var tenantId = Guid.NewGuid();
+        var orcamento = Orcamento.Criar(tenantId, Guid.NewGuid(), "Proposta", 10, null);
+        orcamento.AdicionarItem(CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.PorFolha, 25, 3.5m, 1));
+
+        var erro = Assert.Throws<InvalidOperationException>(() =>
+            orcamento.AdicionarItem(CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.PorFolha, 30, 4m, 2)));
+
+        Assert.Contains("Por folha", erro.Message);
+        Assert.Single(orcamento.Itens);
+    }
+
+    [Fact]
+    public void SubstituirItens_PermiteVariosItensNaoRecorrentes()
+    {
+        var tenantId = Guid.NewGuid();
+        var orcamento = Orcamento.Criar(tenantId, Guid.NewGuid(), "Proposta", 10, null);
+
+        orcamento.SubstituirItens([
+            CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.NaoRecorrente, 1, 150m, 1),
+            CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.NaoRecorrente, 2, 75m, 2),
+            CriarItem(tenantId, orcamento.Id, NaturezaCobrancaItemOrcamento.NaoRecorrente, 1, 40m, 3)
+        ]);
+
+        Assert.Equal(3, orcamento.Itens.Count);
+        Assert.Equal(340m, orcamento.ValorTotal);
+    }
+
+    [Fact]
     public void Atualizar_QuandoAceito_LancaErro()
     {
         var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
@@ -132,6 +202,19 @@ public class OrcamentoTestes
     }
 
     [Fact]
+    public void Substituir_QuandoAceito_TornaStatusTerminal()
+    {
+        var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 10, null);
+        orcamento.Aceitar();
+
+        orcamento.Substituir();
+
+        Assert.Equal(StatusOrcamento.Substituido, orcamento.Status);
+        Assert.Throws<InvalidOperationException>(() => orcamento.Aceitar());
+        Assert.Throws<InvalidOperationException>(() => orcamento.Atualizar("Outra proposta", 10, null));
+    }
+
+    [Fact]
     public void Aceitar_QuandoRecusado_LancaErro()
     {
         var orcamento = Orcamento.Criar(Guid.NewGuid(), Guid.NewGuid(), "Proposta", 5, null);
@@ -141,4 +224,23 @@ public class OrcamentoTestes
 
         Assert.Contains("terminal", erro.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    private static ItemOrcamento CriarItem(
+        Guid tenantId,
+        Guid orcamentoId,
+        NaturezaCobrancaItemOrcamento natureza,
+        int quantidade,
+        decimal valorUnitario,
+        int ordem)
+        => ItemOrcamento.CriarSnapshot(
+            tenantId,
+            orcamentoId,
+            null,
+            natureza.ToString(),
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            quantidade,
+            valorUnitario,
+            ordem,
+            natureza);
 }

@@ -33,7 +33,14 @@ public class OrcamentoServico(
         if (!itens.Sucesso)
             return Resultado<Guid>.CriarFalha(itens.Erro!);
 
-        orcamento.SubstituirItens(itens.Valor!);
+        try
+        {
+            orcamento.SubstituirItens(itens.Valor!);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Resultado<Guid>.CriarFalha(exception.Message);
+        }
         await repositorio.AdicionarAsync(orcamento, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(orcamento.Id, ct);
@@ -60,7 +67,14 @@ public class OrcamentoServico(
             return Resultado<Guid>.CriarFalha(itens.Erro!);
 
         orcamento.Atualizar(requisicao.Titulo, requisicao.DiaVencimento, requisicao.Observacoes);
-        orcamento.SubstituirItens(itens.Valor!);
+        try
+        {
+            orcamento.SubstituirItens(itens.Valor!);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Resultado<Guid>.CriarFalha(exception.Message);
+        }
         await repositorio.AdicionarItensAsync(itens.Valor!, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(orcamento.Id, ct);
@@ -231,25 +245,83 @@ public class OrcamentoServico(
         return Resultado<bool>.CriarSucesso(true);
     }
 
-    public async Task<Resultado<bool>> AceitarAsync(Guid orcamentoId, CancellationToken ct = default)
+    public async Task<Resultado<bool>> AceitarAsync(
+        Guid orcamentoId,
+        bool confirmarSubstituicao = false,
+        CancellationToken ct = default)
     {
-        var orcamento = await repositorio.ObterPorIdComItensAsync(orcamentoId, ct);
-        if (orcamento is null)
-            return Resultado<bool>.CriarFalha("Orcamento nao encontrado.");
-
+        Guid? orcamentoAnteriorSubstituidoNaTentativa = null;
+        var tentativaDePersistenciaIniciada = false;
+        (Resultado<bool> resultado, Guid? orcamentoAnteriorSubstituidoId) operacao;
         try
         {
-            orcamento.Aceitar();
+            operacao = await repositorio.ExecutarAceiteAtomicoAsync(
+                async cancellationToken =>
+                {
+                    var orcamento = await repositorio.ObterPorIdComItensAsync(orcamentoId, cancellationToken);
+                    if (orcamento is null)
+                    {
+                        return (Resultado<bool>.CriarFalha("Orcamento nao encontrado."), (Guid?)null);
+                    }
+
+                    // If commit acknowledgement was lost, a retry can observe the already committed result.
+                    if (orcamento.Status == StatusOrcamento.Aceito)
+                    {
+                        return tentativaDePersistenciaIniciada
+                            ? (Resultado<bool>.CriarSucesso(true), orcamentoAnteriorSubstituidoNaTentativa)
+                            : (Resultado<bool>.CriarFalha("Orcamento ja esta aceito."), (Guid?)null);
+                    }
+
+                    var aceitoAnterior = await repositorio.ObterAceitoPorProspectoAsync(
+                        orcamento.ProspectId,
+                        orcamento.Id,
+                        cancellationToken);
+
+                    // A linked contract blocks the commercial replacement, even before asking for confirmation.
+                    if (aceitoAnterior is not null
+                        && await repositorio.PossuiContratoAssociadoAsync(aceitoAnterior.Id, cancellationToken))
+                    {
+                        return (Resultado<bool>.CriarFalha(OrcamentoErros.SubstituicaoBloqueadaContrato), (Guid?)null);
+                    }
+
+                    if (aceitoAnterior is not null && !confirmarSubstituicao)
+                    {
+                        return (Resultado<bool>.CriarFalha(OrcamentoErros.AceiteRequerConfirmacao), (Guid?)null);
+                    }
+
+                    try
+                    {
+                        orcamento.Aceitar();
+                        aceitoAnterior?.Substituir();
+                    }
+                    catch (InvalidOperationException exception)
+                    {
+                        return (Resultado<bool>.CriarFalha(exception.Message), (Guid?)null);
+                    }
+
+                    orcamentoAnteriorSubstituidoNaTentativa = aceitoAnterior?.Id;
+                    tentativaDePersistenciaIniciada = true;
+                    await repositorio.SalvarAlteracoesAsync(cancellationToken);
+
+                    return (Resultado<bool>.CriarSucesso(true), aceitoAnterior?.Id);
+                },
+                ct);
         }
-        catch (InvalidOperationException exception)
+        catch (InvalidOperationException exception) when (exception.Message == OrcamentoErros.AceiteConcorrente)
         {
             return Resultado<bool>.CriarFalha(exception.Message);
         }
 
-        await repositorio.SalvarAlteracoesAsync(ct);
-        await PublicarAtualizacaoAsync(orcamento.Id, ct);
+        var (resultado, orcamentoAnteriorSubstituidoId) = operacao;
 
-        return Resultado<bool>.CriarSucesso(true);
+        if (!resultado.Sucesso)
+            return resultado;
+
+        if (orcamentoAnteriorSubstituidoId.HasValue)
+            await PublicarAtualizacaoAsync(orcamentoAnteriorSubstituidoId.Value, ct);
+        await PublicarAtualizacaoAsync(orcamentoId, ct);
+
+        return resultado;
     }
 
     public async Task<Resultado<bool>> RecusarAsync(

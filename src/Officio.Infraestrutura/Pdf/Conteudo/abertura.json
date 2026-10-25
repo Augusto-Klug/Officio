@@ -1,0 +1,7 @@
+{
+  "titulo": "CONTRATO DE PRESTAÇÃO DE SERVIÇOS CONTÁBEIS",
+  "contratante": "CONTRATANTE: {{ContratanteRazaoSocial}}, CNPJ {{ContratanteCnpj}}, com sede na cidade de {{ContratanteCidadeUf}}, na {{ContratanteEndereco}}, neste ato representada por {{RepresentanteNome}}, {{RepresentanteRelacao}}, {{RepresentanteProfissao}}, CPF n° {{RepresentanteCpf}}, com residência e domicílio na cidade de {{RepresentanteCidadeUf}}, na {{RepresentanteEndereco}}.",
+  "contratada": "CONTRATADA: {{ContratadaRazaoSocial}}, CNPJ {{ContratadaCnpj}}, com sede na cidade de {{ContratadaCidadeUf}}, na {{ContratadaEndereco}}, com registro no CRC/{{ContratadaUf}} n° {{ContratadaCrc}}, neste ato representada por {{ResponsavelNome}}, {{ResponsavelProfissao}}, responsável técnico(a), com registro no CRC/{{ResponsavelUf}} {{ResponsavelCrc}}, CPF n° {{ResponsavelCpf}}, com residência e domicílio na cidade de {{ResponsavelCidadeUf}}, na {{ResponsavelEndereco}}.",
+  "introducao": "Pelo presente instrumento particular, as partes acima devidamente qualificadas, doravante denominadas simplesmente CONTRATADA e CONTRATANTE, na melhor forma de direito, ajustam e contratam a prestação de serviços profissionais de contabilidade, segundo as cláusulas e condições adiante arroladas.",
+  "fechamento": "E, por estarem justos e contratados, assinam o presente em 02 (duas) vias de igual teor e para um só efeito na presença de 02 (duas) testemunhas."
+}

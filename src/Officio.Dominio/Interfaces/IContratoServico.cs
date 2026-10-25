@@ -7,6 +7,7 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IContratoServico
 {
+    Task<Resultado<RepresentantesContratoDto>> ObterRepresentantesAsync(Guid orcamentoId, CancellationToken ct = default);
     Task<Resultado<Guid>> ConverterOrcamentoAsync(
         ConverterOrcamentoContratoRequisicao requisicao,
         CancellationToken ct = default);

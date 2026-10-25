@@ -5,6 +5,10 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IProspectoRepositorio
 {
+    Task<List<Socio>> ObterSociosClienteAsync(Guid clienteId, CancellationToken ct = default);
+    Task<bool> SociosPossuemContratosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
+    Task<List<TipoRelacao>> ListarTiposRelacaoSocietariaAsync(CancellationToken ct = default);
+    Task<TipoRelacao?> ObterTipoRelacaoSocietariaAsync(Guid id, CancellationToken ct = default);
     Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default, Guid? ignorarProspectoId = null);
     Task<bool> PossuiVinculosAsync(Guid prospectoId, CancellationToken cancellationToken = default);
     Task<bool> SociosPossuemDocumentosAsync(IReadOnlyCollection<Guid> sociosIds, CancellationToken cancellationToken = default);

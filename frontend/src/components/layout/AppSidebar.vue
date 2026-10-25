@@ -25,6 +25,7 @@ const platformAdmin = hasRole('PlatformAdmin')
       <template v-if="hasRole('Admin') && !platformAdmin">
         <p class="nav-section nav-section-spaced">CONFIGURAÇÕES</p>
         <RouterLink to="/acessos" class="nav-item" @click="$emit('navigate')"><i class="pi pi-user-edit" aria-hidden="true" />Usuários e acessos</RouterLink>
+        <RouterLink to="/dados-contabilidade" class="nav-item" @click="$emit('navigate')"><i class="pi pi-building" aria-hidden="true" />Dados da contabilidade</RouterLink>
       </template>
       <template v-if="platformAdmin">
         <p class="nav-section">PLATAFORMA</p>

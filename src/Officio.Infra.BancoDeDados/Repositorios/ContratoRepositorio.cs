@@ -33,6 +33,8 @@ internal class ContratoRepositorio(
             .AsNoTracking()
             .Include(contrato => contrato.Prospecto)
             .Include(contrato => contrato.Cliente)
+            .Include(contrato => contrato.Orcamento)
+                .ThenInclude(orcamento => orcamento!.Itens)
             .OrderByDescending(contrato => contrato.CriadoEm)
             .ToListAsync(cancellationToken);
     }
@@ -89,9 +91,10 @@ internal class ContratoRepositorio(
     public async Task<Contrato?> ObterParaGeracaoPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
         => await Contexto.Contracts
             .Include(c => c.Prospecto)
-                .ThenInclude(p => p.Socios)
-            .Include(c => c.Cliente)
-                .ThenInclude(cl => cl!.Socios)
+                .ThenInclude(p => p.Municipio).ThenInclude(m => m!.Estado)
+            .Include(c => c.RepresentanteSocio).ThenInclude(s => s!.TipoRelacao)
+            .Include(c => c.RepresentanteSocio).ThenInclude(s => s!.Pessoa)
+                .ThenInclude(p => p.Endereco).ThenInclude(e => e!.Municipio).ThenInclude(m => m.Estado)
             .Include(c => c.Empresa)
                 .ThenInclude(empresa => empresa!.Endereco)
                     .ThenInclude(endereco => endereco!.Municipio)

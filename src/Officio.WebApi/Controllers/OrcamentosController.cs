@@ -21,6 +21,12 @@ namespace Officio.WebApi.Controllers;
 public class OrcamentosController(IMediator mediator) : ControllerBase
 {
     [HttpGet("{id:guid}")]
+    public async Task<IActionResult> ObterRepresentantes(Guid id, CancellationToken ct)
+    {
+        var resultado = await mediator.Send(new Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterRepresentantesContratoConsulta(id), ct);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+    [HttpGet("{id:guid}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
@@ -113,12 +119,33 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     [HttpPost("{id:guid}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
+    [ProducesResponseType(409)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> Aceitar(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Aceitar(
+        Guid id,
+        [FromBody] AceitarOrcamentoViewModel? viewModel,
+        CancellationToken cancellationToken)
     {
-        var resultado = await mediator.Send(new AceitarOrcamentoComando(id), cancellationToken);
+        var resultado = await mediator.Send(
+            new AceitarOrcamentoComando(id, viewModel?.ConfirmarSubstituicao ?? false),
+            cancellationToken);
 
-        return resultado.Sucesso ? Ok() : ResultadoErro(resultado.Erro);
+        if (resultado.Sucesso)
+            return Ok();
+
+        return resultado.Erro switch
+        {
+            OrcamentoErros.AceiteRequerConfirmacao => Conflict(new ErroOrcamentoViewModel(
+                OrcamentoCodigosErro.AceiteRequerConfirmacao,
+                resultado.Erro)),
+            OrcamentoErros.AceiteConcorrente => Conflict(new ErroOrcamentoViewModel(
+                OrcamentoCodigosErro.AceiteConcorrente,
+                resultado.Erro)),
+            OrcamentoErros.SubstituicaoBloqueadaContrato => BadRequest(new ErroOrcamentoViewModel(
+                OrcamentoCodigosErro.SubstituicaoBloqueadaContrato,
+                resultado.Erro)),
+            _ => ResultadoErro(resultado.Erro)
+        };
     }
 
     [HttpPost("{id:guid}")]
@@ -135,6 +162,16 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
 
         if (resultado.Sucesso)
             return CreatedAtAction("ObterPorId", "Contratos", new { id = resultado.Valor }, resultado.Valor);
+
+        var pendencias = resultado.ErrosValidacao.ToArray();
+        if (pendencias.Length > 0)
+        {
+            return BadRequest(new
+            {
+                error = resultado.Erro ?? ContratoErros.DadosObrigatoriosPendentes,
+                errors = new Dictionary<string, string[]> { ["pendencias"] = pendencias }
+            });
+        }
 
         return resultado.Erro == ContratoErros.SubstituicaoRequerConfirmacao
             ? Conflict(resultado.Erro)

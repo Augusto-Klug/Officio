@@ -2,6 +2,35 @@ import { describe, expect, it } from 'vitest'
 import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limparPayload, montarFormularioProspecto, novoProspecto, validarProspecto } from './prospecto-form'
 
 describe('formulário de prospecto', () => {
+  it('permite nenhum sócio, sócio vazio e endereço parcial', () => {
+    const payload = { ...novoProspecto(), razaoSocial: 'Empresa' }
+    expect(validarProspecto(payload)).toEqual({})
+    payload.socios = [{ nome: '', cpf: null, participacao: null, endereco: { logradouro: 'Rua inicial' } }]
+    expect(validarProspecto(payload)).toEqual({})
+    expect(limparPayload(payload).socios[0]).toMatchObject({ nome: '', participacao: null, endereco: { logradouro: 'Rua inicial' } })
+  })
+
+  it('preserva profissão, tipo, pessoa e todos os campos do endereço na edição', () => {
+    const dados = { ...novoProspecto(), razaoSocial: 'Empresa', socios: [{ id: 's1', pessoaId: 'p1', nome: 'Ana',
+      cpf: '11789299900', participacao: null, profissao: 'Arquiteta', tipoRelacaoId: 't1', endereco: {
+        cep: '89010000', logradouro: 'Rua', numero: '10', complemento: 'Sala 2', bairro: 'Centro',
+        cidade: 'Blumenau', uf: 'SC', municipioCodigoIbge: '4202404',
+      } }] }
+    const form = montarFormularioProspecto(dados)
+    expect(limparPayload({ ...dados, ...form }).socios).toMatchObject(dados.socios)
+    form.socios[0]!.endereco.logradouro = 'Outra rua'
+    expect(dados.socios[0]!.endereco.logradouro).toBe('Rua')
+    form.socios.splice(0, 1)
+    expect(limparPayload({ ...dados, ...form }).socios).toEqual([])
+  })
+
+  it('valida CEP do sócio preenchido sem exigir município ou UF', () => {
+    const dados = { ...novoProspecto(), razaoSocial: 'Empresa', socios: [{ nome: '', cpf: null,
+      participacao: null, endereco: { cep: '123' } }] }
+    expect(validarProspecto(dados)['socios.0.endereco']).toBeTruthy()
+    dados.socios[0]!.endereco.cep = '89010000'
+    expect(validarProspecto(dados)).toEqual({})
+  })
   it('preenche a edicao sem perder identificadores de socios ou percentual e normaliza data/opcionais', () => {
     const dados = { ...novoProspecto(), razaoSocial: 'Empresa', cnpj: '99093538000155',
       cep: '89010000', dataAbertura: '2020-01-10T00:00:00',
@@ -10,7 +39,7 @@ describe('formulário de prospecto', () => {
     expect(formulario).toMatchObject({ cnpj: '99.093.538/0001-55', cep: '89010-000',
       dataAbertura: '2020-01-10', email: '',
       socios: [{ id: 'socio-1', cpf: '117.892.999-00', participacao: 10 }] })
-    expect(limparPayload({ ...dados, ...formulario }).socios).toEqual(dados.socios)
+    expect(limparPayload({ ...dados, ...formulario }).socios).toMatchObject(dados.socios)
     formulario.socios[0]!.nome = 'Editado'
     expect(dados.socios[0]!.nome).toBe('Ana')
   })
@@ -42,7 +71,7 @@ describe('formulário de prospecto', () => {
 
     expect(validarProspecto(payload)).toMatchObject({
       razaoSocial: expect.any(String), cnpj: expect.any(String),
-      'socios.0.nome': expect.any(String), 'socios.0.cpf': expect.any(String), 'socios.0.participacao': expect.any(String),
+      'socios.0.cpf': expect.any(String), 'socios.0.participacao': expect.any(String),
     })
   })
 

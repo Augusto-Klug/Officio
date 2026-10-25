@@ -9,6 +9,11 @@ public class Parceiro : EntidadeBase
     public string? NomeFantasia { get; private set; }
     public string Cnpj { get; private set; } = default!;
     public string? Email { get; private set; }
+    public string? Telefone { get; private set; }
+    public string? Crc { get; private set; }
+    public Guid? EnderecoId { get; private set; }
+    public Endereco? Endereco { get; private set; }
+    public ResponsavelTecnico? ResponsavelTecnico { get; private set; }
     public bool Ativo { get; private set; } = true;
     public DateTime CriadoEm { get; private set; } = DateTime.UtcNow;
     public DateTime AtualizadoEm { get; private set; } = DateTime.UtcNow;
@@ -70,6 +75,16 @@ public class Parceiro : EntidadeBase
         Ativo = ativo;
         AtualizadoEm = DateTime.UtcNow;
     }
+
+    public void AtualizarDadosContabilidade(string cnpj, string razaoSocial, string? nomeFantasia,
+        string? email, string? telefone, string? crc)
+    {
+        AtualizarCadastro(cnpj, razaoSocial, nomeFantasia, email);
+        Telefone = Limpar(telefone);
+        Crc = Limpar(crc);
+    }
+
+    public void VincularEndereco(Guid? enderecoId) => EnderecoId = enderecoId;
 
     private static string? Limpar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

@@ -1,0 +1,77 @@
+{
+  "titulo": "CLÁUSULA 5 - DA VIGÊNCIA E RESCISÃO",
+  "blocos": [
+    {
+      "tipo": "Subtitulo",
+      "texto": "DA VIGÊNCIA"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.1 - O presente contrato vigorará por prazo determinado de {{Duracao}} contados a partir de {{DataInicio}}, podendo a qualquer tempo ser rescindido mediante pré-aviso de 60 (sessenta) dias por escrito."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.1.1 - A parte que não comunicar por escrito a rescisão ou efetuá-la de forma sumária desrespeitando o pré-aviso previsto ficará obrigada ao pagamento de multa compensatória no valor de 02 (duas) parcelas mensais de honorários vigentes à época."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.1.2 - No caso de rescisão e durante o prazo do pré-aviso, a dispensa pela CONTRATANTE em relação à execução de quaisquer serviços, seja qual for à razão, deverá ser feita por escrito, não a desobrigando do pagamento dos honorários integrais até o termo final do contrato."
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DA TRANSFERÊNCIA"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.2 - Em todas as transferências de serviços à outra empresa contábil, a CONTRATANTE deverá informar a CONTRATADA por escrito, o nome, endereço, responsável técnico e número do CRCSC, sem o que não será possível à CONTRATADA cumprir as formalidades ético-profissionais, inclusive a transmissão de dados e informações necessárias à continuidade dos serviços, em relação às quais, diante da eventual inércia da CONTRATANTE, estará desobrigada de cumprimento."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.2.1 - Entre as informações a serem fornecidas não se incluem detalhes técnicos dos sistemas de informática da CONTRATADA, os quais são de sua exclusiva propriedade."
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DA SUSPENSÃO DOS SERVIÇOS"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.3 - A falta de pagamento de 03 (três) meses de honorários consecutivos ou alternados facultará à CONTRATADA suspender imediatamente a execução dos serviços ora pactuados, bem como considerar rescindido o presente instrumento, independentemente de notificação judicial ou extrajudicial, sem prejuízo do previsto no item 4.2.4."
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DA OPÇÃO À RESCISÃO"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.4 - A falência ou a concordata da CONTRATANTE facultará a rescisão do presente pela CONTRATADA, independentemente de notificação judicial ou extrajudicial, não estando incluídos nos serviços ora pactuados a elaboração das peças contábeis, arroladas no artigo 159 do DL 7.661/45 e demais decorrentes."
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DA RESCISÃO"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.5 - Considerar-se-á rescindido o presente contrato, independentemente de notificação judicial ou extrajudicial, caso qualquer das partes CONTRATANTES venha a infringir cláusula ora convencionada."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.5.1 - Fica estipulada a multa contratual no valor de duas parcelas mensais vigentes relativas aos honorários, exigível por inteiro em face da parte que der causa à rescisão motivada, sem prejuízo da penalidade especificada no item 4.2.4, se o caso."
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DO ARQUIVO DOS DOCUMENTOS"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.6 - Operada a rescisão a CONTRATANTE terá o prazo de 30 (trinta) dias para efetuar a retirada de toda a documentação junto à CONTRATADA, sob pena de ultrapassado este prazo, obrigar-se pelo pagamento de taxa de permanência mensal, este equivalente a 20% (vinte por cento) sobre o valor atualizado da última honorário, quando da vigência do contrato."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.6.1 - Não havendo a retirada dos documentos e não havendo o pagamento da taxa de permanência na forma como estabelecido no item 5.6, ficará a CONTRATADA, independentemente de notificação da CONTRATANTE, isenta de qualquer responsabilidade em relação à guarda dos documentos."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "5.6.2 - A critério da CONTRATADA poderá utilizar-se de quaisquer meios judiciais ou extrajudiciais, contra a CONTRATANTE ou na pessoa de qualquer de seus sócios, para fins de formalizar a devolução dos documentos não retirados, depois de extinto o contrato. Toda e qualquer responsabilidade da CONTRATADA, principalmente a responsabilidade técnica, encerra-se com a rescisão do presente contrato."
+    }
+  ]
+}

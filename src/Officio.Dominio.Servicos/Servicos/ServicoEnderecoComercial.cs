@@ -24,10 +24,29 @@ internal sealed class ServicoEnderecoComercial(
                 prospecto.MunicipioId),
             cancellationToken);
 
-    public async Task<Resultado<Endereco?>> CriarAsync(
+    public Task<Resultado<Endereco?>> CriarAsync(
+        EnderecoComercialRequisicao requisicao,
+        CancellationToken cancellationToken = default)
+        => AtualizarOuCriarAsync(null, requisicao, cancellationToken);
+
+    public async Task<Resultado<Endereco?>> AtualizarOuCriarAsync(
+        Endereco? existente,
         EnderecoComercialRequisicao requisicao,
         CancellationToken cancellationToken = default)
     {
+        if (requisicao.PermitirParcial)
+        {
+            if (new[] { requisicao.Cep, requisicao.Logradouro, requisicao.Numero, requisicao.Complemento,
+                requisicao.Bairro, requisicao.Uf }.All(string.IsNullOrWhiteSpace) && !requisicao.MunicipioId.HasValue)
+                return Resultado<Endereco?>.CriarSucesso(null);
+            var estado = string.IsNullOrWhiteSpace(requisicao.Uf) ? null
+                : await prospectoRepositorio.ObterEstadoPorUfAsync(requisicao.Uf.Trim().ToUpperInvariant(), cancellationToken);
+            var parcial = existente ?? Endereco.Criar(null, "");
+            parcial.AtualizarParcial(requisicao.MunicipioId, estado?.Id, requisicao.Logradouro, requisicao.Cep,
+                requisicao.Numero, requisicao.Bairro, requisicao.Complemento);
+            if (existente is null) await prospectoRepositorio.AdicionarAsync(parcial, cancellationToken);
+            return Resultado<Endereco?>.CriarSucesso(parcial);
+        }
         if (string.IsNullOrWhiteSpace(requisicao.Logradouro) &&
             string.IsNullOrWhiteSpace(requisicao.Cidade) &&
             string.IsNullOrWhiteSpace(requisicao.Uf))
@@ -86,6 +105,13 @@ internal sealed class ServicoEnderecoComercial(
         if (municipio is null)
             return Resultado<Endereco?>.CriarFalha(
                 "Nao foi possivel localizar o municipio informado no catalogo IBGE.");
+
+        if (existente is not null)
+        {
+            existente.Atualizar(municipio.Id, requisicao.Logradouro, requisicao.Cep,
+                requisicao.Numero, requisicao.Bairro, requisicao.Complemento);
+            return Resultado<Endereco?>.CriarSucesso(existente);
+        }
 
         var endereco = Endereco.Criar(
             municipio.Id,

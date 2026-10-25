@@ -1,4 +1,5 @@
 using Officio.Dominio.Comum;
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Eventos;
 
@@ -80,7 +81,7 @@ public class Orcamento : EntidadeAuditavel
     {
         ValidarStatusNaoTerminal();
 
-        if (status is StatusOrcamento.Aceito or StatusOrcamento.Recusado)
+        if (status is StatusOrcamento.Aceito or StatusOrcamento.Recusado or StatusOrcamento.Substituido)
             throw new InvalidOperationException("Use Aceitar ou Recusar para definir o status terminal do orcamento.");
 
         Status = status;
@@ -89,6 +90,7 @@ public class Orcamento : EntidadeAuditavel
     public void AdicionarItem(ItemOrcamento item)
     {
         ValidarEdicaoPermitida();
+        ValidarNaturezasUnicas(_itens.Append(item));
         _itens.Add(item);
         ValorTotal = _itens.Sum(i => i.ValorTotal);
     }
@@ -96,9 +98,19 @@ public class Orcamento : EntidadeAuditavel
     public void SubstituirItens(IEnumerable<ItemOrcamento> itens)
     {
         ValidarEdicaoPermitida();
+        var novosItens = itens.ToList();
+        ValidarNaturezasUnicas(novosItens);
         _itens.Clear();
-        _itens.AddRange(itens);
+        _itens.AddRange(novosItens);
         ValorTotal = _itens.Sum(item => item.ValorTotal);
+    }
+
+    public void Substituir()
+    {
+        if (Status != StatusOrcamento.Aceito)
+            throw new InvalidOperationException("Somente um orcamento aceito pode ser substituido.");
+
+        Status = StatusOrcamento.Substituido;
     }
 
     public void AdicionarVersao(OrcamentoVersao versao)
@@ -112,7 +124,20 @@ public class Orcamento : EntidadeAuditavel
 
     private void ValidarStatusNaoTerminal()
     {
-        if (Status is StatusOrcamento.Aceito or StatusOrcamento.Recusado or StatusOrcamento.Expirado)
+        if (Status is StatusOrcamento.Aceito or StatusOrcamento.Recusado or StatusOrcamento.Expirado or StatusOrcamento.Substituido)
             throw new InvalidOperationException("Orcamento em status terminal nao pode ser alterado.");
+    }
+
+    private static void ValidarNaturezasUnicas(IEnumerable<ItemOrcamento> itens)
+    {
+        var naturezas = itens
+            .GroupBy(item => item.NaturezaCobranca)
+            .ToDictionary(grupo => grupo.Key, grupo => grupo.Count());
+
+        if (naturezas.GetValueOrDefault(NaturezaCobrancaItemOrcamento.HonorarioMensal) > 1)
+            throw new InvalidOperationException(OrcamentoErros.HonorarioMensalDuplicado);
+
+        if (naturezas.GetValueOrDefault(NaturezaCobrancaItemOrcamento.PorFolha) > 1)
+            throw new InvalidOperationException(OrcamentoErros.PorFolhaDuplicado);
     }
 }

@@ -21,9 +21,15 @@ public record EnvioAssinaturaResultado(
 public record ConverterOrcamentoContratoRequisicao(
     Guid OrcamentoId,
     DateTime DataInicio,
-    DateTime? DataFim,
+    int DuracaoAnos,
+    DateOnly? CompetenciaInicialHonorarios,
     bool ConfirmarSubstituicaoContratoAtivo,
-    string? ClausulasExtras);
+    string? ClausulasExtras,
+    Guid? RepresentanteSocioId = null);
+
+public record RepresentanteDisponivelDto(Guid Id, string Nome, string? Cpf, string? TipoRelacao,
+    bool CadastroCompleto, IReadOnlyList<string> InformacoesFaltantes);
+public record RepresentantesContratoDto(Guid ProspectoId, List<RepresentanteDisponivelDto> Socios);
 
 public record ContratoResultado(
     Guid Id,

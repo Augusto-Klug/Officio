@@ -4,4 +4,4 @@ using Officio.Dominio.Contratos.Response;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ObterProspectoPorId;
 
-public record ObterProspectoPorIdConsulta(Guid Id) : IRequest<Resultado<ProspectoDetalheDto>>;
+public record ObterProspectoPorIdConsulta(Guid Id, bool IncluirSociosCliente = false) : IRequest<Resultado<ProspectoDetalheDto>>;

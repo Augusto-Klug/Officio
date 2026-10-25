@@ -20,6 +20,17 @@ public class ProspectosController(
     IMediator mediator,
     IProspectoViewModelConversor prospectoViewModelConversor) : ControllerBase
 {
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> AtualizarSocios(Guid id, CriarProspectoViewModel dados, CancellationToken ct)
+    {
+        var requisicao = prospectoViewModelConversor.ParaComando(dados).Requisicao;
+        var resultado = await mediator.Send(new AtualizarSociosProspectoComando(id, requisicao), ct);
+        return resultado.Sucesso ? NoContent() : FalhaAlteracao(resultado.Erro!);
+    }
+    [HttpGet]
+    public async Task<IActionResult> TiposRelacaoSocietaria(CancellationToken ct)
+        => Ok(await mediator.Send(new Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ListarTiposRelacaoSocietariaConsulta(), ct));
+
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -65,9 +76,9 @@ public class ProspectosController(
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(ProspectoDetalheDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> ObterPorId(Guid id, CancellationToken cancellationToken, [FromQuery] bool incluirSociosCliente = false)
     {
-        var resultado = await mediator.Send(new ObterProspectoPorIdConsulta(id), cancellationToken);
+        var resultado = await mediator.Send(new ObterProspectoPorIdConsulta(id, incluirSociosCliente), cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : NotFound(resultado.Erro);
     }
 

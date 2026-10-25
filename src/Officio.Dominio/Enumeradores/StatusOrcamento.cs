@@ -8,7 +8,8 @@ public enum StatusOrcamento
     Enviado,
     Aceito,
     Recusado,
-    Expirado
+    Expirado,
+    Substituido
 }
 
 

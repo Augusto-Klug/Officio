@@ -1,4 +1,7 @@
 import { http } from '../../../api/http'
+export async function atualizarSociosProspecto(id: string, payload: CriarProspectoPayload): Promise<void> {
+  await http.put(`/v1/prospectos/AtualizarSocios/${id}`, payload)
+}
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
 import type { CriarProspectoPayload, ProspectoCriado, ProspectoDetalhe, ProspectosFiltro, ProspectosPagina } from '../types/prospecto'
 
@@ -48,8 +51,9 @@ export async function criarProspecto(payload: CriarProspectoPayload): Promise<Pr
   return normalizeProspectoCriado(data)
 }
 
-export async function obterProspecto(id: string, signal?: AbortSignal): Promise<ProspectoDetalhe> {
-  const { data } = await http.get<ProspectoDetalhe>(`/v1/prospectos/ObterPorId/${id}`, { signal })
+export async function obterProspecto(id: string, signal?: AbortSignal, incluirSociosCliente = false): Promise<ProspectoDetalhe> {
+  const { data } = await http.get<ProspectoDetalhe>(`/v1/prospectos/ObterPorId/${id}`, { signal,
+    ...(incluirSociosCliente ? { params: { incluirSociosCliente: true } } : {}) })
   return data
 }
 
@@ -59,4 +63,8 @@ export async function atualizarProspecto(id: string, payload: CriarProspectoPayl
 
 export async function excluirProspecto(id: string): Promise<void> {
   await http.delete(`/v1/prospectos/Excluir/${id}`)
+}
+
+export async function listarTiposRelacaoSocietaria(signal?: AbortSignal): Promise<{ id: string; codigo: string; descricao: string }[]> {
+  return (await http.get('/v1/prospectos/TiposRelacaoSocietaria', { signal })).data
 }

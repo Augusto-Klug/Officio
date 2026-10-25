@@ -1,3 +1,4 @@
+import { novoEndereco } from '../../../components/shared/endereco'
 import type { CriarProspectoPayload } from '../types/prospecto'
 import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, somenteDigitos } from '../../../utils/inputMasks'
 
@@ -26,7 +27,7 @@ export function montarFormularioProspecto(dados: CriarProspectoPayload = novoPro
     cep: formatarCep(dados.cep || ''), logradouro: dados.logradouro || '', numero: dados.numero || '',
     complemento: dados.complemento || '', bairro: dados.bairro || '', cidade: dados.cidade || '',
     uf: dados.uf || '', municipioCodigoIbge: dados.municipioCodigoIbge || '', origem: dados.origem || '',
-    socios: dados.socios.map((socio) => ({ ...socio, cpf: formatarCpf(socio.cpf || '') })),
+    socios: dados.socios.map((socio, index) => ({ ...socio, chave: socio.id || `existente-${index}`, nome: socio.nome || '', cpf: formatarCpf(socio.cpf || ''), profissao: socio.profissao || '', tipoRelacaoId: socio.tipoRelacaoId || null, endereco: { ...novoEndereco(), ...Object.fromEntries(Object.entries(socio.endereco || {}).map(([k,v]) => [k,v || ''])) } })),
   }
 }
 
@@ -54,11 +55,13 @@ export function validarProspecto(payload: CriarProspectoPayload, cepInvalido = f
 
   let participacaoTotal = 0
   payload.socios.forEach((socio, index) => {
-    if (vazio(socio.nome)) errors[`socios.${index}.nome`] = 'Informe o nome do sócio.'
     if (socio.cpf && somenteDigitos(socio.cpf).length !== 11) errors[`socios.${index}.cpf`] = 'Informe um CPF com 11 dígitos.'
-    if (!Number.isFinite(socio.participacao) || socio.participacao < 0 || socio.participacao > 100) {
+    if (socio.participacao != null && (!Number.isFinite(socio.participacao) || socio.participacao < 0 || socio.participacao > 100)) {
       errors[`socios.${index}.participacao`] = 'Use um percentual entre 0 e 100.'
-    } else participacaoTotal += socio.participacao
+    } else participacaoTotal += socio.participacao || 0
+    if (socio.nome.length > 250) errors[`socios.${index}.nome`] = 'Use no máximo 250 caracteres.'
+    if ((socio.profissao?.length || 0) > 250) errors[`socios.${index}.profissao`] = 'Use no máximo 250 caracteres.'
+    if (socio.endereco?.cep && somenteDigitos(socio.endereco.cep).length !== 8) errors[`socios.${index}.endereco`] = 'Informe um CEP com 8 dígitos.'
   })
   if (participacaoTotal > 100) errors.socios = 'A participação total dos sócios não pode ultrapassar 100%.'
   return errors
@@ -92,6 +95,7 @@ export function limparPayload(payload: CriarProspectoPayload): CriarProspectoPay
     municipioCodigoIbge: texto(payload.municipioCodigoIbge),
     origem: texto(payload.origem),
     regimeTributario: payload.regimeTributario,
-    socios: payload.socios.map((socio) => ({ ...socio, nome: socio.nome.trim(), cpf: documento(socio.cpf) })),
+    socios: payload.socios.map((socio) => ({ ...socio, nome: socio.nome.trim(), cpf: documento(socio.cpf), profissao: texto(socio.profissao), tipoRelacaoId: socio.tipoRelacaoId || null,
+      endereco: socio.endereco ? { ...socio.endereco, cep: somenteDigitos(socio.endereco.cep) } : null })),
   }
 }

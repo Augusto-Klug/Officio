@@ -16,7 +16,10 @@ internal class ProspectoViewModelConversor : IProspectoViewModelConversor
                 viewModel.Cnpj,
                 Converter(viewModel.RegimeTributario),
                 viewModel.Socios?
-                    .Select(s => new CriarSocioRequisicao(s.Nome, s.Cpf, s.Participacao, s.Id))
+                    .Select(s => new CriarSocioRequisicao(s.Nome, s.Cpf, s.Participacao, s.Id, s.Profissao, s.TipoRelacaoId,
+                        s.Endereco is null ? null : new EnderecoSocioRequisicao(s.Endereco.Cep, s.Endereco.Logradouro,
+                            s.Endereco.Numero, s.Endereco.Complemento, s.Endereco.Bairro, s.Endereco.Cidade,
+                            s.Endereco.Uf, s.Endereco.MunicipioCodigoIbge)))
                     .ToList(),
                 NomeFantasia: viewModel.NomeFantasia,
                 Cpf: viewModel.Cpf,

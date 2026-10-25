@@ -34,7 +34,11 @@ export interface CriarSocioPayload {
   id?: string
   nome: string
   cpf: string | null
-  participacao: number
+  participacao: number | null
+  pessoaId?: string
+  profissao?: string | null
+  tipoRelacaoId?: string | null
+  endereco?: Partial<import("../../../components/shared/endereco").EnderecoCadastro> | null
 }
 
 export interface CriarProspectoPayload {

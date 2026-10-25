@@ -160,7 +160,7 @@ public class ClienteServico(
             cliente.ProspectOrigemId,
             cliente.InicioRelacionamentoEm,
             cliente.Socios
-                .Select(socio => new ClienteSocioDto(socio.Id, socio.Nome, socio.Cpf, socio.Participacao))
+                .Select(socio => new ClienteSocioDto(socio.Id, socio.Nome, socio.Cpf, socio.Participacao ?? 0))
                 .ToList(),
             cliente.Contratos
                 .Select(contrato => new ClienteContratoDto(

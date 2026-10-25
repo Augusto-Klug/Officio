@@ -12,6 +12,10 @@ function numberValue(value: unknown): number {
   return value
 }
 
+function optionalNumber(value: unknown): number | null {
+  return value === null || value === undefined ? null : numberValue(value)
+}
+
 function normalizeContrato(value: unknown): Contrato {
   const item = record(value)
   return {
@@ -26,6 +30,10 @@ function normalizeContrato(value: unknown): Contrato {
     diaVencimento: numberValue(field(item, 'diaVencimento')),
     dataInicio: requiredString(field(item, 'dataInicio')),
     dataFim: optionalString(field(item, 'dataFim')),
+    duracaoAnos: optionalNumber(field(item, 'duracaoAnos')),
+    competenciaInicialHonorarios: optionalString(field(item, 'competenciaInicialHonorarios')),
+    valorHonorarioMensal: optionalNumber(field(item, 'valorHonorarioMensal')),
+    valorUnitarioPorFolha: optionalNumber(field(item, 'valorUnitarioPorFolha')),
     clausulasExtras: optionalString(field(item, 'clausulasExtras')),
     pdfGerado: booleanValue(field(item, 'pdfGerado')),
     pdfAssinadoDisponivel: booleanValue(field(item, 'pdfAssinadoDisponivel')),

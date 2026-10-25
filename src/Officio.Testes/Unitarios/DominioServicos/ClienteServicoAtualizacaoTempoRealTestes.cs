@@ -78,6 +78,8 @@ public class ClienteServicoAtualizacaoTempoRealTestes
 
     private sealed class ServicoEnderecoFake : IServicoEnderecoComercial
     {
+        public Task<Resultado<Endereco?>> AtualizarOuCriarAsync(Endereco? endereco, EnderecoComercialRequisicao requisicao, CancellationToken cancellationToken = default)
+            => CriarAsync(requisicao, cancellationToken);
         public Task<Resultado<Endereco?>> CriarAsync(
             EnderecoComercialRequisicao requisicao,
             CancellationToken cancellationToken = default)

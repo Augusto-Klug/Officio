@@ -8,5 +8,5 @@ public class AceitarOrcamentoHandler(IOrcamentoServico orcamentoServico)
     : IRequestHandler<AceitarOrcamentoComando, Resultado<bool>>
 {
     public async Task<Resultado<bool>> Handle(AceitarOrcamentoComando request, CancellationToken ct)
-        => await orcamentoServico.AceitarAsync(request.OrcamentoId, ct);
+        => await orcamentoServico.AceitarAsync(request.OrcamentoId, request.ConfirmarSubstituicao, ct);
 }

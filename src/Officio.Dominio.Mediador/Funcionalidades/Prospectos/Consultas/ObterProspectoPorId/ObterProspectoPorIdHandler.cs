@@ -9,5 +9,5 @@ internal class ObterProspectoPorIdHandler(IProspectoServico servico)
     : IRequestHandler<ObterProspectoPorIdConsulta, Resultado<ProspectoDetalheDto>>
 {
     public Task<Resultado<ProspectoDetalheDto>> Handle(ObterProspectoPorIdConsulta request, CancellationToken ct)
-        => servico.ObterPorIdAsync(request.Id, ct);
+        => servico.ObterPorIdAsync(request.Id, ct, request.IncluirSociosCliente);
 }

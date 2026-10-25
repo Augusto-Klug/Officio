@@ -30,9 +30,15 @@ public record CriarProspectoRequisicao(
     string? InscricaoMunicipal = null,
     string? TipoEmpresa = null);
 
-public record CriarSocioRequisicao(string Nome, string? Cpf, decimal Participacao, Guid? Id = null);
+public record EnderecoSocioRequisicao(string? Cep = null, string? Logradouro = null, string? Numero = null,
+    string? Complemento = null, string? Bairro = null, string? Cidade = null, string? Uf = null,
+    string? MunicipioCodigoIbge = null);
+public record CriarSocioRequisicao(string? Nome = null, string? Cpf = null, decimal? Participacao = null,
+    Guid? Id = null, string? Profissao = null, Guid? TipoRelacaoId = null,
+    EnderecoSocioRequisicao? Endereco = null, Guid? PessoaId = null);
 
 public record ProspectoDetalheDto(Guid Id, string Status, CriarProspectoRequisicao Dados);
+public record TipoRelacaoSocietariaDto(Guid Id, string Codigo, string Descricao);
 
 public static class ProspectoErros
 {
