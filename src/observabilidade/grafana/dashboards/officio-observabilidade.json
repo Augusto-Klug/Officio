@@ -43,6 +43,31 @@
       "targets": [{ "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)", "refId": "A" }],
       "title": "Alertas ativos",
       "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
+      "id": 5,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [{
+        "datasource": { "type": "loki", "uid": "loki" },
+        "direction": "backward",
+        "editorMode": "code",
+        "expr": "{service_name=\"Officio.WebApi\"}",
+        "queryType": "range",
+        "refId": "A"
+      }],
+      "title": "Logs recentes da API",
+      "type": "logs"
     }
   ],
   "refresh": "10s",
@@ -52,5 +77,5 @@
   "time": { "from": "now-1h", "to": "now" },
   "title": "Officio - Observabilidade",
   "uid": "officio-observabilidade",
-  "version": 2
+  "version": 3
 }

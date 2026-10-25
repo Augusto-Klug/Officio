@@ -62,11 +62,12 @@ public sealed class PublicadorAtualizacaoTempoRealHttp(
         catch (Exception exception)
         {
             logger.LogWarning(
-                exception,
-                "Falha best-effort ao publicar atualizacao SignalR via callback. ParceiroId={ParceiroId} Entidade={Entidade} RegistroId={RegistroId}",
+                "Falha best-effort ao publicar atualizacao SignalR via callback. ParceiroId={ParceiroId} Entidade={Entidade} RegistroId={RegistroId} ErroTipo={ErroTipo} StackTrace={StackTrace}",
                 evento.ParceiroId,
                 evento.Entidade,
-                evento.Id);
+                evento.Id,
+                exception.GetType().FullName,
+                exception.StackTrace);
         }
     }
 }

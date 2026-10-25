@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Officio.WebApi.Extensoes;
 using Officio.WebApi.Saude;
 using Officio.WebApi.TempoReal;
@@ -10,8 +11,12 @@ var builder = WebApplication.CreateBuilder(argumentosPrograma.ArgumentosHost);
 builder.Configuration.AdicionarArquivoEnv(builder.Environment);
 
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
+builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
 builder.Logging.AddDebug();
+builder.Logging.Configure(options => options.ActivityTrackingOptions =
+    ActivityTrackingOptions.SpanId | ActivityTrackingOptions.TraceId | ActivityTrackingOptions.ParentId);
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks()

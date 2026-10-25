@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Officio.Dominio.Mediador.Comum.Comportamentos;
 
@@ -14,13 +15,27 @@ public class ComportamentoLog<TRequest, TResponse>(
         CancellationToken ct)
     {
         var requestName = typeof(TRequest).Name;
-        logger.LogInformation("Handling {RequestName}", requestName);
+        var timer = Stopwatch.StartNew();
+        logger.LogInformation("Iniciando request de aplicacao. RequestName={RequestName}", requestName);
 
-        var response = await next(ct);
-
-        logger.LogInformation("Handled {RequestName}", requestName);
-
-        return response;
+        try
+        {
+            var response = await next(ct);
+            logger.LogInformation(
+                "Request de aplicacao finalizado. RequestName={RequestName} DuracaoMs={DuracaoMs}",
+                requestName,
+                timer.ElapsedMilliseconds);
+            return response;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                "Request de aplicacao lancou excecao. RequestName={RequestName} TipoExcecao={TipoExcecao} DuracaoMs={DuracaoMs}",
+                requestName,
+                exception.GetType().Name,
+                timer.ElapsedMilliseconds);
+            throw;
+        }
     }
 }
 

@@ -24,11 +24,12 @@ public sealed class PublicadorAtualizacaoSignalR(
         catch (Exception ex)
         {
             logger.LogWarning(
-                ex,
-                "Nao foi possivel publicar atualizacao em tempo real. ParceiroId={ParceiroId} Entidade={Entidade} RegistroId={RegistroId}",
+                "Falha ao publicar atualizacao em tempo real. ParceiroId={ParceiroId} Entidade={Entidade} RegistroId={RegistroId} TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
                 evento.ParceiroId,
                 evento.Entidade,
-                evento.Id);
+                evento.Id,
+                ex.GetType().FullName,
+                ex.StackTrace);
         }
     }
 }

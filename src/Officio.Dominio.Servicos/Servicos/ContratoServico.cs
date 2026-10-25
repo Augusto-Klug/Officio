@@ -547,9 +547,10 @@ public class ContratoServico(
             {
                 falhas++;
                 logger.LogError(
-                    ex,
-                    "Erro ao reconciliar assinatura. ContratoId={ContratoId}",
-                    pendencia.ContratoId);
+                    "Erro ao reconciliar assinatura. ContratoId={ContratoId} TipoExcecao={TipoExcecao} StackTrace={StackTrace}",
+                    pendencia.ContratoId,
+                    ex.GetType().FullName,
+                    ex.StackTrace);
             }
         }
 

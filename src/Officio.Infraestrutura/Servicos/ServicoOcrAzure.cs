@@ -4,6 +4,7 @@ using Officio.Dominio.Interfaces;
 using Officio.Dominio.Enumeradores;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace Officio.Infraestrutura.Servicos;
 
@@ -16,6 +17,7 @@ public class ServicoOcrAzure(
         TipoDocumento type,
         CancellationToken ct = default)
     {
+        var timer = Stopwatch.StartNew();
         var modelId = ObterModelo(type);
 
         try
@@ -71,6 +73,16 @@ public class ServicoOcrAzure(
                         .DefaultIfEmpty(0f)
                         .Average();
 
+            logger.LogInformation(
+                "OCR Azure concluido. TipoDocumento={TipoDocumento} Modelo={Modelo} CamposReconhecidos={CamposReconhecidos} Confianca={Confianca} RequestId={RequestId} StatusHttp={StatusHttp} DuracaoMs={DuracaoMs}",
+                type,
+                modelId,
+                fields.Valores.Count,
+                confidence,
+                ObterRequestId(operation.GetRawResponse()) ?? operation.GetRawResponse()?.ClientRequestId,
+                operation.GetRawResponse()?.Status,
+                timer.ElapsedMilliseconds);
+
             return ResultadoOcr.CriarSucesso(
                 fields.Valores,
                 (decimal)confidence,
@@ -85,11 +97,11 @@ public class ServicoOcrAzure(
         }
         catch (Exception ex)
         {
-            return ConverterFalha(ex, type, modelId);
+            return ConverterFalha(ex, type, modelId, timer.ElapsedMilliseconds);
         }
     }
 
-    private ResultadoOcr ConverterFalha(Exception exception, TipoDocumento tipo, string modelId)
+    private ResultadoOcr ConverterFalha(Exception exception, TipoDocumento tipo, string modelId, long duracaoMs)
     {
         var falha = Desembrulhar(exception);
         if (falha is RequestFailedException requestFailed)
@@ -103,9 +115,9 @@ public class ServicoOcrAzure(
             var message = CriarMensagemFalha(category);
             var diagnostic = CriarDiagnosticoTecnico(exception, requestFailed.Status, requestFailed.ErrorCode, requestId);
             logger.LogWarning(
-                exception,
-                "Falha OCR Azure. Categoria={Categoria} StatusHttp={StatusHttp} Codigo={Codigo} RequestId={RequestId} Modelo={Modelo} TipoCausa={TipoCausa}",
-                category, requestFailed.Status, requestFailed.ErrorCode, requestId, modelId, causaInterna.GetType().Name);
+                "Falha OCR Azure. Categoria={Categoria} StatusHttp={StatusHttp} Codigo={Codigo} RequestId={RequestId} Modelo={Modelo} TipoCausa={TipoCausa} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+                category, requestFailed.Status, requestFailed.ErrorCode, requestId, modelId, causaInterna.GetType().Name,
+                duracaoMs, exception.StackTrace);
             return ResultadoOcr.CriarFalha(
                 message,
                 DescreverModelo(modelId),
@@ -120,9 +132,8 @@ public class ServicoOcrAzure(
         {
             var diagnostic = CriarDiagnosticoTecnico(exception);
             logger.LogWarning(
-                exception,
-                "Falha de rede ao consultar OCR Azure. Modelo={Modelo} Diagnostico={Diagnostico}",
-                modelId, diagnostic);
+                "Falha de rede ao consultar OCR Azure. Modelo={Modelo} TipoExcecao={TipoExcecao} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+                modelId, falha.GetType().Name, duracaoMs, exception.StackTrace);
             return ResultadoOcr.CriarFalha(
                 CriarMensagemFalha("FALHA_REDE"),
                 DescreverModelo(modelId),
@@ -133,7 +144,9 @@ public class ServicoOcrAzure(
         if (falha is TimeoutException or TaskCanceledException)
         {
             var diagnostic = CriarDiagnosticoTecnico(exception);
-            logger.LogWarning(exception, "Timeout ao consultar OCR Azure. Modelo={Modelo} Diagnostico={Diagnostico}", modelId, diagnostic);
+            logger.LogWarning(
+                "Timeout ao consultar OCR Azure. Modelo={Modelo} TipoExcecao={TipoExcecao} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+                modelId, falha.GetType().Name, duracaoMs, exception.StackTrace);
             return ResultadoOcr.CriarFalha(
                 CriarMensagemFalha("TIMEOUT"),
                 DescreverModelo(modelId),
@@ -143,9 +156,8 @@ public class ServicoOcrAzure(
 
         var diagnosticoInesperado = CriarDiagnosticoTecnico(exception);
         logger.LogWarning(
-            exception,
-            "Erro inesperado no OCR Azure. TipoDocumento={TipoDocumento} Modelo={Modelo} Diagnostico={Diagnostico}",
-            tipo, modelId, diagnosticoInesperado);
+            "Erro inesperado no OCR Azure. TipoDocumento={TipoDocumento} Modelo={Modelo} TipoExcecao={TipoExcecao} DuracaoMs={DuracaoMs} StackTrace={StackTrace}",
+            tipo, modelId, falha.GetType().Name, duracaoMs, exception.StackTrace);
         return ResultadoOcr.CriarFalha(
             CriarMensagemFalha("FALHA_INTEGRACAO"),
             DescreverModelo(modelId),
