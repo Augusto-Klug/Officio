@@ -226,6 +226,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<int>("Ordem")
                         .HasColumnType("int");
 
+                    b.Property<bool>("RevisaoPendente")
+                        .HasColumnType("bit");
+
                     b.Property<string>("RotuloExibicao")
                         .HasColumnType("nvarchar(max)");
 

@@ -98,12 +98,32 @@ public class AdmissaoDocumentoServicoTestes
     }
 
     [Fact]
+    public async Task ValidarDocumentoAprovado_LimpaRevisaoPendenteAposCorrecaoDeIdentificacao()
+    {
+        var cenario = await CriarCenarioAsync(Resultado<ValidationResultDto>.CriarSucesso(
+            new ValidationResultDto(true, 0.98m, [], false, null)));
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        item.MarcarRevisaoPendente();
+        await contexto.SaveChangesAsync();
+
+        var resultado = await cenario.Servico.ValidarAsync(cenario.AdmissaoId, item.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        var atualizado = await contexto.AdmissaoDocumentos.SingleAsync(documento => documento.Id == item.Id);
+        Assert.False(atualizado.RevisaoPendente);
+    }
+
+    [Fact]
     public async Task AprovarManualmente_AprovaUltimaValidacao()
     {
         var cenario = await CriarCenarioAsync();
         await using var contexto = cenario.Contexto;
         var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
         await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        item.MarcarRevisaoPendente();
         var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
         contexto.DocumentValidations.Add(ValidacaoDocumento.RequireManualReview(
             cenario.TenantId, documentoId, observacao: "OCR indisponivel", admissaoDocumentoId: item.Id));
@@ -120,6 +140,7 @@ public class AdmissaoDocumentoServicoTestes
         Assert.Equal("Conferido manualmente", validacao.ObservacaoRevisao);
         Assert.Equal(cenario.RevisorId, validacao.RevisadoPorId);
         Assert.NotNull(validacao.RevisadoEm);
+        Assert.False((await contexto.AdmissaoDocumentos.SingleAsync(documento => documento.Id == item.Id)).RevisaoPendente);
     }
 
     [Fact]
