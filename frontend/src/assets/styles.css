@@ -93,8 +93,13 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .work-table .p-datatable-tbody > tr > td { padding: 16px 20px; font-size: 13px; overflow-wrap: anywhere; border-color: #eaf0ec; }
 .work-table th:first-child { width: 28%; }
 .work-table th:last-child { width: 230px; }
-.contracts-table th:first-child { width: 31%; }
-.contracts-table th:nth-child(3) { width: 26%; }
+.contracts-table .p-datatable-table-container { overflow-x: auto; }
+.contracts-table .p-datatable-table { min-width: 1200px; }
+.contracts-table th:first-child { width: 250px; }
+.contracts-table th:nth-child(2) { width: 220px; }
+.contracts-table th:nth-child(3) { width: 260px; }
+.contracts-table th:nth-child(4), .contracts-table th:nth-child(5) { width: 120px; }
+.contracts-table .status-badge { white-space: nowrap; }
 .clients-table th:first-child { width: 27%; }
 .clients-table th:nth-child(4) { width: 20%; }
 .prospects-table th:first-child { width: 36%; }
