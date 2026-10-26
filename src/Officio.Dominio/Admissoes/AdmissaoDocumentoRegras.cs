@@ -9,7 +9,7 @@ public static class AdmissaoDocumentoRegras
             item.TipoDocumento.Codigo is "IDENTIDADE" or "CNH");
 
     public static bool IdentificacaoAprovada(IEnumerable<Officio.Dominio.Entidades.AdmissaoDocumento> documentos)
-        => documentos.Where(item => item.DocumentoId.HasValue &&
+        => documentos.Where(item => item.DocumentoId.HasValue && !item.RevisaoPendente &&
                 item.TipoDocumento.Codigo is "IDENTIDADE" or "CNH")
             .Any(item => item.Documento?.Validacoes
                 .OrderByDescending(validacao => validacao.CriadoEm)
@@ -25,6 +25,10 @@ public static class AdmissaoDocumentoRegras
 
         if (!PossuiIdentificacao(itens))
             return "Envie uma identidade (RG/CIN) ou CNH antes de concluir a revisao documental.";
+
+        var documentoPendente = itens.FirstOrDefault(item => item.DocumentoId.HasValue && item.RevisaoPendente);
+        if (documentoPendente is not null)
+            return $"O documento '{documentoPendente.RotuloExibicao ?? documentoPendente.TipoDocumento.Descricao}' precisa ser revisado novamente.";
 
         if (!IdentificacaoAprovada(itens))
             return "Aprove uma identidade ou CNH antes de concluir a revisao documental.";

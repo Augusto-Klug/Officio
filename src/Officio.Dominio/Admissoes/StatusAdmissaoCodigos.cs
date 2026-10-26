@@ -8,6 +8,7 @@ public static class StatusAdmissaoCodigos
     public const string DocumentosValidados = "DOCUMENTOS_VALIDADOS";
     public const string AguardandoEmpregador = "AGUARDANDO_EMPREGADOR";
     public const string LiberadoPeloEmpregador = "LIBERADO_PELO_EMPREGADOR";
+    public const string LiberadoParaRevisaoFinal = "LIBERADO_PARA_REVISAO_FINAL";
     public const string Concluida = "CONCLUIDA";
     public const string Cancelada = "CANCELADA";
 

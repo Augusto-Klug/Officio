@@ -72,6 +72,8 @@ public class AdmissaoServico(
         if (validacao is not null)
             return Resultado<Guid>.CriarFalha(validacao);
 
+        var identificacaoAlterada = IdentificacaoAlterada(admissao, requisicao.Dados);
+
         try
         {
             AplicarDados(admissao, requisicao.Dados);
@@ -79,6 +81,13 @@ public class AdmissaoServico(
         catch (ArgumentException exception)
         {
             return Resultado<Guid>.CriarFalha(exception.Message);
+        }
+
+        if (identificacaoAlterada && admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
+        {
+            admissao.MarcarDocumentosParaRevisao();
+            var statusRevisao = await ObterStatusAsync(StatusAdmissaoCodigos.AguardandoValidacao, ct);
+            admissao.AlterarStatus(statusRevisao.Id);
         }
 
         await repositorio.AdicionarDependentesAsync(admissao.Dependentes, ct);
@@ -143,8 +152,12 @@ public class AdmissaoServico(
         if (erroDocumentos is not null)
             return Resultado<bool>.CriarFalha(erroDocumentos);
 
+        var empregadorConcluiu = admissao.PreenchimentoEmpresaConcluidoEm.HasValue;
         var status = await repositorio.ObterOuCriarStatusAsync(
-            StatusAdmissaoCodigos.DocumentosValidados, "Documentos validados", 4, ct);
+            empregadorConcluiu ? StatusAdmissaoCodigos.LiberadoParaRevisaoFinal : StatusAdmissaoCodigos.AguardandoEmpregador,
+            empregadorConcluiu ? "Liberado para revisão final" : "Aguardando empregador",
+            empregadorConcluiu ? 6 : 5,
+            ct);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
@@ -162,7 +175,7 @@ public class AdmissaoServico(
         var funcionarioExistente = await repositorio.ObterFuncionarioPorAdmissaoAsync(admissao.Id, ct);
         if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.Concluida || funcionarioExistente is not null)
             return Resultado<bool>.CriarSucesso(true);
-        if (admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.LiberadoPeloEmpregador ||
+        if (admissao.StatusAdmissao.Codigo is not (StatusAdmissaoCodigos.LiberadoParaRevisaoFinal or StatusAdmissaoCodigos.LiberadoPeloEmpregador) ||
             !admissao.PreenchimentoFuncionarioConcluidoEm.HasValue ||
             !admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
             return Resultado<bool>.CriarFalha("A admissao so pode ser concluida apos o preenchimento do admitido, a validacao documental e a liberacao pelo empregador.");
@@ -272,10 +285,18 @@ public class AdmissaoServico(
         => codigo switch
         {
             StatusAdmissaoCodigos.Rascunho => repositorio.ObterOuCriarStatusAsync(codigo, "Rascunho", 1, ct),
+            StatusAdmissaoCodigos.AguardandoValidacao => repositorio.ObterOuCriarStatusAsync(codigo, "Aguardando validacao", 3, ct),
             StatusAdmissaoCodigos.Concluida => repositorio.ObterOuCriarStatusAsync(codigo, "Concluida", 7, ct),
             StatusAdmissaoCodigos.Cancelada => repositorio.ObterOuCriarStatusAsync(codigo, "Cancelada", 8, ct),
             _ => throw new ArgumentOutOfRangeException(nameof(codigo), codigo, null)
         };
+
+    private static bool IdentificacaoAlterada(Admissao admissao, DadosAdmissaoRequisicao dados)
+        => !string.Equals(admissao.NomeFuncionario.Trim(), dados.NomeFuncionario.Trim(), StringComparison.Ordinal)
+            || !string.Equals(Comum.DocumentoFiscal.SomenteDigitos(admissao.Cpf), Comum.DocumentoFiscal.SomenteDigitos(dados.Cpf), StringComparison.Ordinal)
+            || !string.Equals(admissao.Rg?.Trim(), dados.Rg?.Trim(), StringComparison.OrdinalIgnoreCase)
+            || admissao.DataNascimento != dados.DataNascimento
+            || !string.Equals(admissao.Sexo?.Trim(), dados.Sexo?.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private static DadosAdmissaoRequisicao ExtrairDados(Admissao admissao)
         => new(

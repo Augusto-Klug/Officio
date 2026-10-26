@@ -70,7 +70,7 @@ let documentsGeneration = 0
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 const terminal = (item: AdmissaoResumo) => item.status === 'CONCLUIDA' || item.status === 'CANCELADA'
-const statusSeverity = (codigo: string) => codigo === 'CONCLUIDA' ? 'success' : codigo === 'CANCELADA' ? 'danger' : ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR'].includes(codigo) ? 'info' : 'warn'
+const statusSeverity = (codigo: string) => codigo === 'CONCLUIDA' ? 'success' : codigo === 'CANCELADA' ? 'danger' : ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PARA_REVISAO_FINAL', 'LIBERADO_PELO_EMPREGADOR'].includes(codigo) ? 'info' : 'warn'
 useRealtimePageRefresh('admissao', refreshRealtime, computed(() => loading.value || detailLoading.value || !!actionId.value || saving.value || linkLoading.value))
 
 async function load() {
@@ -196,7 +196,7 @@ async function concluirRevisaoDocumental(admissaoId: string) {
   error.value = ''
   try {
     await concluirRevisaoDocumentalAdmissao(admissaoId)
-    success.value = 'Revisão documental concluída. O empregador já pode receber o link.'
+    success.value = 'Revisão documental concluída.'
     await load()
   } catch (cause) { error.value = normalizeError(cause).message }
   finally { actionId.value = '' }
@@ -248,7 +248,7 @@ async function salvar(clienteSelecionadoId: string, dados: DadosAdmissaoPayload)
 }
 
 function confirmar(item: AdmissaoResumo | AdmissaoDetalhe, acao: 'concluir' | 'cancelar') {
-  if (acao === 'concluir' && item.status !== 'LIBERADO_PELO_EMPREGADOR') return
+  if (acao === 'concluir' && !['LIBERADO_PARA_REVISAO_FINAL', 'LIBERADO_PELO_EMPREGADOR'].includes(item.status)) return
   actionTarget.value = item
   confirmAction.value = acao
   confirmOpen.value = true
@@ -308,7 +308,7 @@ onBeforeUnmount(() => {
         <BaseButton label="Documentos" icon="pi pi-upload" variant="text" @click="abrirDocumentos(data)" />
         <BaseButton label="Detalhes" icon="pi pi-eye" variant="text" @click="abrirDetalhe(data)" />
         <BaseButton v-if="!terminal(data)" label="Editar" icon="pi pi-pencil" variant="secondary" @click="abrirEdicao(data)" />
-        <BaseButton v-if="!terminal(data) && data.status === 'LIBERADO_PELO_EMPREGADOR'" label="Concluir admissão" icon="pi pi-check" :loading="actionId === data.id" @click="confirmar(data, 'concluir')" />
+        <BaseButton v-if="!terminal(data) && ['LIBERADO_PARA_REVISAO_FINAL', 'LIBERADO_PELO_EMPREGADOR'].includes(data.status)" label="Concluir admissão" icon="pi pi-check" :loading="actionId === data.id" @click="confirmar(data, 'concluir')" />
       </div></template></Column>
       <template #empty><div class="empty-state"><i class="pi pi-id-card" /><h3>Nenhuma admissão encontrada</h3><p>Crie uma admissão manual para iniciar o cadastro do funcionário.</p><BaseButton label="Nova admissão" icon="pi pi-plus" @click="abrirCriacao" /></div></template>
     </DataTable>
@@ -320,7 +320,7 @@ onBeforeUnmount(() => {
 
   <Dialog v-model:visible="linkOpen" modal :header="linkPapel === 'funcionario' ? 'Ficha digital do admitido' : 'Ficha digital do empregador'" class="workflow-dialog" :style="{ width: 'min(620px, 94vw)' }">
     <div class="admission-link-dialog">
-      <p>{{ linkPapel === 'funcionario' ? 'Compartilhe este link somente com o admitido. Ele preencherá os dados pessoais e enviará os documentos.' : 'Compartilhe este link somente com o empregador. O admitido já concluiu a etapa anterior.' }} Um novo link invalida o anterior.</p>
+      <p>{{ linkPapel === 'funcionario' ? 'Compartilhe este link somente com o admitido. Ele preencherá os dados pessoais e enviará os documentos.' : 'Compartilhe este link somente com o empregador. As fichas do admitido e do empregador podem ser preenchidas em paralelo.' }} Um novo link invalida o anterior.</p>
       <div class="admission-link-value"><InputText :model-value="linkFicha" readonly /><BaseButton icon="pi pi-copy" title="Copiar link" aria-label="Copiar link" @click="copiarLink" /></div>
       <small>Expira em {{ formatDate(linkExpiraEm) }}</small>
     </div>
