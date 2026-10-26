@@ -252,6 +252,7 @@ export const statusAdmissaoOptions = [
   { label: 'Aguardando validação', value: 'AGUARDANDO_VALIDACAO' },
   { label: 'Documentos validados', value: 'DOCUMENTOS_VALIDADOS' },
   { label: 'Aguardando empregador', value: 'AGUARDANDO_EMPREGADOR' },
+  { label: 'Liberado para revisão final', value: 'LIBERADO_PARA_REVISAO_FINAL' },
   { label: 'Liberado pelo empregador', value: 'LIBERADO_PELO_EMPREGADOR' },
   { label: 'Concluída', value: 'CONCLUIDA' },
   { label: 'Cancelada', value: 'CANCELADA' },

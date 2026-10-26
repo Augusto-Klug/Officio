@@ -126,6 +126,12 @@ public class Admissao : EntidadeAuditavel
     public void AdicionarDocumentos(IEnumerable<AdmissaoDocumento> documentos)
         => _documentos.AddRange(documentos);
 
+    public void MarcarDocumentosParaRevisao()
+    {
+        foreach (var documento in _documentos)
+            documento.MarcarRevisaoPendente();
+    }
+
     public void AlterarStatus(Guid statusAdmissaoId)
         => StatusAdmissaoId = statusAdmissaoId;
 
@@ -139,9 +145,6 @@ public class Admissao : EntidadeAuditavel
         TokenAcessoHash = tokenHash;
         TokenExpiraEm = expiraEm;
         PreenchimentoFuncionarioConcluidoEm = null;
-        TokenEmpresaAcessoHash = null;
-        TokenEmpresaExpiraEm = null;
-        PreenchimentoEmpresaConcluidoEm = null;
     }
 
     public void RevogarAcessoTemporario()
@@ -152,8 +155,6 @@ public class Admissao : EntidadeAuditavel
 
     public void GerarAcessoEmpresa(string tokenHash, DateTime expiraEm)
     {
-        if (!PreenchimentoFuncionarioConcluidoEm.HasValue)
-            throw new InvalidOperationException("O admitido precisa concluir a ficha antes do acesso do empregador.");
         if (string.IsNullOrWhiteSpace(tokenHash))
             throw new ArgumentException("Hash do token e obrigatorio.", nameof(tokenHash));
         if (expiraEm <= DateTime.UtcNow)

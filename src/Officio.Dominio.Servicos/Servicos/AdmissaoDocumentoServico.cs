@@ -243,6 +243,12 @@ public sealed class AdmissaoDocumentoServico(
         if (!resultado.Sucesso)
             return resultado;
 
+        if (resultado.Valor?.Valido == true)
+        {
+            item.ConcluirRevisao();
+            await repositorio.SalvarAlteracoesAsync(ct);
+        }
+
         await PublicarAtualizacaoAsync(item, ct);
         return resultado;
     }
@@ -274,6 +280,7 @@ public sealed class AdmissaoDocumentoServico(
             return Resultado<bool>.CriarFalha("O tipo do documento nao corresponde ao item da admissao. Substitua o arquivo pelo documento correto.");
 
         validacao.ApproveManually(usuarioAtual.UserId, requisicao.Observacao);
+        item.ConcluirRevisao();
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(item, ct);
 
@@ -330,6 +337,7 @@ public sealed class AdmissaoDocumentoServico(
             .FirstOrDefault();
         var status = item.Documento is null
             ? "PENDENTE_ENVIO"
+            : item.RevisaoPendente ? "PENDENTE_VALIDACAO"
             : validacao?.Status switch
             {
                 StatusValidacao.Aprovado => "APROVADO",

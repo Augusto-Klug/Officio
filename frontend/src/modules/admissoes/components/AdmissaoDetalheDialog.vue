@@ -72,7 +72,7 @@ function informar(value: string | number | null | undefined): string {
       <BaseButton label="Fechar" variant="text" @click="visible = false" />
       <BaseButton v-if="admissao && !terminal" label="Cancelar admissão" icon="pi pi-ban" variant="secondary" @click="$emit('cancelar')" />
       <BaseButton v-if="admissao && !terminal" label="Editar" icon="pi pi-pencil" variant="secondary" @click="$emit('editar')" />
-      <BaseButton v-if="admissao && !terminal && admissao.status === 'LIBERADO_PELO_EMPREGADOR'" label="Concluir admissão" icon="pi pi-check" @click="$emit('concluir')" />
+      <BaseButton v-if="admissao && !terminal && ['LIBERADO_PARA_REVISAO_FINAL', 'LIBERADO_PELO_EMPREGADOR'].includes(admissao.status)" label="Concluir admissão" icon="pi pi-check" @click="$emit('concluir')" />
     </template>
   </Dialog>
 </template>

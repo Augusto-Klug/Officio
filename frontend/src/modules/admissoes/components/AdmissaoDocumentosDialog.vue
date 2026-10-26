@@ -14,11 +14,12 @@ const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.
 const funcionarioConcluiu = computed(() => props.admissao?.preenchimentoFuncionarioConcluido === true)
 const empresaConcluiu = computed(() => props.admissao?.preenchimentoEmpresaConcluido === true)
 const aguardandoValidacao = computed(() => props.admissao?.status === 'AGUARDANDO_VALIDACAO')
-const documentosValidados = computed(() => ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR', 'CONCLUIDA'].includes(props.admissao?.status ?? ''))
+const documentosValidados = computed(() => ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR', 'LIBERADO_PARA_REVISAO_FINAL', 'CONCLUIDA'].includes(props.admissao?.status ?? ''))
 const documentosEditaveis = computed(() => ['RASCUNHO', 'AGUARDANDO_ADMITIDO', 'AGUARDANDO_VALIDACAO'].includes(props.admissao?.status ?? ''))
 const severity = computed(() => {
   if (props.admissao?.status === 'CONCLUIDA') return 'success'
   if (props.admissao?.status === 'CANCELADA') return 'danger'
+  if (['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR', 'LIBERADO_PARA_REVISAO_FINAL'].includes(props.admissao?.status ?? '')) return 'info'
   return 'warn'
 })
 </script>
@@ -34,16 +35,16 @@ const severity = computed(() => {
       <div class="admission-form-progress" aria-label="Etapas de preenchimento">
         <div><span>Admitido</span><StatusBadge :label="funcionarioConcluiu ? 'Concluído' : 'Pendente'" :severity="funcionarioConcluiu ? 'success' : 'warn'" /></div>
         <div><span>Revisão documental</span><StatusBadge :label="documentosValidados ? 'Concluída' : funcionarioConcluiu ? 'Pendente' : 'Aguardando admitido'" :severity="documentosValidados ? 'success' : funcionarioConcluiu ? 'warn' : 'secondary'" /></div>
-        <div><span>Empregador</span><StatusBadge :label="empresaConcluiu ? 'Liberado' : documentosValidados ? 'Aguardando preenchimento' : 'Aguardando validação'" :severity="empresaConcluiu ? 'success' : documentosValidados ? 'info' : 'secondary'" /></div>
+        <div><span>Empregador</span><StatusBadge :label="empresaConcluiu ? 'Concluído' : 'Pendente'" :severity="empresaConcluiu ? 'success' : 'warn'" /></div>
       </div>
       <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal && documentosEditaveis" :can-validate="aguardandoValidacao" />
     </div>
     <div v-else class="list-state compact-state"><p>Não foi possível carregar a admissão.</p></div>
     <template #footer>
       <BaseButton label="Fechar" variant="text" @click="visible = false" />
-      <BaseButton v-if="admissao && !terminal && ['RASCUNHO', 'AGUARDANDO_ADMITIDO'].includes(admissao.status) && !funcionarioConcluiu" label="Gerar link do admitido" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'funcionario')" />
-      <BaseButton v-else-if="admissao && aguardandoValidacao" label="Concluir revisão documental" icon="pi pi-check-circle" :loading="linkLoading" :disabled="linkLoading" @click="emit('concluirRevisao', admissao.id)" />
-      <BaseButton v-else-if="admissao && !terminal && admissao.status === 'DOCUMENTOS_VALIDADOS' && !empresaConcluiu" label="Gerar link do empregador" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'empresa')" />
+      <BaseButton v-if="admissao && !terminal && !funcionarioConcluiu" label="Gerar link do admitido" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'funcionario')" />
+      <BaseButton v-if="admissao && !terminal && !empresaConcluiu" label="Gerar link do empregador" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'empresa')" />
+      <BaseButton v-if="admissao && aguardandoValidacao" label="Concluir revisão documental" icon="pi pi-check-circle" :loading="linkLoading" :disabled="linkLoading" @click="emit('concluirRevisao', admissao.id)" />
     </template>
   </Dialog>
 </template>
@@ -53,7 +54,7 @@ const severity = computed(() => {
 .documents-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .documents-dialog-heading h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
 .documents-dialog-heading p { margin: 4px 0 0; color: var(--officio-muted); font-size: 13px; }
-.admission-form-progress { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 12px 0; border-top: 1px solid var(--officio-border); border-bottom: 1px solid var(--officio-border); }
+.admission-form-progress { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 12px 0; border-top: 1px solid var(--officio-border); border-bottom: 1px solid var(--officio-border); }
 .admission-form-progress > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--officio-muted); font-size: 13px; }
 @media (max-width: 560px) { .admission-form-progress { grid-template-columns: 1fr; } }
 </style>

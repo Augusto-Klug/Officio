@@ -9,6 +9,7 @@ public class AdmissaoDocumento : EntidadeBase
     public Guid? DocumentoId { get; private set; }
     public string? RotuloExibicao { get; private set; }
     public bool Obrigatorio { get; private set; }
+    public bool RevisaoPendente { get; private set; }
     public int Ordem { get; private set; }
     public DateTime CriadoEm { get; private set; } = DateTime.UtcNow;
     public DateTime AtualizadoEm { get; private set; } = DateTime.UtcNow;
@@ -39,6 +40,18 @@ public class AdmissaoDocumento : EntidadeBase
     {
         Documento = null;
         DocumentoId = null;
+        AtualizadoEm = DateTime.UtcNow;
+    }
+
+    public void MarcarRevisaoPendente()
+    {
+        RevisaoPendente = DocumentoId.HasValue;
+        AtualizadoEm = DateTime.UtcNow;
+    }
+
+    public void ConcluirRevisao()
+    {
+        RevisaoPendente = false;
         AtualizadoEm = DateTime.UtcNow;
     }
 }
