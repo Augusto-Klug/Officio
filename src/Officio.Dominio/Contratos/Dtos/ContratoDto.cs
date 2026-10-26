@@ -15,4 +15,10 @@ public record ContratoDto(
     string? ClausulasExtras,
     bool PdfGerado,
     bool PdfAssinadoDisponivel,
-    DateTime? AssinadoEm);
+    DateTime? AssinadoEm,
+    Guid? RepresentanteSocioId = null,
+    int? DuracaoAnos = null,
+    DateOnly? CompetenciaInicialHonorarios = null,
+    decimal? ValorHonorarioMensal = null,
+    decimal? ValorUnitarioPorFolha = null,
+    IReadOnlyList<AssinaturaSignatarioResumoDto>? SignatariosAssinatura = null);

@@ -15,6 +15,7 @@ public class ContextoAplicacao(
     IContextoAuditoria? contextoAuditoria = null) : DbContext(options)
 {
     public DbSet<Parceiro> Parceiros => Set<Parceiro>();
+    public DbSet<ResponsavelTecnico> ResponsaveisTecnicos => Set<ResponsavelTecnico>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Usuario> Users => Set<Usuario>();
     public DbSet<Prospecto> Prospects => Set<Prospecto>();

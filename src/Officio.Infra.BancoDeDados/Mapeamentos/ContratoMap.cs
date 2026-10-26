@@ -9,6 +9,8 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
     public void Configure(EntityTypeBuilder<Contrato> builder)
     {
         builder.HasKey(c => c.Id);
+        builder.HasOne(c => c.RepresentanteSocio).WithMany().HasForeignKey(c => c.RepresentanteSocioId)
+            .OnDelete(DeleteBehavior.Restrict).IsRequired(false);
 
         builder.Property(c => c.Numero)
             .HasMaxLength(50)
@@ -16,6 +18,11 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
 
         builder.Property(c => c.ValorTotal)
             .HasPrecision(18, 2);
+
+        builder.Property(c => c.DuracaoAnos);
+
+        builder.Property(c => c.CompetenciaInicialHonorarios)
+            .HasColumnType("date");
 
         builder.Property(c => c.ClientId)
             .IsRequired(false);

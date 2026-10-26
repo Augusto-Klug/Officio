@@ -120,15 +120,24 @@ public sealed class AutentiqueIntegracaoCliente(
     private Dictionary<string, object?> CriarDocumento(SolicitacaoAssinatura request)
         => new()
         {
-            ["name"] = request.NomeDocumento
+            ["name"] = request.NomeDocumento,
+            ["sortable"] = false
         };
 
     private static Dictionary<string, object?> CriarSignatario(DadosAssinante assinante)
-        => new()
+    {
+        var signatario = new Dictionary<string, object?>
         {
             ["name"] = assinante.Nome,
             ["email"] = assinante.Email,
             ["delivery_method"] = "DELIVERY_METHOD_LINK",
             ["action"] = "SIGN"
         };
+
+        var cpf = Officio.Dominio.Comum.DocumentoFiscal.SomenteDigitos(assinante.Cpf);
+        if (!string.IsNullOrWhiteSpace(cpf))
+            signatario["configs"] = new { cpf };
+
+        return signatario;
+    }
 }

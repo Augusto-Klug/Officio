@@ -1,15 +1,14 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Officio.ViewModels.Contratos;
 
 public class EnviarAssinaturaViewModel
 {
-    public List<SignatarioViewModel> Signatarios { get; set; } = [];
-    public string? MensagemPersonalizada { get; set; }
-}
+    [Required, EmailAddress]
+    public string EmailContratante { get; set; } = string.Empty;
 
-public class SignatarioViewModel
-{
-    public string Nome { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string? Cpf { get; set; }
-    public string Tipo { get; set; } = string.Empty;
+    [Required, EmailAddress]
+    public string EmailContratada { get; set; } = string.Empty;
+
+    public string? MensagemPersonalizada { get; set; }
 }

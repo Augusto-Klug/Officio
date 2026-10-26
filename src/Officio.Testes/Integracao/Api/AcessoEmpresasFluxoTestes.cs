@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Officio.Dominio.Entidades;
+using Officio.Dominio.Enumeradores;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Testes.Integracao.Infraestrutura;
 
@@ -77,6 +79,16 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         });
         Assert.Equal(HttpStatusCode.Created, criacaoItemCatalogo.StatusCode);
         var itemCatalogoId = await criacaoItemCatalogo.Content.ReadFromJsonAsync<Guid>();
+        var criacaoItemPorFolha = await cliente.PostAsJsonAsync("/api/v1/orcamentos/CriarItemCatalogo", new
+        {
+            descricao = "Processamento de folha",
+            secao = 2,
+            tipo = 2,
+            naturezaCobranca = 3,
+            valorReferencia = 12m
+        });
+        Assert.Equal(HttpStatusCode.Created, criacaoItemPorFolha.StatusCode);
+        var itemPorFolhaId = await criacaoItemPorFolha.Content.ReadFromJsonAsync<Guid>();
 
         var criacaoOrcamento = await cliente.PostAsJsonAsync("/api/v1/orcamentos/Criar", new
         {
@@ -96,6 +108,17 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
                     quantidade = 1,
                     valorUnitario = 500m,
                     ordem = 1
+                },
+                new
+                {
+                    itemCatalogoOrcamentoId = itemPorFolhaId,
+                    descricao = "Processamento de folha",
+                    secao = 2,
+                    tipo = 2,
+                    naturezaCobranca = 3,
+                    quantidade = 40,
+                    valorUnitario = 12m,
+                    ordem = 2
                 }
             }
         });
@@ -105,10 +128,41 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         var aceite = await cliente.PostAsync($"/api/v1/orcamentos/Aceitar/{orcamentoId}", null);
         Assert.Equal(HttpStatusCode.OK, aceite.StatusCode);
 
+        Guid representanteId;
+        using (var socioScope = factory.Services.CreateScope())
+        {
+            var db = socioScope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var estado = Estado.Criar("42", "SC", "Santa Catarina");
+            var municipio = Municipio.Criar(estado.Id, "4202404", "Blumenau");
+            db.Estados.Add(estado);
+            db.Municipios.Add(municipio);
+            var prospecto = await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == prospectoId);
+            prospecto.VincularMunicipio(municipio.Id, "Blumenau", "SC");
+            prospecto.AtualizarDadosCadastrais(null, null, null, null, null, null, null, null, null,
+                "89010000", "Rua da CONTRATANTE", "10", null, "Centro", "Blumenau", "SC", null, null, null, null, null);
+
+            var parceiro = await db.Parceiros.IgnoreQueryFilters().SingleAsync(p => p.Id == tenantId);
+            parceiro.AtualizarDadosContabilidade(parceiro.Cnpj, parceiro.RazaoSocial, null, null, null, "CRC-SC-12345");
+            var enderecoParceiro = Endereco.Criar(municipio.Id, "Rua da Contabilidade", "89010000", "10", "Centro");
+            var enderecoTecnico = Endereco.Criar(municipio.Id, "Rua do Responsável", "89010000", "20", "Centro");
+            db.Enderecos.AddRange(enderecoParceiro, enderecoTecnico);
+            parceiro.VincularEndereco(enderecoParceiro.Id);
+            var responsavel = ResponsavelTecnico.Criar(tenantId, "Responsável Técnico", "12345678901", "Contador", "CRC-SC-54321");
+            responsavel.VincularEndereco(enderecoTecnico.Id);
+            db.ResponsaveisTecnicos.Add(responsavel);
+
+            var socio = await db.Socios.IgnoreQueryFilters().Include(s => s.Pessoa).SingleAsync(s => s.ProspectId == prospectoId);
+            SocioContratualFixture.Completar(db, socio);
+            representanteId = socio.Id;
+            await db.SaveChangesAsync();
+        }
+
         var conversao = await cliente.PostAsJsonAsync($"/api/v1/orcamentos/ConverterParaContrato/{orcamentoId}", new
         {
             dataInicio = new DateTime(2026, 10, 1),
-            dataFim = (DateTime?)null,
+            duracaoAnos = 4,
+            competenciaInicialHonorarios = new DateOnly(2026, 10, 1),
+            representanteSocioId = representanteId,
             confirmarSubstituicaoContratoAtivo = false,
             clausulasExtras = "Contrato criado pelo teste de integracao."
         });

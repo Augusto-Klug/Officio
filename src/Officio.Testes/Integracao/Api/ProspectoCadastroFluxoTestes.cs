@@ -163,6 +163,215 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         Assert.Single(atual["socios"]!.AsArray());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CadastroComercial_PermiteSemSociosOuSocioTotalmenteIncompleto(bool adicionarSocio)
+    {
+        await factory.PrepararTenantAsync();
+        using var cliente = await ClienteAutenticadoAsync();
+        var resposta = await cliente.PostAsJsonAsync("/api/v1/prospectos/Criar", new
+        {
+            razaoSocial = "Cadastro opcional",
+            socios = adicionarSocio ? new[] { new Dictionary<string, object?>() } : []
+        });
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        var id = (await resposta.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.GetValue<Guid>();
+        var dados = await ObterDadosAsync(cliente, id);
+        Assert.Equal(adicionarSocio ? 1 : 0, dados["socios"]!.AsArray().Count);
+        if (adicionarSocio)
+        {
+            var socio = dados["socios"]![0]!;
+            Assert.NotEqual(Guid.Empty, socio["pessoaId"]!.GetValue<Guid>());
+            Assert.Null(socio["participacao"]);
+            Assert.Null(socio["tipoRelacaoId"]);
+            Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+            dados["socios"] = new JsonArray();
+            Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+            Assert.Empty((await ObterDadosAsync(cliente, id))["socios"]!.AsArray());
+        }
+    }
+
+    [Theory]
+    [InlineData("SOCIO", "Sócio")]
+    [InlineData("SOCIO_ADMINISTRADOR", "Sócio administrador")]
+    public async Task Socio_PreservaPessoaProfissaoEnderecoETipoNaEdicaoEConversao(string codigo, string descricao)
+    {
+        await factory.PrepararTenantAsync();
+        var tipo = new TipoRelacao(codigo, descricao, "SOCIETARIO");
+        var estado = Estado.Criar("42", "SC", "Santa Catarina");
+        var municipio = Municipio.Criar(estado.Id, "4202404", "Blumenau");
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            db.TiposRelacao.Add(tipo); db.Estados.Add(estado); db.Municipios.Add(municipio);
+            await db.SaveChangesAsync();
+        }
+        using var cliente = await ClienteAutenticadoAsync();
+        var tipos = await cliente.GetFromJsonAsync<JsonArray>("/api/v1/prospectos/TiposRelacaoSocietaria");
+        Assert.Contains(tipos!, t => t!["id"]!.GetValue<Guid>() == tipo.Id);
+        var resposta = await cliente.PostAsJsonAsync("/api/v1/prospectos/Criar", new
+        {
+            razaoSocial = "Cadastro societario", cnpj = "99093538000155",
+            socios = new[] { new { nome = "Ana", cpf = "117.892.999-00", profissao = "Engenheira",
+                participacao = 40, tipoRelacaoId = tipo.Id, endereco = new { logradouro = "Rua inicial" } } }
+        });
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        var id = (await resposta.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.GetValue<Guid>();
+        var dados = await ObterDadosAsync(cliente, id);
+        var socio = dados["socios"]![0]!;
+        var pessoaId = socio["pessoaId"]!.GetValue<Guid>();
+        Assert.Equal("Rua inicial", socio["endereco"]!["logradouro"]!.GetValue<string>());
+        Assert.Null(socio["endereco"]!["municipioCodigoIbge"]);
+        socio["nome"] = "Ana revisada"; socio["profissao"] = "Arquiteta";
+        socio["participacao"] = null;
+        socio["endereco"] = new JsonObject { ["logradouro"] = "Rua final", ["numero"] = "10", ["complemento"] = "Sala 2",
+            ["bairro"] = "Centro", ["uf"] = "SC", ["municipioCodigoIbge"] = "4202404" };
+        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        var editado = (await ObterDadosAsync(cliente, id))["socios"]![0]!;
+        Assert.Equal(pessoaId, editado["pessoaId"]!.GetValue<Guid>());
+        Assert.Equal("Arquiteta", editado["profissao"]!.GetValue<string>());
+        Assert.Equal("SC", editado["endereco"]!["uf"]!.GetValue<string>());
+        Assert.Equal("4202404", editado["endereco"]!["municipioCodigoIbge"]!.GetValue<string>());
+        Assert.Equal(HttpStatusCode.Created, (await cliente.PostAsync($"/api/v1/prospectos/ConverterParaCliente/{id}", null)).StatusCode);
+        using var verificacao = factory.Services.CreateScope();
+        var contexto = verificacao.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+        var convertido = await contexto.Clients.IgnoreQueryFilters().Include(c => c.Socios).ThenInclude(s => s.Pessoa)
+            .ThenInclude(p => p.Endereco).SingleAsync(c => c.ProspectOrigemId == id);
+        var socioCliente = Assert.Single(convertido.Socios);
+        Assert.Equal(pessoaId, socioCliente.PessoaId);
+        Assert.Equal(tipo.Id, socioCliente.TipoRelacaoId);
+        Assert.Equal("Ana revisada", socioCliente.Nome);
+        Assert.Equal("11789299900", socioCliente.Cpf);
+        Assert.Equal("Arquiteta", socioCliente.Pessoa.Profissao);
+        Assert.Equal(municipio.Id, socioCliente.Pessoa.Endereco!.MunicipioId);
+        Assert.Equal("Rua final", socioCliente.Pessoa.Endereco.Logradouro);
+        Assert.Equal("Sala 2", socioCliente.Pessoa.Endereco.Complemento);
+        Assert.Null(socioCliente.Participacao);
+        Assert.Single(await contexto.Set<Pessoa>().ToListAsync());
+        Assert.Single(await contexto.Set<Endereco>().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Socio_RejeitaLocalidadeInconsistenteETipoInvalidoSemPersistirAlteracao()
+    {
+        await factory.PrepararTenantAsync();
+        using var cliente = await ClienteAutenticadoAsync();
+        var id = await CriarAsync(cliente);
+        var dados = await ObterDadosAsync(cliente, id);
+        dados["socios"]![0]!["tipoRelacaoId"] = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.BadRequest, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        dados["socios"]![0]!["tipoRelacaoId"] = null;
+        dados["socios"]![0]!["endereco"] = new JsonObject { ["municipioCodigoIbge"] = "9999999", ["uf"] = "SC" };
+        Assert.Equal(HttpStatusCode.BadRequest, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        Assert.Null((await ObterDadosAsync(cliente, id))["socios"]![0]!["endereco"]);
+    }
+
+    [Fact]
+    public async Task Representante_CompletaSociosAposPropostaSemAlterarEmpresaERecaregaLista()
+    {
+        var tenantId = await factory.PrepararTenantAsync(); using var cliente = await ClienteAutenticadoAsync();
+        var id = await CriarAsync(cliente);
+        Guid orcamentoId;
+        var estado = Estado.Criar("42", "SC", "Santa Catarina");
+        var municipio = Municipio.Criar(estado.Id, "4202404", "Blumenau");
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var p = await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == id);
+            p.UpdateStatus(StatusProspecto.PropostaEnviada);
+            p.VincularMunicipio(municipio.Id, "Blumenau", "SC");
+            p.AtualizarDadosCadastrais(null, null, null, null, null, null, null, null, null,
+                "89010000", "Rua da CONTRATANTE", "10", null, "Centro", "Blumenau", "SC", null, null, null, null, null);
+            var orcamento = Orcamento.Criar(p.TenantId, p.Id, "Aceito", 10, null);
+            orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(p.TenantId, orcamento.Id, null, "Honorário mensal",
+                SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario, 1, 500m, 1,
+                NaturezaCobrancaItemOrcamento.HonorarioMensal));
+            orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(p.TenantId, orcamento.Id, null, "Preço por folha",
+                SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario, 40, 12m, 2,
+                NaturezaCobrancaItemOrcamento.PorFolha));
+            orcamento.Aceitar();
+            db.Budgets.Add(orcamento); orcamentoId = orcamento.Id;
+            db.Estados.Add(estado); db.Municipios.Add(municipio); await db.SaveChangesAsync();
+
+            var parceiro = await db.Parceiros.IgnoreQueryFilters().SingleAsync(parceiro => parceiro.Id == tenantId);
+            parceiro.AtualizarDadosContabilidade(parceiro.Cnpj, parceiro.RazaoSocial, null, null, null, "CRC-SC-12345");
+            var enderecoContratada = Endereco.Criar(municipio.Id, "Rua da Contabilidade", "89010000", "10", "Centro");
+            var enderecoResponsavel = Endereco.Criar(municipio.Id, "Rua do Responsável", "89010000", "20", "Centro");
+            db.Enderecos.AddRange(enderecoContratada, enderecoResponsavel);
+            parceiro.VincularEndereco(enderecoContratada.Id);
+            var responsavel = ResponsavelTecnico.Criar(tenantId, "Responsável Técnico", "12345678901", "Contador", "CRC-SC-54321");
+            responsavel.VincularEndereco(enderecoResponsavel.Id);
+            db.ResponsaveisTecnicos.Add(responsavel);
+            await db.SaveChangesAsync();
+        }
+        var lista = await cliente.GetFromJsonAsync<JsonObject>($"/api/v1/orcamentos/ObterRepresentantes/{orcamentoId}");
+        var candidato = lista!["socios"]![0]!;
+        var socioId = candidato["id"]!.GetValue<Guid>();
+        Assert.False(candidato["cadastroCompleto"]!.GetValue<bool>());
+        var respostaIncompleta = await cliente.PostAsJsonAsync($"/api/v1/orcamentos/ConverterParaContrato/{orcamentoId}",
+            new { dataInicio = DateTime.Today, representanteSocioId = socioId });
+        Assert.Equal(HttpStatusCode.BadRequest, respostaIncompleta.StatusCode);
+        var pendencias = await respostaIncompleta.Content.ReadFromJsonAsync<JsonObject>();
+        Assert.Contains("Não foi possível gerar o contrato", pendencias!["error"]!.GetValue<string>());
+        Assert.NotEmpty(pendencias["errors"]!["pendencias"]!.AsArray());
+        var dados = await ObterDadosAsync(cliente, id);
+        dados["razaoSocial"] = "Nao alterar empresa";
+        dados["socios"]![0]!["profissao"] = "Arquiteta";
+        dados["socios"]![0]!["endereco"] = new JsonObject { ["logradouro"] = "Rua", ["numero"] = "10",
+            ["bairro"] = "Centro", ["uf"] = "SC", ["municipioCodigoIbge"] = "4202404" };
+        Assert.Equal(HttpStatusCode.Conflict, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
+        Assert.Equal("Empresa inicial", (await ObterDadosAsync(cliente, id))["razaoSocial"]!.GetValue<string>());
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var s = await db.Socios.IgnoreQueryFilters().Include(s => s.Pessoa).ThenInclude(p => p.Endereco).SingleAsync(s => s.Id == socioId);
+            var tipo = new TipoRelacao("SOCIO", "Sócio", "SOCIETARIO"); db.TiposRelacao.Add(tipo);
+            s.AtualizarVinculo(null, tipo);
+            s.Pessoa.Endereco!.AtualizarParcial(municipio.Id, estado.Id, "Rua", "89010000", "10", "Centro", null);
+            await db.SaveChangesAsync();
+        }
+        lista = await cliente.GetFromJsonAsync<JsonObject>($"/api/v1/orcamentos/ObterRepresentantes/{orcamentoId}");
+        Assert.True(lista!["socios"]![0]!["cadastroCompleto"]!.GetValue<bool>());
+        var resposta = await cliente.PostAsJsonAsync($"/api/v1/orcamentos/ConverterParaContrato/{orcamentoId}",
+            new { dataInicio = DateTime.Today, duracaoAnos = 4,
+                competenciaInicialHonorarios = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1),
+                representanteSocioId = socioId });
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        var contratoId = await resposta.Content.ReadFromJsonAsync<Guid>();
+        var contrato = await cliente.GetFromJsonAsync<JsonObject>($"/api/v1/contratos/ObterPorId/{contratoId}");
+        Assert.Equal(socioId, contrato!["representanteSocioId"]!.GetValue<Guid>());
+        dados = await ObterDadosAsync(cliente, id); dados["socios"] = new JsonArray();
+        Assert.Equal(HttpStatusCode.BadRequest, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
+    }
+
+    [Fact]
+    public async Task CadastroSocios_PermiteCompletarVinculoExistenteSomenteNoClienteCorrespondente()
+    {
+        await factory.PrepararTenantAsync(); using var cliente = await ClienteAutenticadoAsync();
+        var id = await CriarAsync(cliente);
+        Assert.Equal(HttpStatusCode.Created, (await cliente.PostAsync($"/api/v1/prospectos/ConverterParaCliente/{id}", null)).StatusCode);
+        Guid socioClienteId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var original = await db.Socios.IgnoreQueryFilters().SingleAsync(s => s.ProspectId == id);
+            socioClienteId = (await db.Socios.IgnoreQueryFilters().SingleAsync(s => s.ClientId.HasValue)).Id;
+            db.Socios.Remove(original); await db.SaveChangesAsync();
+        }
+        var resposta = await cliente.GetFromJsonAsync<JsonObject>($"/api/v1/prospectos/ObterPorId/{id}?incluirSociosCliente=true");
+        var dados = resposta!["dados"]!.AsObject();
+        Assert.Equal(socioClienteId, dados["socios"]![0]!["id"]!.GetValue<Guid>());
+        dados["socios"]![0]!["profissao"] = "Arquiteta";
+        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
+        using var verificacao = factory.Services.CreateScope();
+        var contexto = verificacao.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+        var socio = await contexto.Socios.IgnoreQueryFilters().Include(s => s.Pessoa).SingleAsync(s => s.Id == socioClienteId);
+        Assert.Equal("Arquiteta", socio.Pessoa.Profissao);
+        Assert.Single(await contexto.Set<Pessoa>().ToListAsync());
+    }
+
     private static async Task<Guid> CriarAsync(HttpClient cliente, string cnpj = "99093538000155")
     {
         var resposta = await cliente.PostAsJsonAsync("/api/v1/prospectos/Criar", new

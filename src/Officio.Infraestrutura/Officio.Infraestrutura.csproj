@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <EmbeddedResource Include="Pdf\Conteudo\*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Officio.Dominio\Officio.Dominio.csproj" />
     <ProjectReference Include="..\Officio.Infra.BancoDeDados\Officio.Infra.BancoDeDados.csproj" />
   </ItemGroup>

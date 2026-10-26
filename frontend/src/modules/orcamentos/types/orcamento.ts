@@ -64,8 +64,10 @@ export interface CriarOrcamentoPayload {
 export type AtualizarOrcamentoPayload = Omit<CriarOrcamentoPayload, 'prospectoId'>
 
 export interface ConverterContratoPayload {
+  representanteSocioId: string
   dataInicio: string
-  dataFim?: string
+  duracaoAnos: number
+  competenciaInicialHonorarios?: string
   confirmarSubstituicaoContratoAtivo: boolean
   clausulasExtras?: string
 }
@@ -85,9 +87,9 @@ export const secaoOptions = [
 ] as const
 
 export const tipoOptions = [
-  { label: 'Descrição de serviço', value: 1 },
-  { label: 'Item monetário', value: 2 },
-  { label: 'Regra comercial', value: 3 },
+  { label: 'Serviço / Escopo', value: 1 },
+  { label: 'Item com valor', value: 2 },
+  { label: 'Condição comercial', value: 3 },
 ] as const
 
 export const naturezaCobrancaOptions = [
@@ -113,4 +115,19 @@ export const naturezaCobrancaPorNome: Record<string, number> = {
   NaoRecorrente: 1,
   HonorarioMensal: 2,
   PorFolha: 3,
+}
+
+export const statusOrcamentoLabel: Record<string, string> = {
+  Rascunho: 'Rascunho',
+  EmRevisao: 'Em revisão',
+  ProntoParaEnvio: 'Pronto para envio',
+  Enviado: 'Enviado',
+  Aceito: 'Aceito',
+  Recusado: 'Recusado',
+  Expirado: 'Expirado',
+  Substituido: 'Substituído',
+}
+
+export function rotuloStatusOrcamento(status: string): string {
+  return statusOrcamentoLabel[status] ?? status
 }

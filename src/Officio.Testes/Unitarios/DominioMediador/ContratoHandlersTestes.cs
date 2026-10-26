@@ -24,6 +24,7 @@ public class ContratoHandlersTestes
         var resultado = await handler.Handle(new ConverterOrcamentoParaContratoComando(
             Guid.NewGuid(),
             new DateTime(2026, 9, 1),
+            4,
             null,
             true,
             "Clausula"), CancellationToken.None);
@@ -140,6 +141,9 @@ public class ContratoHandlersTestes
             ConverterOrcamentoContratoRequisicao requisicao, CancellationToken ct = default)
             => Task.FromResult(conversao ?? throw new NotImplementedException());
 
+        public Task<Resultado<RepresentantesContratoDto>> ObterRepresentantesAsync(Guid id, CancellationToken ct = default)
+            => throw new NotImplementedException();
+
         public Task<Resultado<List<ContratoDto>>> ListarAsync(
             Guid? empresaId = null,
             StatusContrato? status = null,
@@ -161,6 +165,10 @@ public class ContratoHandlersTestes
         public Task<Resultado<ContratoDto>> ObterPorIdAsync(
             Guid contratoId, CancellationToken ct = default)
             => Task.FromResult(detalhe ?? throw new NotImplementedException());
+
+        public Task<Resultado<SignatariosContratoDto>> ObterSignatariosAsync(
+            Guid contratoId, CancellationToken ct = default)
+            => Task.FromResult(Resultado<SignatariosContratoDto>.CriarSucesso(new([])));
 
         public Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(
             Guid contratoId, CancellationToken ct = default)

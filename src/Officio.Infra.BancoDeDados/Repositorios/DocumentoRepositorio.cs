@@ -46,7 +46,7 @@ internal class DocumentoRepositorio(
 
         if (documento.SocioId.HasValue)
         {
-            var socio = await Contexto.Socios
+            var socio = await Contexto.Socios.Include(s => s.Pessoa)
                 .FirstOrDefaultAsync(s => s.Id == documento.SocioId.Value, cancellationToken);
 
             return socio is null

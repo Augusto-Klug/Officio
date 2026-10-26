@@ -4,7 +4,7 @@ using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Prospectos.Validadores;
 
-public class ProspectoRequisicaoValidador : AbstractValidator<CriarProspectoRequisicao>
+public sealed class ProspectoRequisicaoValidador : AbstractValidator<CriarProspectoRequisicao>
 {
     public ProspectoRequisicaoValidador()
     {
@@ -19,13 +19,7 @@ public class ProspectoRequisicaoValidador : AbstractValidator<CriarProspectoRequ
             .When(x => !string.IsNullOrWhiteSpace(x.MunicipioCodigoIbge))
             .WithMessage("Codigo IBGE do municipio invalido.");
         RuleFor(x => x.RegimeTributario).IsInEnum();
-        RuleForEach(x => x.Socios).ChildRules(socio =>
-        {
-            socio.RuleFor(x => x.Nome).NotEmpty().MaximumLength(250);
-            socio.RuleFor(x => x.Cpf).Must(cpf => DocumentoFiscal.SomenteDigitos(cpf)?.Length == 11)
-                .When(x => !string.IsNullOrWhiteSpace(x.Cpf)).WithMessage("CPF do socio invalido.");
-            socio.RuleFor(x => x.Participacao).InclusiveBetween(0m, 100m);
-        });
+        RuleForEach(x => x.Socios).SetValidator(new SocioRequisicaoValidador());
         RuleFor(x => x.Socios).Must(socios => socios is null || socios.Sum(x => x.Participacao) <= 100m)
             .WithMessage("A participacao total dos socios nao pode ultrapassar 100%.");
     }

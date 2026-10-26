@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import EnderecoCadastro from '../../../components/shared/EnderecoCadastro.vue'
+import { novoEndereco } from '../../../components/shared/endereco'
 import Dialog from 'primevue/dialog'
 import InputNumber from 'primevue/inputnumber'
 import Message from 'primevue/message'
@@ -8,12 +10,12 @@ import BaseButton from '../../../components/base/BaseButton.vue'
 import BaseInput from '../../../components/base/BaseInput.vue'
 import { normalizeError } from '../../../api/errors'
 import { consultarCep, listarEstados, listarMunicipios } from '../services/localidades.service'
-import { atualizarProspecto, criarProspecto, obterProspecto } from '../services/prospectos.service'
+import { atualizarProspecto, atualizarSociosProspecto, criarProspecto, obterProspecto, listarTiposRelacaoSocietaria } from '../services/prospectos.service'
 import type { EstadoLocalidade, MunicipioLocalidade } from '../types/localidade'
 import { prospectoNaEtapaInicial, regimeTributarioOptions, type CriarProspectoPayload, type ProspectoCriado } from '../types/prospecto'
 import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limparPayload, montarFormularioProspecto, novoProspecto, somenteDigitos, validarProspecto, type ProspectoFormErrors } from './prospecto-form'
 
-const props = defineProps<{ visible: boolean; prospectoId?: string | null }>()
+const props = defineProps<{ visible: boolean; prospectoId?: string | null; somenteSocios?: boolean }>()
 const emit = defineEmits<{
   'update:visible': [value: boolean]
   criado: [prospecto: ProspectoCriado]
@@ -28,6 +30,10 @@ let cadastroController: AbortController | undefined
 const errors = ref<ProspectoFormErrors>({})
 const submitError = ref('')
 const loading = ref(false)
+const tiposRelacao = ref<{ id: string; descricao: string }[]>([])
+const proximoSocio = ref(0)
+const enderecosSocios = ref<InstanceType<typeof EnderecoCadastro>[]>([])
+const expandirEnderecos = ref(false)
 const estados = ref<EstadoLocalidade[]>([])
 const municipios = ref<MunicipioLocalidade[]>([])
 const estadosLoading = ref(false)
@@ -53,6 +59,7 @@ const municipioOptions = computed(() => municipios.value.map((municipio) => ({
 const enderecoAvisoSeveridade = computed(() => cepStatus.value === 'indisponivel' ? 'error' : 'secondary')
 
 function reset() {
+  expandirEnderecos.value = false
   Object.assign(form, montarFormularioProspecto())
   dadosOriginais.value = null
   errors.value = {}
@@ -66,7 +73,7 @@ function reset() {
 }
 
 function close() { if (!loading.value) dialogVisible.value = false }
-function addSocio() { form.socios.push({ nome: '', cpf: '', participacao: 0 }) }
+function addSocio() { form.socios.push({ chave: `novo-${proximoSocio.value++}`, nome: '', cpf: '', participacao: null, profissao: '', tipoRelacaoId: null, endereco: novoEndereco() }) }
 function removeSocio(index: number) { form.socios.splice(index, 1); errors.value = {} }
 function fieldError(name: string) { return errors.value[name] }
 
@@ -200,10 +207,11 @@ async function handleShow() {
   reset()
   try {
     await carregarEstados()
+    tiposRelacao.value = await listarTiposRelacaoSocietaria(controller.signal)
     if (props.prospectoId) {
-      const prospecto = await obterProspecto(props.prospectoId, controller.signal)
+      const prospecto = await obterProspecto(props.prospectoId, controller.signal, props.somenteSocios)
       if (controller.signal.aborted) return
-      if (!prospectoNaEtapaInicial(prospecto)) throw new Error('Este prospecto já saiu da etapa inicial e não pode ser editado.')
+      if (!props.somenteSocios && !prospectoNaEtapaInicial(prospecto)) throw new Error('Este prospecto já saiu da etapa inicial e não pode ser editado.')
       dadosOriginais.value = prospecto.dados
       Object.assign(form, montarFormularioProspecto(prospecto.dados))
       await carregarMunicipios(form.uf, form.municipioCodigoIbge)
@@ -211,7 +219,7 @@ async function handleShow() {
     await nextTick()
     if (controller.signal.aborted) return
     cadastroPronto.value = true
-    if (form.cep) await preencherEnderecoPorCep(somenteDigitos(form.cep), true)
+    if (!props.somenteSocios && form.cep) await preencherEnderecoPorCep(somenteDigitos(form.cep), true)
   } catch (cause) {
     if (!controller.signal.aborted) submitError.value = normalizeError(cause).message
   } finally {
@@ -269,14 +277,15 @@ async function submit() {
   submitError.value = ''
   let payload = montarPayload()
   errors.value = validarProspecto(payload)
+  if (props.somenteSocios) errors.value = Object.fromEntries(Object.entries(errors.value).filter(([key]) => key.startsWith('socios')))
   if (Object.keys(errors.value).length) { await focusFirstInvalid(); return }
 
-  const cepAtual = somenteDigitos(form.cep)
+  const cepAtual = props.somenteSocios ? '' : somenteDigitos(form.cep)
   if (cepAtual && (cepStatus.value !== 'valido' || cepConsultado.value !== cepAtual)) {
     await preencherEnderecoPorCep(cepAtual)
   }
 
-  if (cepStatus.value === 'invalido') {
+  if (!props.somenteSocios && cepStatus.value === 'invalido') {
     errors.value = validarProspecto(payload, true)
     await focusFirstInvalid()
     return
@@ -287,11 +296,18 @@ async function submit() {
     return
   }
 
+  const enderecosValidos = await Promise.all(enderecosSocios.value.map(e => e.validar()))
+  if (enderecosValidos.some(v => !v)) {
+    expandirEnderecos.value = true
+    submitError.value = 'Confira os endereços dos sócios antes de salvar.'
+    return
+  }
   payload = montarPayload()
   loading.value = true
   try {
     if (props.prospectoId) {
-      await atualizarProspecto(props.prospectoId, payload)
+      if (props.somenteSocios) await atualizarSociosProspecto(props.prospectoId, payload)
+      else await atualizarProspecto(props.prospectoId, payload)
       emit('atualizado', { id: props.prospectoId, razaoSocial: payload.razaoSocial })
     } else {
       emit('criado', await criarProspecto(payload))
@@ -307,14 +323,15 @@ async function submit() {
 </script>
 
 <template>
-  <Dialog v-model:visible="dialogVisible" modal :header="props.prospectoId ? 'Editar prospecto' : 'Cadastrar prospecto'" class="prospect-dialog"
+  <Dialog v-model:visible="dialogVisible" modal :header="props.somenteSocios ? 'Completar cadastro de sócios' : props.prospectoId ? 'Editar prospecto' : 'Cadastrar prospecto'" class="prospect-dialog"
     :style="{ width: 'min(760px, calc(100vw - 24px))' }" :closable="!loading" :close-on-escape="!loading"
     :draggable="false" aria-describedby="prospect-dialog-description" @show="handleShow" @hide="handleHide">
-    <p id="prospect-dialog-description" class="dialog-description">{{ props.prospectoId ? 'Atualize os dados comerciais deste prospecto.' : 'Cadastre os dados comerciais usados na proposta e na futura conversão em cliente.' }}</p>
+    <p id="prospect-dialog-description" class="dialog-description">{{ props.somenteSocios ? 'Atualize os sócios e seus dados pessoais. Ao fechar, você retornará à seleção do representante.' : props.prospectoId ? 'Atualize os dados comerciais deste prospecto.' : 'Cadastre os dados comerciais usados na proposta e na futura conversão em cliente.' }}</p>
     <Message v-if="submitError" severity="error" :closable="false" role="alert">{{ submitError }}</Message>
     <p v-if="carregandoCadastro" role="status" aria-live="polite">Carregando cadastro...</p>
     <BaseButton v-else-if="!cadastroPronto" label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="handleShow" />
     <form v-else id="prospect-form" class="prospect-form" novalidate @submit.prevent="submit">
+      <template v-if="!props.somenteSocios">
       <div class="prospect-company-grid">
         <BaseInput id="razaoSocial" v-model="form.razaoSocial" label="Razão social *" name="razaoSocial" autocomplete="organization" maxlength="300" :error="fieldError('razaoSocial')" class="company-name-field" />
         <BaseInput id="cnpj" :model-value="form.cnpj" label="CNPJ" name="cnpj" inputmode="numeric" autocomplete="off" placeholder="00.000.000/0000-00" maxlength="18" :error="fieldError('cnpj')" @update:model-value="form.cnpj = formatarCnpj($event)" />
@@ -367,22 +384,27 @@ async function submit() {
         </div>
       </section>
 
+      </template>
       <section class="partners-section" aria-labelledby="partners-heading">
-        <div class="form-section-heading"><div><h3 id="partners-heading">Sócios</h3><p>Participação informada: {{ participacaoTotal }}%</p></div><BaseButton label="Adicionar sócio" icon="pi pi-plus" variant="secondary" @click="addSocio" /></div>
+        <div class="form-section-heading"><div><h3 id="partners-heading">Sócios</h3><p>Dados opcionais. Participação informada: {{ participacaoTotal }}%</p></div><BaseButton label="Adicionar sócio" icon="pi pi-plus" variant="secondary" @click="addSocio" /></div>
         <Message v-if="fieldError('socios')" severity="error" :closable="false">{{ fieldError('socios') }}</Message>
         <div v-if="form.socios.length" class="partners-list">
-          <fieldset v-for="(socio, index) in form.socios" :key="index" class="partner-row">
+          <fieldset v-for="(socio, index) in form.socios" :key="socio.id || socio.chave" class="partner-row">
             <legend>Sócio {{ index + 1 }}</legend>
-            <BaseInput :id="`socios-${index}-nome`" v-model="socio.nome" label="Nome *" :error="fieldError(`socios.${index}.nome`)" />
+            <h4 class="partner-group-heading">Dados pessoais e societários</h4>
+            <BaseInput :id="`socios-${index}-nome`" v-model="socio.nome" label="Nome" maxlength="250" :error="fieldError(`socios.${index}.nome`)" />
             <BaseInput :id="`socios-${index}-cpf`" :model-value="socio.cpf" label="CPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" :error="fieldError(`socios.${index}.cpf`)" @update:model-value="socio.cpf = formatarCpf($event)" />
             <div class="field"><label :for="`socios-${index}-participacao`">Participação (%)</label><InputNumber :input-id="`socios-${index}-participacao`" v-model="socio.participacao" :min="0" :max="100" :max-fraction-digits="2" suffix="%" :invalid="!!fieldError(`socios.${index}.participacao`)" /><small v-if="fieldError(`socios.${index}.participacao`)" class="field-error">{{ fieldError(`socios.${index}.participacao`) }}</small></div>
+            <div class="field"><label :for="`socios-${index}-tipo`">Tipo de relação</label><Select :input-id="`socios-${index}-tipo`" v-model="socio.tipoRelacaoId" :options="tiposRelacao" option-label="descricao" option-value="id" placeholder="Selecione" show-clear /></div>
+            <BaseInput :id="`socios-${index}-profissao`" v-model="socio.profissao" label="Profissão" maxlength="250" />
+            <details class="partner-address" :open="expandirEnderecos || !!fieldError(`socios.${index}.endereco`)"><summary>Endereço</summary><EnderecoCadastro ref="enderecosSocios" v-model="socio.endereco" :prefix="`socios-${socio.id || socio.chave}`" :disabled="loading" /><small v-if="fieldError(`socios.${index}.endereco`)" class="field-error">{{ fieldError(`socios.${index}.endereco`) }}</small></details>
             <BaseButton icon="pi pi-trash" variant="text" :aria-label="`Remover sócio ${index + 1}`" class="remove-partner" @click="removeSocio(index)" />
           </fieldset>
         </div>
         <p v-else class="empty-partners">Nenhum sócio adicionado.</p>
       </section>
     </form>
-    <template #footer><BaseButton label="Cancelar" variant="text" :disabled="loading" @click="close" /><BaseButton :label="props.prospectoId ? 'Salvar alterações' : 'Cadastrar prospecto'" icon="pi pi-check" type="submit" form="prospect-form" :loading="loading" :disabled="loading || carregandoCadastro || !cadastroPronto || cepLoading || cepStatus === 'pendente' || cepStatus === 'invalido'" /></template>
+    <template #footer><BaseButton label="Cancelar" variant="text" :disabled="loading" @click="close" /><BaseButton :label="props.prospectoId ? 'Salvar alterações' : 'Cadastrar prospecto'" icon="pi pi-check" type="submit" form="prospect-form" :loading="loading" :disabled="loading || carregandoCadastro || !cadastroPronto || (!props.somenteSocios && (cepLoading || cepStatus === 'pendente' || cepStatus === 'invalido'))" /></template>
   </Dialog>
 </template>
 
@@ -401,10 +423,13 @@ async function submit() {
 .field-error { color: var(--p-red-600); font-size: 12px; }
 .partners-section { display: grid; gap: 16px; padding-top: 20px; border-top: 1px solid var(--officio-border); }
 .partners-list { display: grid; gap: 12px; }
-.partner-row { display: grid; grid-template-columns: minmax(160px, 1.4fr) minmax(150px, 1fr) 140px 40px; gap: 12px; align-items: end; margin: 0; padding: 14px; border: 1px solid var(--officio-border); border-radius: 6px; }
+.partner-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; margin: 0; padding: 14px; border: 1px solid var(--officio-border); border-radius: 6px; }
 .partner-row legend { padding: 0 4px; font-size: 12px; font-weight: 600; }
 .partner-row :deep(.p-inputnumber), .partner-row :deep(.p-inputnumber-input) { width: 100%; }
-.remove-partner { width: 40px; }
+.partner-group-heading { grid-column: 1 / -1; margin: 0; font-size: 13px; }
+.partner-address { grid-column: 1 / -1; }
+.partner-address summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.remove-partner { width: 40px; justify-self: end; grid-column: 1 / -1; }
 .empty-partners { margin: 0; color: var(--officio-muted); font-size: 13px; }
 @media (max-width: 680px) { .prospect-company-grid, .prospect-address-grid, .partner-row { grid-template-columns: 1fr; } .company-name-field, .address-street { grid-column: auto; } .remove-partner { justify-self: end; } }
 </style>

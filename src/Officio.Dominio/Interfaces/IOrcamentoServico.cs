@@ -36,7 +36,7 @@ public interface IOrcamentoServico
         AlterarStatusOrcamentoRequisicao requisicao,
         CancellationToken ct = default);
 
-    Task<Resultado<bool>> AceitarAsync(Guid orcamentoId, CancellationToken ct = default);
+    Task<Resultado<bool>> AceitarAsync(Guid orcamentoId, bool confirmarSubstituicao = false, CancellationToken ct = default);
 
     Task<Resultado<bool>> RecusarAsync(RecusarOrcamentoRequisicao requisicao, CancellationToken ct = default);
 }

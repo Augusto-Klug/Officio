@@ -16,6 +16,10 @@ internal class ProspectoServico(
     IEmpresaAtual empresaAtual,
     IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IProspectoServico
 {
+    public async Task<List<TipoRelacaoSocietariaDto>> ListarTiposRelacaoSocietariaAsync(CancellationToken ct = default)
+        => (await prospectoRepositorio.ListarTiposRelacaoSocietariaAsync(ct))
+            .Select(t => new TipoRelacaoSocietariaDto(t.Id, t.Codigo, t.Descricao)).ToList();
+
     public async Task<Resultado<ProspectoCriadoDto>> CriarAsync(
         CriarProspectoRequisicao requisicao,
         CancellationToken ct = default)
@@ -25,6 +29,10 @@ internal class ProspectoServico(
         var cadastro = await ValidarCadastroAsync(requisicao, null, ct);
         if (!cadastro.Sucesso)
             return Resultado<ProspectoCriadoDto>.CriarFalha(cadastro.Erro!);
+
+        var sociosValidados = await ValidarSociosAsync(requisicao.Socios, ct);
+        if (!sociosValidados.Sucesso)
+            return Resultado<ProspectoCriadoDto>.CriarFalha(sociosValidados.Erro!);
 
         var prospecto = Prospecto.Create(
             empresaAtual.TenantId,
@@ -47,6 +55,8 @@ internal class ProspectoServico(
                     socioRequisicao.Participacao,
                     prospectId: prospecto.Id);
 
+                await AplicarSocioAsync(socio, socioRequisicao, ct);
+
                 await prospectoRepositorio.AdicionarSocioAsync(socio, ct);
             }
         }
@@ -58,15 +68,18 @@ internal class ProspectoServico(
             new ProspectoCriadoDto(prospecto.Id, prospecto.RazaoSocial));
     }
 
-    public async Task<Resultado<ProspectoDetalheDto>> ObterPorIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<Resultado<ProspectoDetalheDto>> ObterPorIdAsync(Guid id, CancellationToken ct = default, bool incluirSociosCliente = false)
     {
         var prospecto = await prospectoRepositorio.ObterComSociosAsync(id, ct);
         if (prospecto is null)
             return Resultado<ProspectoDetalheDto>.CriarFalha(ProspectoErros.NaoEncontrado);
 
+        var socios = incluirSociosCliente ? await ObterSociosParaCadastroAsync(prospecto, ct) : prospecto.Socios.ToList();
+
         var dados = new CriarProspectoRequisicao(
             prospecto.RazaoSocial, prospecto.Cnpj, prospecto.RegimeTributario,
-            prospecto.Socios.Select(s => new CriarSocioRequisicao(s.Nome, s.Cpf, s.Participacao, s.Id)).ToArray(),
+            socios.Select(s => new CriarSocioRequisicao(s.Nome, s.Cpf, s.Participacao, s.Id,
+                s.Pessoa.Profissao, s.TipoRelacaoId, MapearEndereco(s.Pessoa.Endereco), s.PessoaId)).ToArray(),
             NomeFantasia: prospecto.NomeFantasia, Cpf: prospecto.Cpf,
             PorteEmpresa: prospecto.PorteEmpresa, CnaePrincipal: prospecto.CnaePrincipal,
             DataAbertura: prospecto.DataAbertura, Email: prospecto.Email, Telefone: prospecto.Telefone,
@@ -79,39 +92,59 @@ internal class ProspectoServico(
         return Resultado<ProspectoDetalheDto>.CriarSucesso(new(id, prospecto.Status.ToString(), dados));
     }
 
-    public async Task<Resultado<bool>> AtualizarAsync(Guid id, CriarProspectoRequisicao requisicao, CancellationToken ct = default)
+    public Task<Resultado<bool>> AtualizarAsync(Guid id, CriarProspectoRequisicao requisicao, CancellationToken ct = default)
+        => AtualizarCadastroAsync(id, requisicao, false, ct);
+
+    public Task<Resultado<bool>> AtualizarSociosAsync(Guid id, CriarProspectoRequisicao requisicao, CancellationToken ct = default)
+        => AtualizarCadastroAsync(id, requisicao, true, ct);
+
+    private async Task<Resultado<bool>> AtualizarCadastroAsync(Guid id, CriarProspectoRequisicao requisicao, bool somenteSocios, CancellationToken ct)
     {
         var prospecto = await prospectoRepositorio.ObterComSociosAsync(id, ct);
         if (prospecto is null)
             return Resultado<bool>.CriarFalha(ProspectoErros.NaoEncontrado);
-        if (!prospecto.EstaNaEtapaInicial())
+        if (!somenteSocios && !prospecto.EstaNaEtapaInicial())
             return Resultado<bool>.CriarFalha(ProspectoErros.ForaDaEtapaInicial);
 
-        var cadastro = await ValidarCadastroAsync(requisicao, id, ct);
+        var cadastro = somenteSocios ? Resultado<Municipio?>.CriarSucesso(prospecto.Municipio)
+            : await ValidarCadastroAsync(requisicao, id, ct);
         if (!cadastro.Sucesso)
             return Resultado<bool>.CriarFalha(cadastro.Erro!);
 
         var socios = requisicao.Socios;
+        var existentes = somenteSocios ? await ObterSociosParaCadastroAsync(prospecto, ct) : prospecto.Socios.ToList();
         var ids = socios?.Where(s => s.Id.HasValue).Select(s => s.Id!.Value).ToArray() ?? [];
-        if (ids.Distinct().Count() != ids.Length || ids.Any(socioId => prospecto.Socios.All(s => s.Id != socioId)))
+        if (ids.Distinct().Count() != ids.Length || ids.Any(socioId => existentes.All(s => s.Id != socioId)))
             return Resultado<bool>.CriarFalha("Socio invalido para este prospecto.");
 
-        var removidos = socios is null ? [] : prospecto.Socios.Where(s => !ids.Contains(s.Id)).ToArray();
+        var sociosValidados = await ValidarSociosAsync(socios, ct);
+        if (!sociosValidados.Sucesso) return sociosValidados;
+
+        var removidos = socios is null ? [] : existentes.Where(s => !ids.Contains(s.Id)).ToArray();
         if (await prospectoRepositorio.SociosPossuemDocumentosAsync(removidos.Select(s => s.Id).ToArray(), ct))
             return Resultado<bool>.CriarFalha("Nao e possivel remover socios com documentos vinculados.");
+        if (await prospectoRepositorio.SociosPossuemContratosAsync(removidos.Select(s => s.Id).ToArray(), ct))
+            return Resultado<bool>.CriarFalha("Não é possível remover um sócio selecionado em contrato.");
 
-        prospecto.AtualizarIdentificacao(requisicao.RazaoSocial, requisicao.Cnpj, requisicao.RegimeTributario);
-        AplicarDadosCadastrais(prospecto, requisicao, cadastro.Valor);
+        if (!somenteSocios)
+        {
+            prospecto.AtualizarIdentificacao(requisicao.RazaoSocial, requisicao.Cnpj, requisicao.RegimeTributario);
+            AplicarDadosCadastrais(prospecto, requisicao, cadastro.Valor);
+        }
         prospectoRepositorio.RemoverSocios(removidos);
         if (socios is not null)
         {
             foreach (var socio in socios)
             {
                 if (socio.Id.HasValue)
-                    prospecto.Socios.Single(s => s.Id == socio.Id).AtualizarDados(socio.Nome, socio.Cpf, socio.Participacao);
+                    await AplicarSocioAsync(existentes.Single(s => s.Id == socio.Id), socio, ct);
                 else
+                {
+                    var novo = Socio.Create(prospecto.TenantId, socio.Nome, socio.Cpf, socio.Participacao, prospectId: id);
+                    await AplicarSocioAsync(novo, socio, ct);
                     await prospectoRepositorio.AdicionarSocioAsync(
-                        Socio.Create(prospecto.TenantId, socio.Nome.Trim(), socio.Cpf, socio.Participacao, prospectId: id), ct);
+                        novo, ct);
+                }
             }
         }
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
@@ -160,6 +193,68 @@ internal class ProspectoServico(
                 return Resultado<Municipio?>.CriarFalha("Municipio invalido. Selecione novamente o municipio do endereco.");
         }
         return Resultado<Municipio?>.CriarSucesso(municipio);
+    }
+
+    private static EnderecoSocioRequisicao? MapearEndereco(Endereco? e) => e is null ? null : new(
+        e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro, e.Municipio?.Nome,
+        e.Municipio?.Estado.Sigla ?? e.Estado?.Sigla, e.Municipio?.CodigoIbge);
+
+    private async Task<List<Socio>> ObterSociosParaCadastroAsync(Prospecto prospecto, CancellationToken ct)
+    {
+        var socios = prospecto.Socios.ToList();
+        var cliente = await prospectoRepositorio.ObterClientePorProspectoAsync(prospecto.Id, ct);
+        if (cliente is not null && cliente.TenantId == prospecto.TenantId)
+            socios.AddRange(await prospectoRepositorio.ObterSociosClienteAsync(cliente.Id, ct));
+        return socios.Where(s => s.TenantId == prospecto.TenantId).DistinctBy(s => s.PessoaId).ToList();
+    }
+
+    private async Task<Resultado<bool>> ValidarSociosAsync(IReadOnlyCollection<CriarSocioRequisicao>? socios,
+        CancellationToken ct)
+    {
+        foreach (var s in socios ?? [])
+        {
+            if (s.TipoRelacaoId.HasValue && await prospectoRepositorio.ObterTipoRelacaoSocietariaAsync(s.TipoRelacaoId.Value, ct) is null)
+                return Resultado<bool>.CriarFalha("Tipo de relacao societaria invalido.");
+            if (s.Endereco is not { } e) continue;
+            Municipio? municipio = null;
+            if (!string.IsNullOrWhiteSpace(e.MunicipioCodigoIbge))
+            {
+                municipio = await prospectoRepositorio.ObterMunicipioPorCodigoIbgeAsync(e.MunicipioCodigoIbge.Trim(), ct);
+                if (municipio is null || (!string.IsNullOrWhiteSpace(e.Uf) && !string.Equals(municipio.Estado.Sigla, e.Uf.Trim(), StringComparison.OrdinalIgnoreCase)))
+                    return Resultado<bool>.CriarFalha("Municipio e UF do socio inconsistentes.");
+            }
+            if (!string.IsNullOrWhiteSpace(e.Uf) && await prospectoRepositorio.ObterEstadoPorUfAsync(e.Uf.Trim().ToUpperInvariant(), ct) is null)
+                return Resultado<bool>.CriarFalha("UF do socio invalida.");
+            if (!string.IsNullOrWhiteSpace(e.Cep))
+            {
+                var cep = await localidadeServico.ConsultarCepAsync(e.Cep, ct);
+                if (cep.Sucesso && cep.Valor is null) return Resultado<bool>.CriarFalha(LocalidadeErros.CepInvalido);
+                if (cep.Sucesso && municipio is not null && cep.Valor!.MunicipioCodigoIbge != municipio.CodigoIbge)
+                    return Resultado<bool>.CriarFalha(LocalidadeErros.MunicipioDivergenteDoCep);
+                if (cep.Sucesso && !string.IsNullOrWhiteSpace(e.Uf) && !string.Equals(cep.Valor!.Uf, e.Uf.Trim(), StringComparison.OrdinalIgnoreCase))
+                    return Resultado<bool>.CriarFalha("UF divergente do CEP do socio.");
+            }
+        }
+        return Resultado<bool>.CriarSucesso(true);
+    }
+
+    private async Task AplicarSocioAsync(Socio socio, CriarSocioRequisicao dados, CancellationToken ct)
+    {
+        var tipo = dados.TipoRelacaoId.HasValue
+            ? await prospectoRepositorio.ObterTipoRelacaoSocietariaAsync(dados.TipoRelacaoId.Value, ct) : null;
+        var endereco = socio.Pessoa.Endereco;
+        if (dados.Endereco is { } e)
+        {
+            var municipio = string.IsNullOrWhiteSpace(e.MunicipioCodigoIbge) ? null
+                : await prospectoRepositorio.ObterMunicipioPorCodigoIbgeAsync(e.MunicipioCodigoIbge.Trim(), ct);
+            var resultado = await servicoEnderecoComercial.AtualizarOuCriarAsync(endereco,
+                new(e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro, municipio?.Nome,
+                    municipio?.Estado.Sigla ?? e.Uf, municipio?.Id, PermitirParcial: true), ct);
+            if (!resultado.Sucesso) throw new InvalidOperationException(resultado.Erro);
+            endereco = resultado.Valor;
+        }
+        socio.Pessoa.AtualizarDadosSocietarios(dados.Nome, dados.Cpf, dados.Profissao, endereco);
+        socio.AtualizarVinculo(dados.Participacao, tipo);
     }
 
     private static void AplicarDadosCadastrais(Prospecto prospecto, CriarProspectoRequisicao requisicao, Municipio? municipio)

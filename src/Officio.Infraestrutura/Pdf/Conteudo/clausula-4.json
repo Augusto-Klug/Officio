@@ -1,0 +1,205 @@
+{
+  "titulo": "CLÁUSULA 4 - DOS DEVERES E DAS OBRIGAÇÕES DA CONTRATANTE",
+  "blocos": [
+    {
+      "tipo": "Subtitulo",
+      "texto": "DAS OBRIGAÇÕES"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.1 - Obriga-se a CONTRATANTE a fornecer em tempo hábil à CONTRATADA todos os dados, documentos e informações que se façam necessário ao bom desempenho dos serviços ora contratados. Não poderá ser imputada qualquer responsabilidade à CONTRATADA, no caso de os documentos serem recebidos intempestivamente, inclusive àqueles relativos à baixa ou venda de bens pertencentes ao Ativo Imobilizado."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.1.1 - Fica a CONTRATANTE obrigada a adquirir um Certificado Digital, de empresas autorizadas, para a CONTRATADA transmitir todas as informações que se fizerem necessárias ao fisco."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.1.2 - A CONTRATANTE outorga à CONTRATADA, poderes para utilizar o CERTIFICADO DIGITAL de sua titularidade, na certificação dos documentos e declarações fiscais enviadas ao Estado no cumprimento das obrigações acessórias pertinentes, impostas pela legislação vigente."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.1.3 - Obriga-se a CONTRATANTE a tomar ciência e conhecer o conteúdo da Lei Federal 9.613/98, alterada pela Lei 12.683/2012, especificamente no que trata dos Crimes de Lavagem de dinheiro, artigo 1° da referida Lei –Ocultar ou dissimular a natureza, origem, localização, movimentação ou propriedade de bens, direitos ou valores provenientes, direta ou indiretamente, de infração penal, regulamentada pela Resolução CFC n.º 1.445/13 do Conselho Federal de Contabilidade."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.1.4 - A CONTRATANTE se obriga, antes do encerramento do exercício social, a fornecer à CONTRATADA a Carta de Responsabilidade da Administração."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.1.5 - A CONTRATANTE se obriga a ler e a discutir todas as cláusulas da Convenção Coletiva dos Trabalhadores, comprometendo-se solidariamente para eficácia de sua aplicação."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.1.5.1 - A CONTRATANTE se compromete a solicitar a Convenção Coletiva dos Trabalhadores, caso esta não seja enviada nos termos estabelecidos na cláusula 3.2.1.2"
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DOS HONORÁRIOS"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2 - Para a execução dos serviços constantes no ANEXO I a CONTRATANTE pagará a CONTRATADA os honorários profissionais correspondentes a {{HonorarioMensal}} mensais a partir da competência {{Competencia}}, via cobrança bancária ou recibo, cujo pagamento deverá se dar até o dia {{Vencimento}} do mês subsequente ao da competência."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2.1 - Fica acordado entre as partes que o valor previsto no item 4.2. DOS HONORÁRIOS, é válido somente enquanto a CONTRATANTE, não fizer uso dos serviços previstos no ANEXO I, no item 4 - ÁREA TRABALHISTA E PREVIDENCIÁRIA. A partir do mês em que a CONTRATANTE necessitar destes serviços será cobrado o valor de {{PrecoPorFolha}} por folha de pagamento."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2.2 - Da parcela acima dita, a CONTRATANTE NÃO pagará a CONTRATADA o adicional anual correspondente ao valor de uma parcela mensal, previsto na Resolução n° 803/96, do Conselho Federal de Contabilidade - CFC, para atendimento ao acréscimo de serviços e encargos próprios do período final do exercício."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2.3 - A CONTRATANTE pagará à CONTRATADA mediante aviso prévio, todas as novas obrigações acessórias criadas a âmbito municipal, estadual, federal, que não estão incluídas no ato da assinatura deste contrato."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2.4 - Os honorários pagos após a data avençada no item 4.2 acarretarão a CONTRATANTE o acréscimo de multa de 10% (dez por cento), sem prejuízo de juros moratórios de 1% (um por cento) ao mês ou fração e correção monetária."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2.5 - Os honorários serão reajustados anualmente e automaticamente no mês de SETEMBRO, segundo o percentual de reajuste aplicado na convenção coletiva (CCT do ano corrente) do SESCON (Sindicato dos Escritórios Contábeis) de Blumenau, a variação do IGP-M ou a variação do INPC, destes três o maior."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2.6 - Os honorários poderão ser revistos e reajustados em casos de mudança de tributação e se a movimentação da empresa aumentar significantemente, sendo o reajuste no mesmo patamar do aumento dos serviços prestados mediante aviso prévio e de comum acordo."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.2.7 - O percentual anual de reajuste previsto no item 4.2.5 incidirá sobre o valor resultante da aplicação do critério de revisão pelo volume de serviço, conforme item 4.2.6."
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DAS DESPESAS EXTRAS"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.3 - A CONTRATANTE, reembolsará à CONTRATADA o custo dos materiais utilizados na execução dos serviços ora ajustados, tais como: fotocópias, autenticações, reconhecimento de firmas, custas, emolumentos e taxas exigidas pelos serviços públicos, carimbos, etc, sempre que utilizados e mediante recibo discriminado acompanhado dos respectivos comprovantes de desembolso."
+    },
+    {
+      "tipo": "Subtitulo",
+      "texto": "DOS SERVIÇOS EXTRAS"
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.4 - Os serviços extraordinários, não especificados no ANEXO I, poderão ser prestados pela CONTRATADA, mediante pagamento das respectivas taxas de serviço, serão cobrados pela CONTRATADA em apartado, como extraordinários, segundo valor específico constante de orçamento previamente aprovado pela primeira, englobando nessa previsão toda e qualquer inovação de legislação relativamente ao regime tributário, trabalhista ou previdenciário."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.4.1 - Serviços extraordinários, não incluídos neste contrato, poderão ser fornecidos, caso seja formalizado o pedido, dirigido à CONTRATANTE."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.4.2 - Os serviços abaixo relacionados, não integram a CONTRATAÇÃO ora firmada, sendo que sua contratação ensejará o pagamento de honorários adicionais:"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Alteração contratual;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Abertura e Baixa de empresa;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração dos processos de Alvarás (Localização, Sanitário, Bombeiro e polícia);"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração da Folha de Pagamento dos Domésticos, bem como das guias dos encargos sociais e tributos afins a serem recolhidos pela empresa;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Parcelamento de débitos;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Cálculos de tributos em atraso;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Homologação junto ao DRT;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "PERDCOMP - Programa Pedido Eletrônico de Ressarcimento ou Restituição e Declaração de Compensação;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "SPED FISCAL - Sistema de escrituração fiscal digital;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Declaração IRPF;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Preenchimento de cadastros e propostas de financiamentos;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração e entrega da DEFIS (Declaração de Informações Sócio Econômicas e Fiscais);"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração e entrega da DIMOB (Declaração de Informações sobre Atividades Imobiliárias);"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Pesquisas de IBGE;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Certidão Negativa de Débitos;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração e entrega da DSPJ (Declaração Simplificada da Pessoa Jurídica) Empresas Inativas;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Emissão do Livro Diário e Razão quando a empresa não estiver obrigada a entrega do SPED Contábil;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração e Registro de Atas junto aos órgãos competentes;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Despesas com deslocamento, alimentação e estadia;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Implantação de sistemas informatizados;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Planejamento estratégico;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração de projetos financeiros;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Elaboração de plano de negócios;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Treinamento empresarial;"
+    },
+    {
+      "tipo": "Item",
+      "texto": "Consultoria financeira."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.5 - Não são de responsabilidade da CONTRATADA, a resolução de assuntos junto ao CREA, INCRA, DETRAN, DNER, CRA, IBAMA, FATMA, FAEMA, ANVISA, EMBRATUR, e demais órgãos não citados nos itens anteriores. Defesas em processos trabalhistas, entidades sindicais, registro de obras no - INSS, Levantamento de aposentadorias junto ao INSS, Elaboração de propostas para Licitação, desembaraço em repartições fiscais de mercadorias apreendidas por questão de documentação irregular, uma vez que tais serviços não fazem parte das atividades da CONTRATADA."
+    },
+    {
+      "tipo": "Paragrafo",
+      "texto": "4.6 - Obriga-se a CONTRATANTE, a contratar empresa especializada em Medicina e Segurança do Trabalho, para elaboração dos laudos exigidos pela legislação vigente, bem como solicitar à CONTRATADA, documentos para o registro de entrega de E.P.I. (equipamentos de proteção individual) dos funcionários da CONTRATANTE."
+    }
+  ]
+}

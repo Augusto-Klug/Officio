@@ -6,6 +6,9 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IServicoEnderecoComercial
 {
+    Task<Resultado<Endereco?>> AtualizarOuCriarAsync(Endereco? endereco, EnderecoComercialRequisicao requisicao,
+        CancellationToken cancellationToken = default);
+
     Task<Resultado<Endereco?>> CriarAsync(
         EnderecoComercialRequisicao requisicao,
         CancellationToken cancellationToken = default);
@@ -23,4 +26,5 @@ public record EnderecoComercialRequisicao(
     string? Bairro,
     string? Cidade,
     string? Uf,
-    Guid? MunicipioId = null);
+    Guid? MunicipioId = null,
+    bool PermitirParcial = false);

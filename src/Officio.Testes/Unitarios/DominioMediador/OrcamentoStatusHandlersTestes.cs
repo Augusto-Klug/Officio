@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Contratos;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcamento;
@@ -47,6 +48,124 @@ public class OrcamentoStatusHandlersTestes
 
         Assert.False(resultado.Sucesso);
         Assert.Contains("aceito", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_ConfirmadoSubstituiAceitoAnteriorEMantemHistorico()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var anterior = Orcamento.Criar(tenantId, prospecto.Id, "Proposta anterior", 10, null);
+        var novo = Orcamento.Criar(tenantId, prospecto.Id, "Nova proposta", 10, null);
+        anterior.Aceitar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(anterior, novo);
+        await contexto.SaveChangesAsync();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(
+            new AceitarOrcamentoComando(novo.Id, ConfirmarSubstituicao: true),
+            CancellationToken.None);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusOrcamento.Substituido, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
+        Assert.Equal(2, await contexto.Budgets.CountAsync(orcamento => orcamento.ProspectId == prospecto.Id));
+        Assert.Equal(1, await contexto.Budgets.CountAsync(orcamento =>
+            orcamento.ProspectId == prospecto.Id && orcamento.Status == StatusOrcamento.Aceito));
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_SemConfirmacaoMantemStatusDosOrcamentos()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var anterior = Orcamento.Criar(tenantId, prospecto.Id, "Proposta anterior", 10, null);
+        var novo = Orcamento.Criar(tenantId, prospecto.Id, "Nova proposta", 10, null);
+        anterior.Aceitar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(anterior, novo);
+        await contexto.SaveChangesAsync();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(new AceitarOrcamentoComando(novo.Id), CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Equal(OrcamentoErros.AceiteRequerConfirmacao, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
+        Assert.Equal(StatusOrcamento.Rascunho, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_BloqueiaSubstituicaoSeAceitoAnteriorPossuiContrato()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var anterior = Orcamento.Criar(tenantId, prospecto.Id, "Proposta anterior", 10, null);
+        var novo = Orcamento.Criar(tenantId, prospecto.Id, "Nova proposta", 10, null);
+        anterior.Aceitar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(anterior, novo);
+        contexto.Contracts.Add(Contrato.CriarDeOrcamento(anterior, prospecto, DateTime.Today, null, null));
+        await contexto.SaveChangesAsync();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
+
+        var semConfirmacao = await handler.Handle(
+            new AceitarOrcamentoComando(novo.Id),
+            CancellationToken.None);
+
+        Assert.False(semConfirmacao.Sucesso);
+        Assert.Equal(OrcamentoErros.SubstituicaoBloqueadaContrato, semConfirmacao.Erro);
+
+        var resultado = await handler.Handle(
+            new AceitarOrcamentoComando(novo.Id, ConfirmarSubstituicao: true),
+            CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Equal(OrcamentoErros.SubstituicaoBloqueadaContrato, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
+        Assert.Equal(StatusOrcamento.Rascunho, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_IsolaBuscaDeAceitosPorTenant()
+    {
+        var tenantAtual = Guid.NewGuid();
+        var outroTenant = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantAtual);
+        var prospectoIdCompartilhado = Guid.NewGuid();
+        var aceitoDeOutroTenant = Orcamento.Criar(outroTenant, prospectoIdCompartilhado, "Outro tenant", 10, null);
+        var novo = Orcamento.Criar(tenantAtual, prospectoIdCompartilhado, "Tenant atual", 10, null);
+        aceitoDeOutroTenant.Aceitar();
+        contexto.Budgets.AddRange(aceitoDeOutroTenant, novo);
+        await contexto.SaveChangesAsync();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantAtual));
+
+        var resultado = await handler.Handle(new AceitarOrcamentoComando(novo.Id), CancellationToken.None);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync()).Status);
+    }
+
+    [Fact]
+    public void ModeloOrcamento_PermiteHistoricoEMantemIndiceUnicoParaAceitoPorTenantEProspecto()
+    {
+        var tenantId = Guid.NewGuid();
+        using var contexto = CriarContexto(tenantId);
+        var modelo = contexto.Model.FindEntityType(typeof(Orcamento))!;
+        var indiceAceito = Assert.Single(modelo.GetIndexes(), indice => indice.IsUnique);
+
+        Assert.Equal(new[] { "TenantId", "ProspectId", "Status" }, indiceAceito.Properties.Select(propriedade => propriedade.Name));
+        Assert.Contains("'Aceito'", indiceAceito.GetFilter());
+        Assert.Contains(modelo.GetIndexes(), indice =>
+            !indice.IsUnique && indice.Properties.Select(propriedade => propriedade.Name).SequenceEqual(["TenantId", "ProspectId"]));
     }
 
     [Fact]

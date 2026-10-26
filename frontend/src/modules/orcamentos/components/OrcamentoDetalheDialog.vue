@@ -3,7 +3,7 @@ import Dialog from 'primevue/dialog'
 import BaseButton from '../../../components/base/BaseButton.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { formatCurrency } from '../../../utils/format'
-import { naturezaCobrancaOptions, naturezaCobrancaPorNome, secaoOptions, tipoOptions, secaoPorNome, tipoPorNome, type Orcamento } from '../types/orcamento'
+import { naturezaCobrancaOptions, naturezaCobrancaPorNome, rotuloStatusOrcamento, secaoOptions, tipoOptions, secaoPorNome, tipoPorNome, type Orcamento } from '../types/orcamento'
 
 const visible = defineModel<boolean>('visible', { required: true })
 defineProps<{ orcamento: Orcamento | null; busy?: boolean }>()
@@ -21,7 +21,7 @@ function podeEditar(status: string) {
 }
 
 function podeAceitar(status: string) {
-  return !['Aceito', 'Recusado', 'Expirado'].includes(status)
+  return !['Aceito', 'Recusado', 'Expirado', 'Substituido'].includes(status)
 }
 
 function nomeOpcao(nome: string, mapa: Record<string, number>, opcoes: readonly { label: string; value: number }[]) {
@@ -38,13 +38,13 @@ function nomeOpcao(nome: string, mapa: Record<string, number>, opcoes: readonly 
           <h2>{{ orcamento.titulo || 'Sem título' }}</h2>
           <p>Proposta comercial com {{ orcamento.itens.length }} {{ orcamento.itens.length === 1 ? 'item' : 'itens' }}.</p>
         </div>
-        <StatusBadge :label="orcamento.status" :severity="severity(orcamento.status)" />
+        <StatusBadge :label="rotuloStatusOrcamento(orcamento.status)" :severity="severity(orcamento.status)" />
       </div>
 
       <dl class="detail-grid budget-summary">
         <div><dt>Valor total</dt><dd class="numeric budget-total">{{ formatCurrency(orcamento.valorTotal) }}</dd></div>
         <div><dt>Vencimento</dt><dd>Dia {{ orcamento.diaVencimento }} de cada mês</dd></div>
-        <div><dt>Situação</dt><dd>{{ orcamento.status }}</dd></div>
+        <div><dt>Situação</dt><dd>{{ rotuloStatusOrcamento(orcamento.status) }}</dd></div>
       </dl>
 
       <section class="detail-section">

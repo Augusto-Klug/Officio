@@ -42,9 +42,16 @@ public class ServicoAutentique(
 
             var links = (documento.Signatures ?? [])
                 .Where(assinatura => !string.IsNullOrWhiteSpace(assinatura.Email))
-                .Select(assinatura => new LinkAssinante(
-                    assinatura.Email!,
-                    assinatura.Link?.ShortLink ?? CriarLinkAssinatura(assinatura.PublicId ?? documento.Id)))
+                .Select(assinatura =>
+                {
+                    var signatario = request.Assinantes.FirstOrDefault(item =>
+                        string.Equals(item.Email, assinatura.Email, StringComparison.OrdinalIgnoreCase));
+                    return new LinkAssinante(
+                        assinatura.Email!,
+                        assinatura.Link?.ShortLink ?? CriarLinkAssinatura(assinatura.PublicId ?? documento.Id),
+                        signatario?.Nome,
+                        signatario?.Tipo);
+                })
                 .ToList();
 
             logger.LogInformation(

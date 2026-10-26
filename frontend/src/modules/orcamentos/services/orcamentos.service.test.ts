@@ -48,11 +48,18 @@ describe('contrato HTTP de orçamentos', () => {
       .mockResolvedValueOnce({ data: 'con-1' })
     const payload = { prospectoId: 'pro-1', titulo: 'Proposta', diaVencimento: 10, itens: [{ descricao: 'Honorários', secao: 2, tipo: 2, naturezaCobranca: 2, quantidade: 1, valorUnitario: 500, ordem: 1 }] }
     await expect(criarOrcamento(payload)).resolves.toBe('orc-1')
-    await aceitarOrcamento('orc-1')
-    await expect(converterOrcamento('orc-1', { dataInicio: '2026-09-19', confirmarSubstituicaoContratoAtivo: true })).resolves.toBe('con-1')
+    await aceitarOrcamento('orc-1', true)
+    const dadosContrato = {
+      dataInicio: '2026-09-19',
+      duracaoAnos: 4,
+      competenciaInicialHonorarios: '2026-09-01',
+      confirmarSubstituicaoContratoAtivo: true,
+      representanteSocioId: 'socio-1',
+    }
+    await expect(converterOrcamento('orc-1', dadosContrato)).resolves.toBe('con-1')
     expect(post).toHaveBeenNthCalledWith(1, '/v1/orcamentos/Criar', payload)
-    expect(post).toHaveBeenNthCalledWith(2, '/v1/orcamentos/Aceitar/orc-1')
-    expect(post).toHaveBeenNthCalledWith(3, '/v1/orcamentos/ConverterParaContrato/orc-1', { dataInicio: '2026-09-19', confirmarSubstituicaoContratoAtivo: true })
+    expect(post).toHaveBeenNthCalledWith(2, '/v1/orcamentos/Aceitar/orc-1', { confirmarSubstituicao: true })
+    expect(post).toHaveBeenNthCalledWith(3, '/v1/orcamentos/ConverterParaContrato/orc-1', dadosContrato)
   })
 
   it('consulta contratos ativos da empresa antes de converter um orcamento', async () => {

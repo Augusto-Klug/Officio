@@ -6,13 +6,17 @@ using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
 using Microsoft.Extensions.Logging;
+using System.Net.Mail;
 using System.Text.Json;
+using Officio.Dominio.Comum;
+using Officio.Dominio.Servicos.Validadores;
+using Officio.Dominio.Servicos.Mapeadores;
 
 namespace Officio.Dominio.Servicos.Servicos;
 
 public class ContratoServico(
     IContratoRepositorio contratoRepositorio,
-    IParceiroRepositorio parceiroRepositorio,
+    IContabilidadeRepositorio contabilidadeRepositorio,
     IOrcamentoRepositorio orcamentoRepositorio,
     IProspectoRepositorio prospectoRepositorio,
     IServicoEnderecoComercial servicoEnderecoComercial,
@@ -21,7 +25,8 @@ public class ContratoServico(
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual,
     IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal,
-    ILogger<ContratoServico> logger) : IContratoServico
+    ILogger<ContratoServico> logger,
+    TimeProvider timeProvider) : IContratoServico
 {
     private static readonly HashSet<string> EventosAutentiqueProcessaveis = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -40,17 +45,50 @@ public class ContratoServico(
         if (orcamento is null)
             return Resultado<Guid>.CriarFalha("Orcamento nao encontrado.");
 
-        if (orcamento.Status != StatusOrcamento.Aceito)
-            return Resultado<Guid>.CriarFalha("Somente orcamentos aceitos podem ser convertidos em contrato.");
+        if (orcamento.TenantId != empresaAtual.TenantId)
+            return Resultado<Guid>.CriarFalha("Orcamento nao encontrado.");
 
         if (await contratoRepositorio.ObterPorOrcamentoAsync(orcamento.Id, ct) is not null)
             return Resultado<Guid>.CriarFalha("Ja existe contrato para este orcamento.");
 
         var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
-        if (prospecto is null)
+        if (prospecto is null || prospecto.Id != orcamento.ProspectId || prospecto.TenantId != empresaAtual.TenantId)
             return Resultado<Guid>.CriarFalha("Prospecto nao encontrado.");
 
-        var empresa = await GarantirEmpresaDoProspectoAsync(prospecto, ct);
+        var cliente = await prospectoRepositorio.ObterClientePorProspectoAsync(prospecto.Id, ct);
+        var socios = prospecto.Socios.ToList();
+        if (cliente is not null && cliente.TenantId == prospecto.TenantId)
+            socios.AddRange(await prospectoRepositorio.ObterSociosClienteAsync(cliente.Id, ct));
+        var representante = requisicao.RepresentanteSocioId.HasValue
+            ? socios.FirstOrDefault(s => s.Id == requisicao.RepresentanteSocioId && s.TenantId == prospecto.TenantId
+                && (s.ProspectId == prospecto.Id || (cliente is not null && s.ClientId == cliente.Id)))
+            : null;
+
+        var cnpjProspecto = DocumentoFiscal.SomenteDigitos(prospecto.Cnpj);
+        var empresaExistente = cnpjProspecto?.Length == 14
+            ? await prospectoRepositorio.ObterEmpresaPorCnpjAsync(cnpjProspecto, ct)
+            : null;
+        var contratada = await contabilidadeRepositorio.ObterAtualAsync(ct);
+        var pendencias = ValidadorProntidaoContrato.Validar(
+            empresaAtual.TenantId,
+            contratada,
+            prospecto,
+            empresaExistente,
+            orcamento,
+            requisicao.RepresentanteSocioId,
+            representante,
+            requisicao.DataInicio,
+            requisicao.DuracaoAnos,
+            requisicao.CompetenciaInicialHonorarios);
+
+        if (pendencias.Count > 0)
+        {
+            return Resultado<Guid>.CriarFalhaValidacao(
+                pendencias,
+                ContratoErros.DadosObrigatoriosPendentes);
+        }
+
+        var empresa = await GarantirEmpresaDoProspectoAsync(prospecto, empresaExistente, ct);
         if (!empresa.Sucesso)
             return Resultado<Guid>.CriarFalha(empresa.Erro!);
 
@@ -58,11 +96,14 @@ public class ContratoServico(
         if (contratosAtivos.Count > 0 && !requisicao.ConfirmarSubstituicaoContratoAtivo)
             return Resultado<Guid>.CriarFalha(ContratoErros.SubstituicaoRequerConfirmacao);
 
-        var contrato = Contrato.CriarDeOrcamento(
+        var contrato = Contrato.CriarComRepresentante(
             orcamento,
             prospecto,
+            representante!,
+            cliente?.Id,
             requisicao.DataInicio,
-            requisicao.DataFim,
+            requisicao.DuracaoAnos,
+            requisicao.CompetenciaInicialHonorarios,
             requisicao.ClausulasExtras);
 
         await contratoRepositorio.AdicionarAsync(contrato, ct);
@@ -72,6 +113,27 @@ public class ContratoServico(
             ct);
 
         return Resultado<Guid>.CriarSucesso(contrato.Id);
+    }
+
+    public async Task<Resultado<RepresentantesContratoDto>> ObterRepresentantesAsync(Guid orcamentoId, CancellationToken ct = default)
+    {
+        var orcamento = await orcamentoRepositorio.ObterPorIdComItensAsync(orcamentoId, ct);
+        if (orcamento is null || orcamento.TenantId != empresaAtual.TenantId)
+            return Resultado<RepresentantesContratoDto>.CriarFalha("Orcamento nao encontrado.");
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(orcamento.ProspectId, ct);
+        if (prospecto is null || prospecto.TenantId != empresaAtual.TenantId)
+            return Resultado<RepresentantesContratoDto>.CriarFalha("Prospecto nao encontrado.");
+        var cliente = await prospectoRepositorio.ObterClientePorProspectoAsync(prospecto.Id, ct);
+        var socios = prospecto.Socios.ToList();
+        if (cliente is not null && cliente.TenantId == prospecto.TenantId)
+            socios.AddRange(await prospectoRepositorio.ObterSociosClienteAsync(cliente.Id, ct));
+        var dtos = socios.Where(s => s.TenantId == prospecto.TenantId)
+            .DistinctBy(s => s.PessoaId).Select(s =>
+            {
+                var faltantes = CadastroRepresentante.InformacoesFaltantes(s);
+                return new RepresentanteDisponivelDto(s.Id, s.Nome, s.Cpf, s.TipoRelacao?.Descricao, faltantes.Count == 0, faltantes);
+            }).ToList();
+        return Resultado<RepresentantesContratoDto>.CriarSucesso(new(prospecto.Id, dtos));
     }
 
     public async Task<Resultado<List<ContratoAtivoResumoDto>>> ListarAtivosParaOrcamentoAsync(
@@ -174,6 +236,21 @@ public class ContratoServico(
         return Resultado<ContratoDto>.CriarSucesso(MapearContrato(contrato, pdfAssinadoDisponivel));
     }
 
+    public async Task<Resultado<SignatariosContratoDto>> ObterSignatariosAsync(
+        Guid contratoId,
+        CancellationToken ct = default)
+    {
+        var contrato = await contratoRepositorio.ObterParaAssinaturaAsync(contratoId, ct);
+        if (contrato is null || contrato.TenantId != empresaAtual.TenantId)
+            return Resultado<SignatariosContratoDto>.CriarFalha("Contrato nao encontrado.");
+
+        var contratada = await contabilidadeRepositorio.ObterAtualAsync(ct);
+        var signatarios = MontarSignatarios(contrato, contratada);
+        return signatarios.Sucesso
+            ? Resultado<SignatariosContratoDto>.CriarSucesso(new(signatarios.Valor!))
+            : Resultado<SignatariosContratoDto>.CriarFalha(signatarios.Erro!);
+    }
+
     public async Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
     {
         var contrato = await contratoRepositorio.ObterParaGeracaoPdfAsync(contratoId, cancellationToken);
@@ -181,11 +258,17 @@ public class ContratoServico(
         if (contrato is null)
             return Resultado<ResultadoPdfContratoDto>.CriarFalha("Contrato nÃ£o encontrado.");
 
-        var parceiro = await parceiroRepositorio.ObterPorIdAsync(empresaAtual.TenantId, cancellationToken);
-        if (parceiro is null)
-            return Resultado<ResultadoPdfContratoDto>.CriarFalha("Parceiro nao encontrado.");
+        if (contrato.TenantId != empresaAtual.TenantId)
+            return Resultado<ResultadoPdfContratoDto>.CriarFalha("Contrato nao encontrado.");
 
-        var dadosPdf = MapearDadosPdf(contrato, parceiro);
+        var parceiro = await contabilidadeRepositorio.ObterAtualAsync(cancellationToken);
+        var pendencias = ValidadorProntidaoContrato.ValidarParaGeracao(empresaAtual.TenantId, parceiro, contrato);
+        if (pendencias.Count > 0)
+            return Resultado<ResultadoPdfContratoDto>.CriarFalhaValidacao(pendencias, ContratoErros.DadosObrigatoriosPendentes);
+
+        var instanteGeracao = timeProvider.GetUtcNow();
+        var dataGeracao = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(instanteGeracao, "America/Sao_Paulo").DateTime;
+        var dadosPdf = MapeadorDadosPdfContrato.Mapear(contrato, parceiro!, dataGeracao);
 
         await using var fluxoPdf = await servicoPdf.GerarContratoAsync(dadosPdf, cancellationToken);
 
@@ -204,7 +287,7 @@ public class ContratoServico(
         var url = await servicoArmazenamento.ObterUrlPreAssinadaAsync(caminho, TimeSpan.FromHours(1), cancellationToken);
 
         return Resultado<ResultadoPdfContratoDto>.CriarSucesso(
-            new ResultadoPdfContratoDto(url, DateTime.UtcNow));
+            new ResultadoPdfContratoDto(url, instanteGeracao.UtcDateTime));
     }
 
     public async Task<Resultado<ResultadoPdfAssinadoContratoDto>> ObterPdfAssinadoAsync(
@@ -242,11 +325,29 @@ public class ContratoServico(
             return Resultado<SendForSignatureResultDto>.CriarFalha(
                 "PDF ainda nÃ£o gerado. Execute a geraÃ§Ã£o de PDF primeiro.");
 
-        await using var fluxoPdf = await servicoArmazenamento.BaixarAsync(contrato.PdfPath, cancellationToken);
+        if (contrato.TenantId != empresaAtual.TenantId)
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Contrato nao encontrado.");
 
-        var assinantes = requisicao.Signatarios
-            .Select(s => new DadosAssinante(s.Nome, s.Email, s.Cpf, s.Tipo))
-            .ToList();
+        var emailContratante = NormalizarEmail(requisicao.EmailContratante);
+        var emailContratada = NormalizarEmail(requisicao.EmailContratada);
+        if (emailContratante is null || emailContratada is null)
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Informe um e-mail valido para cada signatario.");
+        if (string.Equals(emailContratante, emailContratada, StringComparison.OrdinalIgnoreCase))
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Cada parte precisa de um e-mail diferente para assinar.");
+
+        var contratada = await contabilidadeRepositorio.ObterAtualAsync(cancellationToken);
+        var signatariosContrato = MontarSignatarios(contrato, contratada);
+        if (!signatariosContrato.Sucesso)
+            return Resultado<SendForSignatureResultDto>.CriarFalha(signatariosContrato.Erro!);
+
+        var dadosSignatarios = signatariosContrato.Valor!;
+        var assinantes = new List<DadosAssinante>
+        {
+            new(dadosSignatarios[0].Nome, emailContratante, dadosSignatarios[0].Cpf, dadosSignatarios[0].Tipo),
+            new(dadosSignatarios[1].Nome, emailContratada, dadosSignatarios[1].Cpf, dadosSignatarios[1].Tipo)
+        };
+
+        await using var fluxoPdf = await servicoArmazenamento.BaixarAsync(contrato.PdfPath, cancellationToken);
 
         var solicitacao = new SolicitacaoAssinatura(fluxoPdf, $"{contrato.Numero}.pdf", assinantes);
         var resultado = await servicoAssinatura.EnviarParaAssinaturaAsync(solicitacao, cancellationToken);
@@ -278,7 +379,7 @@ public class ContratoServico(
         solicitacaoAssinatura.DefinirIdentificadorExterno(resultado.EnvelopeId!);
 
         var ordemSignatario = 1;
-        foreach (var signatario in requisicao.Signatarios)
+        foreach (var signatario in assinantes)
         {
             solicitacaoAssinatura.AdicionarSignatario(
                 signatario.Nome,
@@ -625,13 +726,29 @@ public class ContratoServico(
         Prospecto prospecto,
         CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(prospecto.Cnpj))
+        var cnpj = DocumentoFiscal.SomenteDigitos(prospecto.Cnpj);
+        if (cnpj?.Length != 14)
         {
             return Resultado<Empresa>.CriarFalha(
                 "Informe o CNPJ e constitua a empresa antes de gerar o contrato.");
         }
 
-        var empresa = await prospectoRepositorio.ObterEmpresaPorCnpjAsync(prospecto.Cnpj, ct);
+        var empresa = await prospectoRepositorio.ObterEmpresaPorCnpjAsync(cnpj, ct);
+        return await GarantirEmpresaDoProspectoAsync(prospecto, empresa, ct);
+    }
+
+    private async Task<Resultado<Empresa>> GarantirEmpresaDoProspectoAsync(
+        Prospecto prospecto,
+        Empresa? empresa,
+        CancellationToken ct)
+    {
+        var cnpj = DocumentoFiscal.SomenteDigitos(prospecto.Cnpj);
+        if (cnpj?.Length != 14)
+        {
+            return Resultado<Empresa>.CriarFalha(
+                "Informe o CNPJ e constitua a empresa antes de gerar o contrato.");
+        }
+
         if (empresa is null)
         {
             empresa = Empresa.CriarDoProspecto(prospecto);
@@ -707,77 +824,21 @@ public class ContratoServico(
             : $"{nome}.pdf";
     }
 
-    private static DadosPdfContrato MapearDadosPdf(Contrato contrato, Parceiro parceiro)
-    {
-        var cliente = contrato.Cliente;
-        var prospecto = contrato.Prospecto;
-        var empresa = contrato.Empresa;
-        var orcamento = contrato.Orcamento;
-        var razaoSocial = empresa?.RazaoSocial ?? cliente?.RazaoSocial ?? prospecto.RazaoSocial;
-        var nomeFantasia = empresa?.NomeFantasia ?? cliente?.NomeFantasia ?? prospecto.NomeFantasia ?? razaoSocial;
-        var cnpj = empresa?.Cnpj ?? cliente?.Cnpj ?? prospecto.Cnpj ?? "";
-        var regimeTributario = empresa?.RegimeTributario ?? cliente?.RegimeTributario?.ToString() ?? prospecto.RegimeTributario?.ToString();
-        var sociosOrigem = cliente?.Socios ?? prospecto.Socios;
-
-        var contratada = new DadosContratada(
-            RazaoSocial: parceiro.RazaoSocial,
-            Cnpj: parceiro.Cnpj ?? "",
-            Endereco: "",
-            Cidade: "",
-            Uf: "",
-            Email: "",
-            Telefone: "");
-
-        var endereco = string.Join(", ",
-            new[] { empresa?.Endereco?.Logradouro ?? cliente?.Logradouro ?? prospecto.Logradouro, empresa?.Endereco?.Numero ?? cliente?.Numero ?? prospecto.Numero }
-                .Where(s => !string.IsNullOrWhiteSpace(s)));
-
-        var contratante = new DadosContratante(
-            RazaoSocial: razaoSocial,
-            NomeFantasia: nomeFantasia,
-            Cnpj: cnpj,
-            RegimeTributario: regimeTributario ?? "",
-            Endereco: endereco,
-            Cidade: empresa?.Endereco?.Municipio?.Nome ?? cliente?.Cidade ?? prospecto.Cidade ?? "",
-            Uf: empresa?.Endereco?.Municipio?.Estado?.Sigla ?? cliente?.Uf ?? prospecto.Uf ?? "",
-            Email: empresa?.Email ?? cliente?.Email ?? prospecto.Email ?? "",
-            Telefone: empresa?.Telefone ?? cliente?.Telefone ?? prospecto.Telefone ?? "");
-
-        var socios = sociosOrigem
-            .Select(s => new DadosSocio(s.Nome, s.Cpf ?? "", s.Participacao, Administrador: false))
-            .ToList();
-
-        var servicos = orcamento?.Itens
-            .Select(i => new DadosServico(i.Descricao, "Mensal", i.ValorUnitario * i.Quantidade))
-            .ToList() ?? [];
-
-        return new DadosPdfContrato
-        {
-            NumeroContrato = contrato.Numero,
-            DataEmissao = contrato.DataInicio,
-            Versao = 1,
-            Contratada = contratada,
-            Contratante = contratante,
-            Socios = socios,
-            Servicos = servicos,
-            ValorMensalidade = orcamento?.ValorMensalidade ?? contrato.ValorTotal,
-            ValorPorFuncionario = orcamento?.ValorPorFuncionario ?? 0,
-            QtdFuncionarios = orcamento?.QtdFuncionarios ?? 0,
-            ValorTaxasExtras = orcamento?.ValorTaxasExtras ?? 0,
-            Desconto = orcamento?.Desconto ?? 0,
-            ValorTotal = contrato.ValorTotal,
-            DiaVencimento = contrato.DiaVencimento,
-            DataInicio = DateOnly.FromDateTime(contrato.DataInicio),
-            DataFim = contrato.DataFim.HasValue
-                ? DateOnly.FromDateTime(contrato.DataFim.Value)
-                : null,
-            ClausulasExtras = contrato.ClausulasExtras,
-        };
-    }
-
     private static ContratoDto MapearContrato(Contrato contrato, bool pdfAssinadoDisponivel)
     {
         var razaoSocial = contrato.Cliente?.RazaoSocial ?? contrato.Prospecto.RazaoSocial;
+        var solicitacaoAssinatura = contrato.SolicitacoesAssinatura
+            .OrderByDescending(solicitacao => solicitacao.SolicitadoEm)
+            .FirstOrDefault();
+        var documentoConcluido = solicitacaoAssinatura?.ConcluidoEm.HasValue == true;
+        var signatarios = solicitacaoAssinatura?.Signatarios
+            .OrderBy(signatario => signatario.Ordem)
+            .Select(signatario => new AssinaturaSignatarioResumoDto(
+                signatario.Papel,
+                signatario.Nome,
+                signatario.AssinadoEm.HasValue || documentoConcluido,
+                signatario.AssinadoEm))
+            .ToList() ?? [];
 
         return new ContratoDto(
             contrato.Id,
@@ -787,14 +848,62 @@ public class ContratoServico(
             contrato.BudgetId,
             razaoSocial,
             contrato.Status.ToString(),
-            contrato.ValorTotal,
-            contrato.DiaVencimento,
+            contrato.Orcamento?.ValorTotal ?? contrato.ValorTotal,
+            contrato.DiaVencimentoComercial,
             contrato.DataInicio,
             contrato.DataFim,
             contrato.ClausulasExtras,
             !string.IsNullOrWhiteSpace(contrato.PdfPath),
             pdfAssinadoDisponivel,
-            contrato.AssinadoEm);
+            contrato.AssinadoEm,
+            contrato.RepresentanteSocioId,
+            contrato.DuracaoAnos,
+            contrato.CompetenciaInicialHonorarios,
+            contrato.ValorHonorarioMensal,
+            contrato.ValorUnitarioPorFolha,
+            signatarios);
+    }
+
+    private static Resultado<List<SignatarioContratoDto>> MontarSignatarios(
+        Contrato contrato,
+        Parceiro? contratada)
+    {
+        var representante = contrato.RepresentanteSocio;
+        if (representante is null || representante.TenantId != contrato.TenantId ||
+            (representante.ProspectId != contrato.ProspectId &&
+             (!contrato.ClientId.HasValue || representante.ClientId != contrato.ClientId)))
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "O contrato precisa ter um representante da CONTRATANTE valido cadastrado.");
+
+        var responsavel = contratada?.ResponsavelTecnico;
+        if (contratada is null || contratada.Id != contrato.TenantId || responsavel is null ||
+            responsavel.TenantId != contrato.TenantId || responsavel.ParceiroId != contratada.Id)
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "Cadastre o responsavel tecnico da contabilidade antes de enviar o contrato.");
+
+        var cpfRepresentante = DocumentoFiscal.SomenteDigitos(representante.Cpf);
+        if (string.IsNullOrWhiteSpace(representante.Nome) || cpfRepresentante?.Length != 11)
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "O cadastro do representante da CONTRATANTE precisa ter nome e CPF validos.");
+
+        var cpfResponsavel = DocumentoFiscal.SomenteDigitos(responsavel.Cpf);
+        if (string.IsNullOrWhiteSpace(responsavel.Nome) || cpfResponsavel?.Length != 11)
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "O cadastro do responsavel tecnico precisa ter nome e CPF validos.");
+
+        return Resultado<List<SignatarioContratoDto>>.CriarSucesso(
+        [
+            new("contratante", representante.Nome, cpfRepresentante, representante.Pessoa.Email),
+            new("contratada", responsavel.Nome, cpfResponsavel, null)
+        ]);
+    }
+
+    private static string? NormalizarEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email) || !MailAddress.TryCreate(email.Trim(), out var endereco))
+            return null;
+
+        return endereco.Address;
     }
 
     private sealed record EventoWebhookAutentique(

@@ -18,6 +18,8 @@ public class Resultado<T>
 
     public static Resultado<T> CriarFalha(string error) => new(false, default, error);
 
-    public static Resultado<T> CriarFalhaValidacao(IEnumerable<string> errors)
-        => new(false, default, "Validation failed") { ErrosValidacao = errors };
+    public static Resultado<T> CriarFalhaValidacao(
+        IEnumerable<string> errors,
+        string error = "Validation failed")
+        => new(false, default, error) { ErrosValidacao = errors.ToArray() };
 }

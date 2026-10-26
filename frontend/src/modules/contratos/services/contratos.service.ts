@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { Contrato, EmpresaContratoFiltro, EnviarAssinaturaPayload, EnvioAssinaturaResultado } from '../types/contrato'
+import type { Contrato, EmpresaContratoFiltro, EnviarAssinaturaPayload, EnvioAssinaturaResultado, SignatarioAssinaturaStatus, SignatarioContratoInfo } from '../types/contrato'
 
 function booleanValue(value: unknown): boolean {
   if (typeof value !== 'boolean') throw new Error('A API retornou um indicador inválido.')
@@ -10,6 +10,20 @@ function booleanValue(value: unknown): boolean {
 function numberValue(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('A API retornou um valor numérico inválido.')
   return value
+}
+
+function optionalNumber(value: unknown): number | null {
+  return value === null || value === undefined ? null : numberValue(value)
+}
+
+function normalizeSignatarioStatus(value: unknown): SignatarioAssinaturaStatus {
+  const item = record(value)
+  return {
+    tipo: requiredString(field(item, 'tipo')),
+    nome: requiredString(field(item, 'nome')),
+    assinado: booleanValue(field(item, 'assinado')),
+    assinadoEm: optionalString(field(item, 'assinadoEm')),
+  }
 }
 
 function normalizeContrato(value: unknown): Contrato {
@@ -26,11 +40,33 @@ function normalizeContrato(value: unknown): Contrato {
     diaVencimento: numberValue(field(item, 'diaVencimento')),
     dataInicio: requiredString(field(item, 'dataInicio')),
     dataFim: optionalString(field(item, 'dataFim')),
+    duracaoAnos: optionalNumber(field(item, 'duracaoAnos')),
+    competenciaInicialHonorarios: optionalString(field(item, 'competenciaInicialHonorarios')),
+    valorHonorarioMensal: optionalNumber(field(item, 'valorHonorarioMensal')),
+    valorUnitarioPorFolha: optionalNumber(field(item, 'valorUnitarioPorFolha')),
     clausulasExtras: optionalString(field(item, 'clausulasExtras')),
     pdfGerado: booleanValue(field(item, 'pdfGerado')),
     pdfAssinadoDisponivel: booleanValue(field(item, 'pdfAssinadoDisponivel')),
     assinadoEm: optionalString(field(item, 'assinadoEm')),
+    signatariosAssinatura: Array.isArray(field(item, 'signatariosAssinatura'))
+      ? (field(item, 'signatariosAssinatura') as unknown[]).map(normalizeSignatarioStatus)
+      : [],
   }
+}
+
+export function normalizeSignatariosContrato(value: unknown): SignatarioContratoInfo[] {
+  const response = record(value)
+  const signatarios = field(response, 'signatarios')
+  if (!Array.isArray(signatarios)) throw new Error('A API retornou os signatarios em formato inesperado.')
+  return signatarios.map((value) => {
+    const item = record(value)
+    return {
+      tipo: requiredString(field(item, 'tipo')),
+      nome: requiredString(field(item, 'nome')),
+      cpf: requiredString(field(item, 'cpf')),
+      email: optionalString(field(item, 'email')),
+    }
+  })
 }
 
 export function normalizeContratos(value: unknown): Contrato[] {
@@ -73,6 +109,11 @@ export async function gerarPdfContrato(id: string): Promise<{ pdfUrl: string }> 
   return { pdfUrl: requiredString(field(body, 'pdfUrl')) }
 }
 
+export async function obterSignatariosContrato(id: string): Promise<SignatarioContratoInfo[]> {
+  const { data } = await http.get<unknown>(`/v1/contratos/ObterSignatarios/${id}`)
+  return normalizeSignatariosContrato(data)
+}
+
 export async function enviarContratoParaAssinatura(id: string, payload: EnviarAssinaturaPayload): Promise<EnvioAssinaturaResultado> {
   const { data } = await http.post<unknown>(`/v1/contratos/EnviarParaAssinatura/${id}`, payload)
   const body = record(data)
@@ -82,7 +123,12 @@ export async function enviarContratoParaAssinatura(id: string, payload: EnviarAs
     envelopeId: optionalString(field(body, 'envelopeId', 'assinaturaExternaId')),
     signatarios: Array.isArray(signatarios) ? signatarios.map((value) => {
       const signer = record(value)
-      return { email: requiredString(field(signer, 'email')), link: requiredString(field(signer, 'link')) }
+      return {
+        email: requiredString(field(signer, 'email')),
+        link: requiredString(field(signer, 'link')),
+        nome: optionalString(field(signer, 'nome')),
+        tipo: optionalString(field(signer, 'tipo')),
+      }
     }) : null,
     mensagem: optionalString(field(body, 'mensagem', 'message')),
     pdfUrl: optionalString(field(body, 'pdfUrl')),

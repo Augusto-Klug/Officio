@@ -24,6 +24,16 @@ public class Pessoa : EntidadeBase
 
     private Pessoa() { }
 
+    public void AtualizarDadosSocietarios(string? nome, string? cpf, string? profissao, Endereco? endereco)
+    {
+        Nome = nome?.Trim() ?? "";
+        Cpf = DocumentoFiscal.SomenteDigitos(cpf);
+        Profissao = string.IsNullOrWhiteSpace(profissao) ? null : profissao.Trim();
+        Endereco = endereco;
+        EnderecoId = endereco?.Id;
+        AtualizadoEm = DateTime.UtcNow;
+    }
+
     public static Pessoa Criar(string nome, string? cpf = null, string? telefone = null, string? email = null)
         => new() { Nome = nome, Cpf = cpf, Telefone = telefone, Email = email };
 }

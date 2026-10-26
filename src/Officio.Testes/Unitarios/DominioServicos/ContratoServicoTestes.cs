@@ -12,33 +12,141 @@ using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 using Officio.Infraestrutura.Identidade;
 using Officio.Dominio.Contratos.Response;
+using Officio.Testes.Integracao.Infraestrutura;
 
 namespace Officio.Testes.Unitarios.DominioServicos;
 
 public class ContratoServicoTestes
 {
     [Fact]
-    public async Task ConverterOrcamentoAsync_ComOrcamentoAceito_CriaContrato()
+    public async Task ContratoLegado_PermaneceSemRepresentanteAposPersistencia()
+    {
+        var tenant = Guid.NewGuid(); await using var db = CriarContexto(tenant);
+        var p = Prospecto.Create(tenant, "Legado", null, null);
+        var o = Orcamento.Criar(tenant, p.Id, "Antigo", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(o, p, DateTime.Today, null, null);
+        db.Prospects.Add(p); db.Budgets.Add(o); db.Contracts.Add(contrato); await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        Assert.Null((await db.Contracts.SingleAsync()).RepresentanteSocioId);
+        Assert.Null((await CriarServico(db, tenant).ObterPorIdAsync(contrato.Id)).Valor!.RepresentanteSocioId);
+    }
+
+    [Fact]
+    public async Task RepresentanteDoClienteCorrespondente_ValidoSemDuplicarPessoaNaLista()
+    {
+        var tenant = Guid.NewGuid(); await using var db = CriarContexto(tenant);
+        var p = Prospecto.Create(tenant, "Empresa", "11222333000144", null);
+        CompletarEnderecoProspecto(db, p);
+        var o = Orcamento.Criar(tenant, p.Id, "Aceito", 10, null);
+        AdicionarItensComerciais(o);
+        o.Aceitar();
+        db.Prospects.Add(p); db.Budgets.Add(o);
+        AdicionarContratadaCompleta(db, tenant);
+        var original = SocioContratualFixture.Adicionar(db, p); await db.SaveChangesAsync();
+        var cliente = p.ConverterParaCliente(Guid.NewGuid()); db.Clients.Add(cliente); await db.SaveChangesAsync();
+        var socioCliente = Assert.Single(cliente.Socios);
+        var servico = CriarServico(db, tenant);
+        Assert.Single((await servico.ObterRepresentantesAsync(o.Id)).Valor!.Socios);
+        var resultado = await servico.ConverterOrcamentoAsync(new(
+            o.Id,
+            new DateTime(2026, 10, 1),
+            2,
+            new DateOnly(2027, 1, 1),
+            false,
+            null,
+            socioCliente.Id));
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        var contratoCriado = await db.Contracts.SingleAsync();
+        Assert.Equal(socioCliente.Id, contratoCriado.RepresentanteSocioId);
+        Assert.Equal(new DateTime(2028, 10, 1), contratoCriado.DataFim);
+        Assert.Equal(2, contratoCriado.DuracaoAnos);
+        Assert.Equal(new DateOnly(2027, 1, 1), contratoCriado.CompetenciaInicialHonorarios);
+        Assert.Equal(original.PessoaId, socioCliente.PessoaId);
+    }
+    [Theory]
+    [InlineData("sem-socios")]
+    [InlineData("sem-selecao")]
+    [InlineData("incompleto")]
+    [InlineData("outro-prospecto")]
+    [InlineData("outro-tenant")]
+    public async Task Conversao_ExigeRepresentanteCompletoDoMesmoCadastroETenant(string caso)
+    {
+        var tenant = Guid.NewGuid();
+        await using var db = CriarContexto(tenant);
+        var p = Prospecto.Create(tenant, "Empresa", "11222333000144", null);
+        var o = Orcamento.Criar(tenant, p.Id, "Aceito", 10, null); o.Aceitar();
+        db.Prospects.Add(p); db.Budgets.Add(o);
+        Socio? s = null;
+        if (caso != "sem-socios") s = SocioContratualFixture.Adicionar(db, p);
+        if (caso == "incompleto") s!.Pessoa.AtualizarDadosSocietarios(s.Nome, s.Cpf, null, s.Pessoa.Endereco);
+        if (caso is "outro-prospecto" or "outro-tenant")
+        {
+            var outro = Prospecto.Create(caso == "outro-tenant" ? Guid.NewGuid() : tenant, "Outra", "99888777000166", null);
+            db.Prospects.Add(outro);
+            s = SocioContratualFixture.Adicionar(db, outro);
+        }
+        await db.SaveChangesAsync();
+        var resultado = await CriarServico(db, tenant).ConverterOrcamentoAsync(new(o.Id, DateTime.Today, 4, null, false, null,
+            caso == "sem-selecao" ? null : s?.Id));
+        Assert.False(resultado.Sucesso);
+        Assert.Empty(db.Contracts);
+        Assert.Empty(db.Empresas);
+        Assert.NotEmpty(resultado.ErrosValidacao);
+        Assert.Contains(resultado.ErrosValidacao, erro => erro.Contains("representante", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ListaRepresentantes_AtualizaCompletudeSemEscolhaAutomatica()
+    {
+        var tenant = Guid.NewGuid(); await using var db = CriarContexto(tenant);
+        var p = Prospecto.Create(tenant, "Empresa", "11222333000144", null);
+        var o = Orcamento.Criar(tenant, p.Id, "Aceito", 10, null); o.Aceitar();
+        db.Prospects.Add(p); db.Budgets.Add(o);
+        var s = SocioContratualFixture.Adicionar(db, p, "SOCIO_ADMINISTRADOR");
+        s.Pessoa.AtualizarDadosSocietarios(s.Nome, s.Cpf, null, s.Pessoa.Endereco);
+        await db.SaveChangesAsync(); var servico = CriarServico(db, tenant);
+        var antes = Assert.Single((await servico.ObterRepresentantesAsync(o.Id)).Valor!.Socios);
+        Assert.False(antes.CadastroCompleto); Assert.Contains("Profissão", antes.InformacoesFaltantes);
+        s.Pessoa.AtualizarDadosSocietarios(s.Nome, s.Cpf, "Arquiteta", s.Pessoa.Endereco);
+        await db.SaveChangesAsync();
+        var depois = Assert.Single((await servico.ObterRepresentantesAsync(o.Id)).Valor!.Socios);
+        Assert.True(depois.CadastroCompleto); Assert.Equal(s.Id, depois.Id);
+        Assert.Empty(db.Contracts);
+    }
+
+    [Theory]
+    [InlineData("SOCIO")]
+    [InlineData("SOCIO_ADMINISTRADOR")]
+    public async Task ConverterOrcamentoAsync_ComOrcamentoAceito_CriaContrato(string codigo)
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        CompletarEnderecoProspecto(contexto, prospecto);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
         orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
             tenantId, orcamento.Id, null, "Honorarios",
-            SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario, 1, 500m, 1));
+            SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario, 1, 500m, 1,
+            NaturezaCobrancaItemOrcamento.HonorarioMensal));
+        orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
+            tenantId, orcamento.Id, null, "Processamento de folha",
+            SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario, 40, 12m, 2,
+            NaturezaCobrancaItemOrcamento.PorFolha));
         orcamento.Aceitar();
         contexto.Prospects.Add(prospecto);
         contexto.Budgets.Add(orcamento);
+        AdicionarContratadaCompleta(contexto, tenantId);
+        var representante = SocioContratualFixture.Adicionar(contexto, prospecto, codigo);
         await contexto.SaveChangesAsync();
         var servico = CriarServico(contexto, tenantId);
 
         var resultado = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
             orcamento.Id,
             new DateTime(2026, 9, 1),
-            null,
+            4,
+            new DateOnly(2026, 9, 1),
             true,
-            null));
+            null, RepresentanteSocioId: representante.Id));
 
         Assert.True(resultado.Sucesso);
         var contrato = await contexto.Contracts.SingleAsync();
@@ -48,6 +156,15 @@ public class ContratoServicoTestes
         Assert.Equal(contrato.EmpresaId, Assert.Single(contexto.Empresas).Id);
         Assert.Null(contrato.ClientId);
         Assert.Equal(orcamento.Id, contrato.BudgetId);
+        Assert.Equal(representante.Id, contrato.RepresentanteSocioId);
+        Assert.Equal(new DateTime(2030, 9, 1), contrato.DataFim);
+        Assert.Equal(4, contrato.DuracaoAnos);
+        Assert.Equal(new DateOnly(2026, 9, 1), contrato.CompetenciaInicialHonorarios);
+
+        var dadosContrato = (await servico.ObterPorIdAsync(contrato.Id)).Valor!;
+        Assert.Equal(10, dadosContrato.DiaVencimento);
+        Assert.Equal(500m, dadosContrato.ValorHonorarioMensal);
+        Assert.Equal(12m, dadosContrato.ValorUnitarioPorFolha);
     }
 
     [Fact]
@@ -56,10 +173,13 @@ public class ContratoServicoTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        CompletarEnderecoProspecto(contexto, prospecto);
         var empresa = Empresa.CriarDoProspecto(prospecto);
+        empresa.VincularEndereco(CriarEnderecoCompleto(contexto, "Rua da Contratante").Id);
         prospecto.VincularEmpresa(empresa.Id);
         var orcamentoAtual = Orcamento.Criar(tenantId, prospecto.Id, "Contrato atual", 10, null);
         var novoOrcamento = Orcamento.Criar(tenantId, prospecto.Id, "Novo contrato", 10, null);
+        AdicionarItensComerciais(novoOrcamento);
         orcamentoAtual.Aceitar();
         novoOrcamento.Aceitar();
         var contratoAtual = Contrato.CriarDeOrcamento(
@@ -70,6 +190,8 @@ public class ContratoServicoTestes
         contexto.Prospects.Add(prospecto);
         contexto.Budgets.AddRange(orcamentoAtual, novoOrcamento);
         contexto.Contracts.Add(contratoAtual);
+        AdicionarContratadaCompleta(contexto, tenantId);
+        var representante = SocioContratualFixture.Adicionar(contexto, prospecto);
         await contexto.SaveChangesAsync();
         var servico = CriarServico(contexto, tenantId);
 
@@ -77,9 +199,10 @@ public class ContratoServicoTestes
         var semConfirmacao = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
             novoOrcamento.Id,
             new DateTime(2026, 10, 16),
-            null,
+            4,
+            new DateOnly(2026, 10, 1),
             false,
-            null));
+            null, RepresentanteSocioId: representante.Id));
 
         Assert.True(ativos.Sucesso);
         Assert.Equal(contratoAtual.Id, Assert.Single(ativos.Valor!).Id);
@@ -91,9 +214,10 @@ public class ContratoServicoTestes
         var comConfirmacao = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
             novoOrcamento.Id,
             new DateTime(2026, 10, 16),
-            null,
+            4,
+            new DateOnly(2026, 10, 1),
             true,
-            null));
+            null, RepresentanteSocioId: representante.Id));
 
         Assert.True(comConfirmacao.Sucesso, comConfirmacao.Erro);
         Assert.Equal(StatusContrato.Ativo, contratoAtual.Status);
@@ -150,12 +274,144 @@ public class ContratoServicoTestes
         var resultado = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
             orcamento.Id,
             DateTime.UtcNow,
+            4,
             null,
             true,
             null));
 
         Assert.False(resultado.Sucesso);
-        Assert.Contains("aceitos", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(resultado.ErrosValidacao, erro => erro.Contains("aceito", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ConverterOrcamentoAsync_ComOrcamentoInexistente_FalhaSemCriarContrato()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+
+        var resultado = await CriarServico(contexto, tenantId).ConverterOrcamentoAsync(
+            new ConverterOrcamentoContratoRequisicao(
+                Guid.NewGuid(), new DateTime(2026, 9, 1), 4, new DateOnly(2026, 9, 1), true, null, null));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("nao encontrado", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(contexto.Contracts);
+    }
+
+    [Theory]
+    [InlineData("crc-contratada")]
+    [InlineData("endereco-contratada")]
+    [InlineData("responsavel-ausente")]
+    [InlineData("endereco-responsavel")]
+    [InlineData("endereco-contratante")]
+    [InlineData("sem-honorario")]
+    [InlineData("sem-folha")]
+    [InlineData("vencimento-invalido")]
+    [InlineData("orcamento-nao-aceito")]
+    public async Task Conversao_ComDadosObrigatoriosPendentes_RetornaPendenciasSemCriarContrato(string caso)
+    {
+        var cenario = await CriarCenarioProntoAsync(
+            incluirHonorarioMensal: caso != "sem-honorario",
+            incluirPorFolha: caso != "sem-folha",
+            diaVencimento: caso == "vencimento-invalido" ? 32 : 10,
+            enderecoProspectoCompleto: caso != "endereco-contratante",
+            crcContratadaInformado: caso != "crc-contratada",
+            enderecoResponsavelCompleto: caso != "endereco-responsavel",
+            incluirResponsavel: caso != "responsavel-ausente",
+            enderecoContratadaCompleto: caso != "endereco-contratada",
+            aceitarOrcamento: caso != "orcamento-nao-aceito");
+        await using var contexto = cenario.Contexto;
+        var servico = CriarServico(contexto, cenario.TenantId);
+
+        var resultado = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
+            cenario.Orcamento.Id,
+            new DateTime(2026, 9, 1),
+            4,
+            new DateOnly(2026, 9, 1),
+            true,
+            null,
+            cenario.Representante.Id));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains(ContratoErros.DadosObrigatoriosPendentes, resultado.Erro);
+        Assert.NotEmpty(resultado.ErrosValidacao);
+        Assert.Empty(contexto.Contracts);
+        Assert.Empty(contexto.Empresas);
+
+        var termosEsperados = caso switch
+        {
+            "crc-contratada" => new[] { "CRC da CONTRATADA" },
+            "endereco-contratada" => new[] { "Endereço da CONTRATADA" },
+            "responsavel-ausente" => new[] { "Responsável técnico" },
+            "endereco-responsavel" => new[] { "Endereço do responsável técnico" },
+            "endereco-contratante" => new[] { "Endereço da CONTRATANTE" },
+            "sem-honorario" => new[] { "Honorário mensal" },
+            "sem-folha" => new[] { "preço por folha" },
+            "vencimento-invalido" => new[] { "vencimento" },
+            _ => new[] { "aceito" }
+        };
+        Assert.All(termosEsperados, termo =>
+            Assert.Contains(resultado.ErrosValidacao, pendencia => pendencia.Contains(termo, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [Theory]
+    [InlineData("data-inicio")]
+    [InlineData("duracao")]
+    [InlineData("competencia-ausente")]
+    [InlineData("competencia-invalida")]
+    public async Task Conversao_ComVigenciaOuCompetenciaInvalida_RetornaPendencias(string caso)
+    {
+        var cenario = await CriarCenarioProntoAsync();
+        await using var contexto = cenario.Contexto;
+        var requisicao = new ConverterOrcamentoContratoRequisicao(
+            cenario.Orcamento.Id,
+            caso == "data-inicio" ? default : new DateTime(2026, 9, 1),
+            caso == "duracao" ? 0 : 4,
+            caso switch
+            {
+                "competencia-ausente" => null,
+                "competencia-invalida" => new DateOnly(2026, 9, 15),
+                _ => new DateOnly(2026, 9, 1)
+            },
+            true,
+            null,
+            cenario.Representante.Id);
+
+        var resultado = await CriarServico(contexto, cenario.TenantId).ConverterOrcamentoAsync(requisicao);
+
+        Assert.False(resultado.Sucesso);
+        Assert.NotEmpty(resultado.ErrosValidacao);
+        Assert.Empty(contexto.Contracts);
+    }
+
+    [Fact]
+    public async Task Conversao_AgregaTodasAsPendenciasEmUmaResposta()
+    {
+        var cenario = await CriarCenarioProntoAsync(
+            incluirHonorarioMensal: false,
+            diaVencimento: 0,
+            crcContratadaInformado: false,
+            enderecoResponsavelCompleto: false);
+        await using var contexto = cenario.Contexto;
+        var requisicao = new ConverterOrcamentoContratoRequisicao(
+            cenario.Orcamento.Id,
+            new DateTime(2026, 9, 1),
+            4,
+            null,
+            true,
+            null,
+            null);
+
+        var resultado = await CriarServico(contexto, cenario.TenantId).ConverterOrcamentoAsync(requisicao);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains(resultado.ErrosValidacao, pendencia => pendencia.Contains("CONTRATADA", StringComparison.Ordinal));
+        Assert.Contains(resultado.ErrosValidacao, pendencia => pendencia.Contains("responsável técnico", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(resultado.ErrosValidacao, pendencia => pendencia.Contains("Honorário mensal", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(resultado.ErrosValidacao, pendencia => pendencia.Contains("vencimento", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(resultado.ErrosValidacao, pendencia => pendencia.Contains("representante", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(resultado.ErrosValidacao, pendencia => pendencia.Contains("Competência", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(contexto.Contracts);
     }
 
     [Fact]
@@ -264,138 +520,173 @@ public class ContratoServicoTestes
     [Fact]
     public async Task GerarPdfAsync_ComEmpresaGeradaDoProspecto_UsaDadosCadastrais()
     {
-        var tenantId = Guid.NewGuid();
-        await using var contexto = CriarContexto(tenantId);
-        var parceiro = Parceiro.Criar("00999888000177", "Contabilidade Teste");
-        DefinirId(parceiro, tenantId);
-        var prospecto = Prospecto.Create(
-            tenantId,
-            "Empresa Prospect",
-            "11222333000144",
-            RegimeTributario.SimplesNacional);
-        var empresa = Empresa.CriarDoProspecto(prospecto);
-        prospecto.VincularEmpresa(empresa.Id);
-        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
-            tenantId,
-            orcamento.Id,
-            null,
-            "Honorarios",
-            SecaoItemOrcamento.Honorarios,
-            TipoItemOrcamento.ItemMonetario,
-            1,
-            500m,
-            1));
-        orcamento.Aceitar();
-        var contrato = Contrato.CriarDeOrcamento(
-            orcamento,
-            prospecto,
-            new DateTime(2026, 9, 1),
-            null,
-            null);
-        contexto.Parceiros.Add(parceiro);
-        contexto.Empresas.Add(empresa);
-        contexto.Prospects.Add(prospecto);
-        contexto.Budgets.Add(orcamento);
-        contexto.Contracts.Add(contrato);
-        await contexto.SaveChangesAsync();
-        contexto.ChangeTracker.Clear();
+        var cenario = await CriarCenarioProntoAsync();
+        await using var contexto = cenario.Contexto;
         var pdf = new ServicoPdfCapturaFake();
-        var servico = CriarServico(contexto, tenantId, pdf);
+        var instante = new DateTimeOffset(2026, 10, 24, 1, 30, 0, TimeSpan.Zero);
+        var servico = CriarServico(contexto, cenario.TenantId, pdf, new ServicoAssinaturaFake(),
+            timeProvider: new RelogioContratoFixo(instante));
+        var conversao = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
+            cenario.Orcamento.Id, new DateTime(2026, 9, 1), 4, new DateOnly(2026, 10, 1),
+            true, "Condição adicional de teste.", RepresentanteSocioId: cenario.Representante.Id));
+        Assert.True(conversao.Sucesso);
+        contexto.ChangeTracker.Clear();
 
-        var resultado = await servico.GerarPdfAsync(contrato.Id);
+        var resultado = await servico.GerarPdfAsync(conversao.Valor);
 
         Assert.True(resultado.Sucesso);
-        Assert.Equal("Empresa Prospect", pdf.UltimosDados!.Contratante.RazaoSocial);
-        Assert.Equal("11222333000144", pdf.UltimosDados.Contratante.Cnpj);
+        var dados = Assert.IsType<DadosPdfContrato>(pdf.UltimosDados);
+        Assert.Equal("Empresa Teste", dados.Contratante.RazaoSocial);
+        Assert.Equal("11222333000144", dados.Contratante.Cnpj);
+        Assert.Equal("Rua da CONTRATANTE", dados.Contratante.Endereco.Logradouro);
+        Assert.Equal("Ana Representante", dados.Contratante.Representante.Nome);
+        Assert.Equal("Arquiteta", dados.Contratante.Representante.Profissao);
+        Assert.Equal("Rua do Representante", dados.Contratante.Representante.Endereco.Logradouro);
+        Assert.Equal("CRC-SC-12345", dados.Contratada.Crc);
+        Assert.Equal("Rua do Responsável Técnico", dados.Contratada.ResponsavelTecnico.Endereco.Logradouro);
+        Assert.Equal(500m, dados.ValorHonorarioMensal);
+        Assert.Equal(12m, dados.ValorUnitarioPorFolha);
+        Assert.Equal(10, dados.DiaVencimento);
+        Assert.Equal(new DateOnly(2026, 9, 1), dados.DataInicio);
+        Assert.Equal(new DateOnly(2030, 9, 1), dados.DataFim);
+        Assert.Equal(new DateOnly(2026, 10, 1), dados.CompetenciaInicialHonorarios);
+        Assert.Equal(new DateTime(2026, 10, 23, 22, 30, 0), dados.DataEmissao);
+        Assert.Equal("Condição adicional de teste.", dados.ClausulasExtras);
+        Assert.NotNull((await contexto.Contracts.SingleAsync()).PdfPath);
     }
 
     [Fact]
     public async Task GerarPdfAsync_ComEmpresaVinculada_UsaDadosDaEmpresaComoFontePrioritaria()
     {
-        var tenantId = Guid.NewGuid();
-        await using var contexto = CriarContexto(tenantId);
-        var parceiro = Parceiro.Criar("00999888000177", "Contabilidade Teste");
-        DefinirId(parceiro, tenantId);
-        var prospecto = Prospecto.Create(tenantId, "Dados do prospecto", "11222333000144", RegimeTributario.MEI);
-        var empresa = Empresa.CriarConstituida(
-            tenantId,
-            "11222333000144",
-            "Dados cadastrais da empresa",
-            "Empresa Cadastrada",
-            email: "empresa@teste.local",
+        var cenario = await CriarCenarioProntoAsync();
+        await using var contexto = cenario.Contexto;
+        var empresa = Empresa.CriarConstituida(cenario.TenantId, "11222333000144",
+            "Dados cadastrais da empresa", "Empresa Cadastrada", email: "empresa@teste.local",
             regimeTributario: RegimeTributario.LucroPresumido.ToString());
-        prospecto.VincularEmpresa(empresa.Id);
-        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        orcamento.Aceitar();
-        var contrato = Contrato.CriarDeOrcamento(
-            orcamento,
-            prospecto,
-            new DateTime(2026, 9, 1),
-            null,
-            null);
-        contexto.Parceiros.Add(parceiro);
+        empresa.VincularEndereco(CriarEnderecoCompleto(contexto, "Rua da Empresa Prioritária").Id);
+        cenario.Prospecto.VincularEmpresa(empresa.Id);
         contexto.Empresas.Add(empresa);
-        contexto.Prospects.Add(prospecto);
-        contexto.Budgets.Add(orcamento);
-        contexto.Contracts.Add(contrato);
         await contexto.SaveChangesAsync();
-        contexto.ChangeTracker.Clear();
         var pdf = new ServicoPdfCapturaFake();
-        var servico = CriarServico(contexto, tenantId, pdf);
+        var servico = CriarServico(contexto, cenario.TenantId, pdf);
+        var conversao = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
+            cenario.Orcamento.Id, new DateTime(2026, 9, 1), 4, new DateOnly(2026, 9, 1),
+            true, null, RepresentanteSocioId: cenario.Representante.Id));
+        Assert.True(conversao.Sucesso);
+        contexto.ChangeTracker.Clear();
 
-        var resultado = await servico.GerarPdfAsync(contrato.Id);
+        var resultado = await servico.GerarPdfAsync(conversao.Valor);
 
         Assert.True(resultado.Sucesso);
         Assert.Equal("Dados cadastrais da empresa", pdf.UltimosDados!.Contratante.RazaoSocial);
         Assert.Equal("Empresa Cadastrada", pdf.UltimosDados.Contratante.NomeFantasia);
         Assert.Equal("LucroPresumido", pdf.UltimosDados.Contratante.RegimeTributario);
         Assert.Equal("empresa@teste.local", pdf.UltimosDados.Contratante.Email);
+        Assert.Equal("Rua da Empresa Prioritária", pdf.UltimosDados.Contratante.Endereco.Logradouro);
     }
 
     [Fact]
-    public async Task EnviarParaAssinaturaAsync_ComAutentiqueCriaSolicitacaoAssinatura()
+    public async Task EnviarParaAssinaturaAsync_ExigeERegistraAssinaturaDasDuasPartes()
     {
-        var tenantId = Guid.NewGuid();
-        await using var contexto = CriarContexto(tenantId);
-        var prospecto = Prospecto.Create(
-            tenantId,
-            "Empresa Prospect",
-            "11222333000144",
-            RegimeTributario.SimplesNacional);
-        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
-        orcamento.Aceitar();
-        var contrato = Contrato.CriarDeOrcamento(
-            orcamento,
-            prospecto,
+        var cenario = await CriarCenarioProntoAsync();
+        await using var contexto = cenario.Contexto;
+        var servico = CriarServico(contexto, cenario.TenantId);
+        var conversao = await servico.ConverterOrcamentoAsync(new(
+            cenario.Orcamento.Id,
             new DateTime(2026, 9, 1),
+            4,
+            new DateOnly(2026, 9, 1),
+            true,
             null,
-            null);
+            RepresentanteSocioId: cenario.Representante.Id));
+        Assert.True(conversao.Sucesso, conversao.Erro);
+        var contrato = await contexto.Contracts.SingleAsync();
         contrato.SetPdfPath("contratos/contrato.pdf");
-        contexto.Prospects.Add(prospecto);
-        contexto.Budgets.Add(orcamento);
-        contexto.Contracts.Add(contrato);
         await contexto.SaveChangesAsync();
-        var servico = CriarServico(
-            contexto,
-            tenantId,
-            new ServicoPdfFake(),
-            new ServicoAssinaturaFake(ResultadoAssinatura.CriarSucesso(
-                "doc-autentique-1",
-                [new LinkAssinante("cliente@teste.com", "https://assinatura.test")])));
+        var assinatura = new ServicoAssinaturaFake(ResultadoAssinatura.CriarSucesso(
+            "doc-autentique-1",
+            [
+                new LinkAssinante("representante@empresa.test", "https://assinatura.test/1", "Socio Teste", "contratante"),
+                new LinkAssinante("contador@contabilidade.test", "https://assinatura.test/2", "Responsável Técnico", "contratada")
+            ]));
+        servico = CriarServico(contexto, cenario.TenantId, new ServicoPdfFake(), assinatura);
+
+        var signatarios = await servico.ObterSignatariosAsync(contrato.Id);
+        Assert.True(signatarios.Sucesso, signatarios.Erro);
+        Assert.Collection(signatarios.Valor!.Signatarios,
+            item =>
+            {
+                Assert.Equal("contratante", item.Tipo);
+                Assert.Equal(cenario.Representante.Nome, item.Nome);
+                Assert.Equal("11789299900", item.Cpf);
+            },
+            item =>
+            {
+                Assert.Equal("contratada", item.Tipo);
+                Assert.Equal("Responsável Técnico", item.Nome);
+                Assert.Equal("12345678901", item.Cpf);
+            });
 
         var resultado = await servico.EnviarParaAssinaturaAsync(new EnviarAssinaturaRequisicao(
             contrato.Id,
-            [new SignatarioAssinatura("Cliente Teste", "cliente@teste.com", "12345678901", "cliente")]));
+            "representante@empresa.test",
+            "contador@contabilidade.test"));
 
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.Equal(StatusContrato.AguardandoAssinatura, contrato.Status);
+        Assert.Equal(2, assinatura.UltimaSolicitacao!.Assinantes.Count);
+        Assert.Collection(assinatura.UltimaSolicitacao.Assinantes,
+            item =>
+            {
+                Assert.Equal("contratante", item.Tipo);
+                Assert.Equal("representante@empresa.test", item.Email);
+                Assert.Equal(cenario.Representante.Nome, item.Nome);
+            },
+            item =>
+            {
+                Assert.Equal("contratada", item.Tipo);
+                Assert.Equal("contador@contabilidade.test", item.Email);
+                Assert.Equal("Responsável Técnico", item.Nome);
+            });
         var solicitacao = await contexto.AssinaturaSolicitacoes
             .Include(item => item.Signatarios)
             .SingleAsync();
         Assert.Equal("autentique", solicitacao.Provedor);
         Assert.Equal("doc-autentique-1", solicitacao.IdExterno);
-        Assert.Equal("cliente@teste.com", Assert.Single(solicitacao.Signatarios).Email);
+        Assert.Equal(2, solicitacao.Signatarios.Count);
+        Assert.Equal(["contratante", "contratada"], solicitacao.Signatarios.OrderBy(item => item.Ordem).Select(item => item.Papel).ToArray());
+    }
+
+    [Fact]
+    public async Task EnviarParaAssinaturaAsync_RejeitaMesmoEmailParaAsDuasPartes()
+    {
+        var cenario = await CriarCenarioProntoAsync();
+        await using var contexto = cenario.Contexto;
+        var servicoConversao = CriarServico(contexto, cenario.TenantId);
+        var conversao = await servicoConversao.ConverterOrcamentoAsync(new(
+            cenario.Orcamento.Id,
+            new DateTime(2026, 9, 1),
+            4,
+            new DateOnly(2026, 9, 1),
+            true,
+            null,
+            RepresentanteSocioId: cenario.Representante.Id));
+        Assert.True(conversao.Sucesso, conversao.Erro);
+        var contrato = await contexto.Contracts.SingleAsync();
+        contrato.SetPdfPath("contratos/contrato.pdf");
+        await contexto.SaveChangesAsync();
+        var assinatura = new ServicoAssinaturaFake();
+        var servico = CriarServico(contexto, cenario.TenantId, new ServicoPdfFake(), assinatura);
+
+        var resultado = await servico.EnviarParaAssinaturaAsync(new(
+            contrato.Id,
+            "igual@empresa.test",
+            " IGUAL@empresa.test "));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("e-mail diferente", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(assinatura.UltimaSolicitacao);
+        Assert.Empty(contexto.AssinaturaSolicitacoes);
     }
 
     [Fact]
@@ -857,7 +1148,7 @@ public class ContratoServicoTestes
         var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
 
         Assert.True(resultado.Sucesso, resultado.Erro);
-        var signatario = Assert.Single(solicitacao.Signatarios);
+        var signatario = Assert.Single(solicitacao.Signatarios, item => item.Email == "cliente@teste.com");
         Assert.Equal(new DateTime(2026, 8, 30, 11, 15, 0, DateTimeKind.Utc), signatario.AssinadoEm);
         Assert.Single(contexto.AssinaturaEventos);
     }
@@ -887,7 +1178,8 @@ public class ContratoServicoTestes
         var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
 
         Assert.True(resultado.Sucesso, resultado.Erro);
-        Assert.Equal(new DateTime(2026, 8, 30, 11, 15, 0, DateTimeKind.Utc), Assert.Single(solicitacao.Signatarios).AssinadoEm);
+        Assert.Equal(new DateTime(2026, 8, 30, 11, 15, 0, DateTimeKind.Utc),
+            Assert.Single(solicitacao.Signatarios, item => item.Email == "cliente@teste.com").AssinadoEm);
         Assert.Single(contexto.AssinaturaEventos);
     }
 
@@ -926,8 +1218,38 @@ public class ContratoServicoTestes
         var resultado = await servico.ProcessarWebhookAutentiqueAsync(payload);
 
         Assert.True(resultado.Sucesso, resultado.Erro);
-        Assert.Equal(new DateTime(2026, 8, 30, 11, 15, 0, DateTimeKind.Utc), Assert.Single(solicitacao.Signatarios).AssinadoEm);
+        Assert.Equal(new DateTime(2026, 8, 30, 11, 15, 0, DateTimeKind.Utc),
+            Assert.Single(solicitacao.Signatarios, item => item.Email == "cliente@teste.com").AssinadoEm);
         Assert.Single(contexto.AssinaturaEventos);
+    }
+
+    [Fact]
+    public async Task ProcessarWebhookAutentiqueAsync_AssinaturasParciaisNaoAtivamContrato()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (_, contrato, solicitacao) = await CriarContratoComSolicitacaoAsync(
+            contexto,
+            tenantId,
+            incluirSignatario: true);
+        var servico = CriarServico(contexto, tenantId);
+
+        var primeiroEvento = await servico.ProcessarWebhookAutentiqueAsync("""
+            {"event":"signature.accepted","document":{"id":"doc-autentique-1"},"signer":{"email":"cliente@teste.com"},"created_at":"2026-08-30T11:15:00Z"}
+            """);
+
+        Assert.True(primeiroEvento.Sucesso, primeiroEvento.Erro);
+        Assert.Equal(StatusContrato.Rascunho, contrato.Status);
+        Assert.NotNull(Assert.Single(solicitacao.Signatarios, item => item.Email == "cliente@teste.com").AssinadoEm);
+        Assert.Null(Assert.Single(solicitacao.Signatarios, item => item.Email == "contador@teste.com").AssinadoEm);
+
+        var segundoEvento = await servico.ProcessarWebhookAutentiqueAsync("""
+            {"event":"signature.accepted","document":{"id":"doc-autentique-1"},"signer":{"email":"contador@teste.com"},"created_at":"2026-08-30T11:16:00Z"}
+            """);
+
+        Assert.True(segundoEvento.Sucesso, segundoEvento.Erro);
+        Assert.Equal(StatusContrato.Rascunho, contrato.Status);
+        Assert.All(solicitacao.Signatarios, item => Assert.NotNull(item.AssinadoEm));
     }
 
     private static IContratoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
@@ -943,19 +1265,144 @@ public class ContratoServicoTestes
         IServicoAssinatura servicoAssinatura,
         IServicoArmazenamento? servicoArmazenamento = null,
         ServicoEmpresaAtual? empresaAtual = null,
-        IPublicadorAtualizacaoTempoReal? publicadorAtualizacaoTempoReal = null)
-        => new ContratoServico(
+        IPublicadorAtualizacaoTempoReal? publicadorAtualizacaoTempoReal = null,
+        TimeProvider? timeProvider = null)
+    {
+        var tenantAtual = empresaAtual ?? CriarEmpresaAtual(tenantId);
+        return new ContratoServico(
             new ContratoRepositorio(contexto),
-            new ParceiroRepositorio(contexto),
+            new ContabilidadeRepositorio(contexto, tenantAtual),
             new OrcamentoRepositorio(contexto),
             new ProspectoRepositorio(contexto),
             new ServicoEnderecoComercialFake(),
             servicoPdf,
             servicoAssinatura,
             servicoArmazenamento ?? new ServicoArmazenamentoFake(),
-            empresaAtual ?? CriarEmpresaAtual(tenantId),
+            tenantAtual,
             publicadorAtualizacaoTempoReal ?? new PublicadorAtualizacaoTempoRealFake(),
-            NullLogger<ContratoServico>.Instance);
+            NullLogger<ContratoServico>.Instance,
+            timeProvider ?? TimeProvider.System);
+    }
+
+    private static (Parceiro Parceiro, ResponsavelTecnico Responsavel) AdicionarContratadaCompleta(
+        ContextoAplicacao contexto,
+        Guid tenantId,
+        bool crcContratadaInformado = true,
+        bool enderecoResponsavelCompleto = true)
+    {
+        var parceiro = Parceiro.CriarDesenvolvimento(tenantId, "12345678000195", "Officio Contabilidade");
+        parceiro.AtualizarDadosContabilidade(
+            "12345678000195", "Officio Contabilidade", null, null, null,
+            crcContratadaInformado ? "CRC-SC-12345" : null);
+        parceiro.VincularEndereco(CriarEnderecoCompleto(contexto, "Rua da Contabilidade").Id);
+
+        var responsavel = ResponsavelTecnico.Criar(
+            tenantId, "Responsável Técnico", "12345678901", "Contador", "CRC-SC-54321");
+        if (enderecoResponsavelCompleto)
+            responsavel.VincularEndereco(CriarEnderecoCompleto(contexto, "Rua do Responsável Técnico").Id);
+
+        contexto.Parceiros.Add(parceiro);
+        contexto.ResponsaveisTecnicos.Add(responsavel);
+        return (parceiro, responsavel);
+    }
+
+    private static async Task<CenarioProntidaoContrato> CriarCenarioProntoAsync(
+        bool incluirHonorarioMensal = true,
+        bool incluirPorFolha = true,
+        int diaVencimento = 10,
+        bool enderecoProspectoCompleto = true,
+        bool crcContratadaInformado = true,
+        bool enderecoResponsavelCompleto = true,
+        bool incluirResponsavel = true,
+        bool enderecoContratadaCompleto = true,
+        bool aceitarOrcamento = true)
+    {
+        var tenantId = Guid.NewGuid();
+        var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        if (enderecoProspectoCompleto)
+            CompletarEnderecoProspecto(contexto, prospecto);
+
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta", diaVencimento, null);
+        if (incluirHonorarioMensal)
+            AdicionarItemComercial(orcamento, NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        if (incluirPorFolha)
+            AdicionarItemComercial(orcamento, NaturezaCobrancaItemOrcamento.PorFolha);
+        if (aceitarOrcamento)
+            orcamento.Aceitar();
+
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.Add(orcamento);
+        var (contratada, responsavel) = AdicionarContratadaCompleta(
+            contexto, tenantId, crcContratadaInformado, enderecoResponsavelCompleto);
+        if (!incluirResponsavel && responsavel is not null)
+        {
+            contexto.ResponsaveisTecnicos.Remove(responsavel);
+            responsavel = null;
+        }
+        if (!enderecoContratadaCompleto)
+            contratada.VincularEndereco(null);
+        var representante = SocioContratualFixture.Adicionar(contexto, prospecto);
+        await contexto.SaveChangesAsync();
+
+        return new CenarioProntidaoContrato(
+            contexto, tenantId, prospecto, orcamento, contratada, responsavel, representante);
+    }
+
+    private static void CompletarEnderecoProspecto(ContextoAplicacao contexto, Prospecto prospecto)
+    {
+        var municipio = GarantirMunicipio(contexto);
+        prospecto.VincularMunicipio(municipio.Id, "Blumenau", "SC");
+        prospecto.AtualizarDadosCadastrais(
+            null, null, null, null, null,
+            null, null, null, null,
+            "89010000", "Rua da CONTRATANTE", "10", null, "Centro", "Blumenau", "SC",
+            null, null, null, null, null);
+    }
+
+    private static void AdicionarItensComerciais(Orcamento orcamento)
+    {
+        AdicionarItemComercial(orcamento, NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        AdicionarItemComercial(orcamento, NaturezaCobrancaItemOrcamento.PorFolha);
+    }
+
+    private static void AdicionarItemComercial(Orcamento orcamento, NaturezaCobrancaItemOrcamento natureza)
+    {
+        var porFolha = natureza == NaturezaCobrancaItemOrcamento.PorFolha;
+        orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(
+            orcamento.TenantId,
+            orcamento.Id,
+            null,
+            porFolha ? "Processamento de folha" : "Honorário mensal",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            porFolha ? 40 : 1,
+            porFolha ? 12m : 500m,
+            porFolha ? 2 : 1,
+            natureza));
+    }
+
+    private static Endereco CriarEnderecoCompleto(ContextoAplicacao contexto, string logradouro)
+    {
+        var municipio = GarantirMunicipio(contexto);
+        var endereco = Endereco.Criar(municipio.Id, logradouro, "89010000", "10", "Centro");
+        contexto.Enderecos.Add(endereco);
+        return endereco;
+    }
+
+    private static Municipio GarantirMunicipio(ContextoAplicacao contexto)
+    {
+        var estado = contexto.Estados.Local.FirstOrDefault()
+            ?? Estado.Criar("42", "SC", "Santa Catarina");
+        if (contexto.Entry(estado).State == EntityState.Detached)
+            contexto.Estados.Add(estado);
+
+        var municipio = contexto.Municipios.Local.FirstOrDefault(item => item.EstadoId == estado.Id)
+            ?? Municipio.Criar(estado.Id, "4202404", "Blumenau");
+        if (contexto.Entry(municipio).State == EntityState.Detached)
+            contexto.Municipios.Add(municipio);
+        return municipio;
+    }
 
     private sealed class PublicadorAtualizacaoTempoRealFake : IPublicadorAtualizacaoTempoReal
     {
@@ -981,6 +1428,15 @@ public class ContratoServicoTestes
         return new ContextoAplicacao(options, empresaAtual, new PublicadorEventosFake());
     }
 
+    private sealed record CenarioProntidaoContrato(
+        ContextoAplicacao Contexto,
+        Guid TenantId,
+        Prospecto Prospecto,
+        Orcamento Orcamento,
+        Parceiro Contratada,
+        ResponsavelTecnico? Responsavel,
+        Socio Representante);
+
     private static ServicoEmpresaAtual CriarEmpresaAtual(Guid tenantId)
     {
         var empresaAtual = new ServicoEmpresaAtual();
@@ -1001,7 +1457,10 @@ public class ContratoServicoTestes
         var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
         solicitacao.DefinirIdentificadorExterno("doc-autentique-1");
         if (incluirSignatario)
-            solicitacao.AdicionarSignatario("Cliente Teste", "cliente@teste.com", "cliente", 1, "12345678901");
+        {
+            solicitacao.AdicionarSignatario("Cliente Teste", "cliente@teste.com", "contratante", 1, "12345678901");
+            solicitacao.AdicionarSignatario("Contador Teste", "contador@teste.com", "contratada", 2, "98765432100");
+        }
 
         contexto.Prospects.Add(prospecto);
         contexto.Clients.Add(cliente);
@@ -1023,6 +1482,8 @@ public class ContratoServicoTestes
 
     private sealed class ServicoEnderecoComercialFake : IServicoEnderecoComercial
     {
+        public Task<Resultado<Endereco?>> AtualizarOuCriarAsync(Endereco? endereco, EnderecoComercialRequisicao requisicao, CancellationToken cancellationToken = default)
+            => CriarAsync(requisicao, cancellationToken);
         public Task<Resultado<Endereco?>> CriarAsync(
             EnderecoComercialRequisicao requisicao,
             CancellationToken cancellationToken = default)
@@ -1055,8 +1516,13 @@ public class ContratoServicoTestes
         ResultadoAssinatura? resultado = null,
         ResultadoDocumentoAssinado? documentoAssinado = null) : IServicoAssinatura
     {
+        public SolicitacaoAssinatura? UltimaSolicitacao { get; private set; }
+
         public Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default)
-            => Task.FromResult(resultado ?? ResultadoAssinatura.CriarFalha("nao usado"));
+        {
+            UltimaSolicitacao = request;
+            return Task.FromResult(resultado ?? ResultadoAssinatura.CriarFalha("nao usado"));
+        }
 
         public Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(string documentoId, CancellationToken ct = default)
             => Task.FromResult(ResultadoEstadoAssinatura.CriarSucesso(false));
@@ -1095,4 +1561,31 @@ public class ContratoServicoTestes
     }
 
     private sealed record EnvioArmazenamento(string FileName, string Container, byte[] Conteudo);
+    [Fact]
+    public async Task GerarPdfAsync_ComResponsavelIncompleto_NaoDeveGerarNemPersistirPdf()
+    {
+        var cenario = await CriarCenarioProntoAsync();
+        await using var contexto = cenario.Contexto;
+        var pdf = new ServicoPdfCapturaFake();
+        var servico = CriarServico(contexto, cenario.TenantId, pdf);
+        var conversao = await servico.ConverterOrcamentoAsync(new ConverterOrcamentoContratoRequisicao(
+            cenario.Orcamento.Id, new DateTime(2026, 9, 1), 4, new DateOnly(2026, 9, 1),
+            true, null, RepresentanteSocioId: cenario.Representante.Id));
+        Assert.True(conversao.Sucesso);
+        cenario.Responsavel!.VincularEndereco(null);
+        await contexto.SaveChangesAsync();
+        contexto.ChangeTracker.Clear();
+
+        var resultado = await servico.GerarPdfAsync(conversao.Valor);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Null(pdf.UltimosDados);
+        Assert.Null((await contexto.Contracts.SingleAsync()).PdfPath);
+    }
+
+    private sealed class RelogioContratoFixo(DateTimeOffset instante) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => instante;
+    }
+
 }

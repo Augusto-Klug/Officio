@@ -50,5 +50,10 @@ internal class OrcamentoMap : IEntityTypeConfiguration<Orcamento>
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(orcamento => new { orcamento.TenantId, orcamento.ProspectId });
+
+        builder.HasIndex(orcamento => new { orcamento.TenantId, orcamento.ProspectId, orcamento.Status })
+            .HasDatabaseName("IX_Budgets_TenantId_ProspectId_Aceito")
+            .IsUnique()
+            .HasFilter("[Status] = 'Aceito'");
     }
 }

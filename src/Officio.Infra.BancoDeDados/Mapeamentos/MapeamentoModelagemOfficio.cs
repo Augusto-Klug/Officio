@@ -144,6 +144,7 @@ internal static class MapeamentoModelagemOfficio
             entity.Property(e => e.Complemento).HasMaxLength(150);
             entity.Property(e => e.Bairro).HasMaxLength(150);
             entity.HasOne(e => e.Municipio).WithMany().HasForeignKey(e => e.MunicipioId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Estado).WithMany().HasForeignKey(e => e.EstadoId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<Pessoa>(entity =>
@@ -153,8 +154,9 @@ internal static class MapeamentoModelagemOfficio
             entity.Property(e => e.Cpf).HasMaxLength(11);
             entity.Property(e => e.Email).HasMaxLength(250);
             entity.Property(e => e.Telefone).HasMaxLength(30);
+            entity.Property(e => e.Profissao).HasMaxLength(250);
             entity.HasOne(e => e.Endereco).WithMany().HasForeignKey(e => e.EnderecoId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasIndex(e => e.Cpf).IsUnique().HasFilter("[Cpf] IS NOT NULL");
+            entity.HasIndex(e => e.Cpf);
         });
 
         builder.Entity<ProspectoPessoa>(entity =>

@@ -1,104 +1,49 @@
-using System.Globalization;
 using Officio.Dominio.Interfaces;
+using Officio.Infraestrutura.Pdf.Formatacao;
 using QuestPDF.Fluent;
-using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
 namespace Officio.Infraestrutura.Pdf.Componentes;
 
-public class ComponenteAssinaturas(
-    DadosContratante          contratante,
-    IReadOnlyList<DadosSocio> socios,
-    DateTime                 dataEmissao) : IComponent
+internal sealed class ComponenteAssinaturas(
+    DadosPdfContrato dados, bool incluirTestemunhas, bool incluirData = true) : IComponent
 {
-    public void Compose(IContainer container)
+    public void Compose(IContainer container) => container.ShowEntire().Column(col =>
     {
-        container.Column(col =>
+        col.Spacing(8);
+        if (incluirData)
+            col.Item().Text($"{FormatadorContrato.CidadeUf(dados.Contratada.Endereco)}, {dados.DataEmissao.ToString("dd 'de' MMMM 'de' yyyy", FormatadorContrato.Cultura)}.");
+        col.Item().PaddingTop(28).Row(row =>
         {
-            col.Item().PaddingTop(20)
-               .Text(t =>
-               {
-                   t.Span("Local e Data: ").Bold().FontSize(9);
-                   t.Span("___________________________________, ").FontSize(9);
-                   t.Span(dataEmissao.ToString("dd 'de' MMMM 'de' yyyy.", new CultureInfo("pt-BR")))
-                    .FontSize(9);
-               });
-
-            col.Item().PaddingTop(28).Row(row =>
-            {
-                var adminSocio = socios.FirstOrDefault(s => s.Administrador);
-
-                row.RelativeItem().Element(SignatureBlock(
-                    "CONTRATADA",
-                    "Contador Responsável",
-                    "CRC: _______________"));
-
-                row.ConstantItem(30);
-
-                row.RelativeItem().Element(SignatureBlock(
-                    "CONTRATANTE",
-                    adminSocio?.Nome ?? contratante.RazaoSocial,
-                    adminSocio is not null
-                        ? $"CPF: {adminSocio.Cpf}"
-                        : $"CNPJ: {contratante.Cnpj}"));
-            });
-
-            col.Item().PaddingTop(28)
-               .Text("Testemunhas:").Bold().FontSize(9)
-               .FontColor(Colors.Grey.Darken1);
-
-            col.Item().PaddingTop(8).Row(row =>
-            {
-                row.RelativeItem().Element(WitnessBlock("1ª Testemunha"));
-                row.ConstantItem(30);
-                row.RelativeItem().Element(WitnessBlock("2ª Testemunha"));
-            });
+            row.RelativeItem().Element(c => Assinante(c, dados.Contratante.RazaoSocial,
+                dados.Contratante.Representante.Nome, dados.Contratante.Representante.Cpf));
+            row.ConstantItem(24);
+            row.RelativeItem().Element(c => Assinante(c, dados.Contratada.RazaoSocial,
+                dados.Contratada.ResponsavelTecnico.Nome, dados.Contratada.ResponsavelTecnico.Cpf));
         });
-    }
-
-    static Action<IContainer> SignatureBlock(
-        string label, string nome, string doc) =>
-        c => c.Column(col =>
+        if (incluirTestemunhas)
         {
-            col.Item()
-               .BorderBottom(1).BorderColor(Colors.Black)
-               .Height(40);
+            col.Item().PaddingTop(12).Text("TESTEMUNHAS:").Bold();
+            col.Item().PaddingTop(24).Row(row =>
+            {
+                row.RelativeItem().Element(Testemunha);
+                row.ConstantItem(24);
+                row.RelativeItem().Element(Testemunha);
+            });
+        }
+    });
 
-            col.Item().PaddingTop(4)
-               .AlignCenter()
-               .Text(nome).Bold().FontSize(9);
-
-            col.Item().AlignCenter()
-               .Text(label).FontSize(8)
-               .FontColor(Colors.Grey.Darken2);
-
-            col.Item().AlignCenter()
-               .Text(doc).FontSize(8)
-               .FontColor(Colors.Grey.Darken2);
+    private static void Assinante(IContainer container, string empresa, string nome, string cpf)
+        => container.BorderTop(0.5f).PaddingTop(6).Column(col =>
+        {
+            col.Item().Text(empresa).Bold();
+            col.Item().Text(nome);
+            col.Item().Text($"CPF: {FormatadorContrato.Documento(cpf)}");
         });
 
-    static Action<IContainer> WitnessBlock(string label) =>
-        c => c.Column(col =>
-        {
-            col.Item()
-               .BorderBottom(1).BorderColor(Colors.Black)
-               .Height(30);
-
-            col.Item().PaddingTop(3).Row(row =>
-            {
-                row.RelativeItem()
-                   .Text($"{label}:").FontSize(8).Bold();
-                row.RelativeItem()
-                   .Text("Nome: ___________________________").FontSize(8);
-            });
-
-            col.Item().PaddingTop(2)
-               .Text("CPF: _______________________________")
-               .FontSize(8);
-        });
+    private static void Testemunha(IContainer container) => container.BorderTop(0.5f).PaddingTop(6).Column(col =>
+    {
+        col.Item().Text("Nome:");
+        col.Item().Text("CPF:");
+    });
 }
-
-
-
-
-

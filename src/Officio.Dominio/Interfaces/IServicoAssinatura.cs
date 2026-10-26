@@ -29,7 +29,7 @@ public record ResultadoAssinatura
         => new() { Sucesso = false, RequerFallback = true, Mensagem = mensagem };
 }
 
-public record LinkAssinante(string Email, string Link);
+public record LinkAssinante(string Email, string Link, string? Nome = null, string? Tipo = null);
 
 public record ResultadoEstadoAssinatura
 {

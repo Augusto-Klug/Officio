@@ -15,9 +15,11 @@ public class ConverterOrcamentoParaContratoHandler(IContratoServico contratoServ
         var requisicao = new ConverterOrcamentoContratoRequisicao(
             request.OrcamentoId,
             request.DataInicio,
-            request.DataFim,
+            request.DuracaoAnos,
+            request.CompetenciaInicialHonorarios,
             request.ConfirmarSubstituicaoContratoAtivo,
-            request.ClausulasExtras);
+            request.ClausulasExtras,
+            request.RepresentanteSocioId);
 
         return await contratoServico.ConverterOrcamentoAsync(requisicao, ct);
     }
