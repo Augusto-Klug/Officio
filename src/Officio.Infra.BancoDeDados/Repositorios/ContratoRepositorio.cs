@@ -35,6 +35,10 @@ internal class ContratoRepositorio(
             .Include(contrato => contrato.Cliente)
             .Include(contrato => contrato.Orcamento)
                 .ThenInclude(orcamento => orcamento!.Itens)
+            .Include(contrato => contrato.SolicitacoesAssinatura
+                .OrderByDescending(solicitacao => solicitacao.SolicitadoEm)
+                .Take(1))
+                .ThenInclude(solicitacao => solicitacao.Signatarios)
             .OrderByDescending(contrato => contrato.CriadoEm)
             .ToListAsync(cancellationToken);
     }
@@ -86,6 +90,10 @@ internal class ContratoRepositorio(
             .Include(contrato => contrato.Cliente)
             .Include(contrato => contrato.Orcamento)
                 .ThenInclude(orcamento => orcamento!.Itens)
+            .Include(contrato => contrato.SolicitacoesAssinatura
+                .OrderByDescending(solicitacao => solicitacao.SolicitadoEm)
+                .Take(1))
+                .ThenInclude(solicitacao => solicitacao.Signatarios)
             .FirstOrDefaultAsync(contrato => contrato.Id == contratoId, cancellationToken);
 
     public async Task<Contrato?> ObterParaGeracaoPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
@@ -106,6 +114,8 @@ internal class ContratoRepositorio(
     public async Task<Contrato?> ObterParaAssinaturaAsync(Guid contratoId, CancellationToken cancellationToken = default)
         => await Contexto.Contracts
             .Include(c => c.Cliente)
+            .Include(c => c.RepresentanteSocio)
+                .ThenInclude(socio => socio!.Pessoa)
             .FirstOrDefaultAsync(c => c.Id == contratoId, cancellationToken);
 
     public Task<AssinaturaSolicitacao?> ObterSolicitacaoAssinaturaPorIdExternoAsync(

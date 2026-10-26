@@ -6,10 +6,9 @@ public record PdfContratoResultado(string PdfUrl, DateTime GeradoEm);
 
 public record EnviarAssinaturaRequisicao(
     Guid ContratoId,
-    IReadOnlyCollection<SignatarioAssinatura> Signatarios,
+    string EmailContratante,
+    string EmailContratada,
     string? MensagemPersonalizada = null);
-
-public record SignatarioAssinatura(string Nome, string Email, string? Cpf, string Tipo);
 
 public record EnvioAssinaturaResultado(
     string Metodo,

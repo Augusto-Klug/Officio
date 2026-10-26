@@ -41,6 +41,18 @@ export function formatarPis(value: string | null | undefined): string {
   return resultado
 }
 
+export function formatarCrc(value: string | null | undefined): string {
+  const digits = somenteDigitos(value).slice(0, 8)
+  const uf = (value?.toUpperCase().match(/[A-Z]/g) ?? []).slice(0, 2).join('')
+  const sequencial = digits.slice(1, 7)
+  let resultado = digits.slice(0, 1) + uf + sequencial
+
+  if (sequencial.length === 6) resultado += '/S-'
+  if (digits.length === 8) resultado += digits[7]
+
+  return resultado
+}
+
 export function formatarDocumentoFiscal(value: string | null | undefined): string {
   const digits = somenteDigitos(value)
   if (digits.length === 11) return formatarCpf(digits)

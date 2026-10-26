@@ -6,6 +6,7 @@ using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos;
 using Microsoft.Extensions.Logging;
+using System.Net.Mail;
 using System.Text.Json;
 using Officio.Dominio.Comum;
 using Officio.Dominio.Servicos.Validadores;
@@ -235,6 +236,21 @@ public class ContratoServico(
         return Resultado<ContratoDto>.CriarSucesso(MapearContrato(contrato, pdfAssinadoDisponivel));
     }
 
+    public async Task<Resultado<SignatariosContratoDto>> ObterSignatariosAsync(
+        Guid contratoId,
+        CancellationToken ct = default)
+    {
+        var contrato = await contratoRepositorio.ObterParaAssinaturaAsync(contratoId, ct);
+        if (contrato is null || contrato.TenantId != empresaAtual.TenantId)
+            return Resultado<SignatariosContratoDto>.CriarFalha("Contrato nao encontrado.");
+
+        var contratada = await contabilidadeRepositorio.ObterAtualAsync(ct);
+        var signatarios = MontarSignatarios(contrato, contratada);
+        return signatarios.Sucesso
+            ? Resultado<SignatariosContratoDto>.CriarSucesso(new(signatarios.Valor!))
+            : Resultado<SignatariosContratoDto>.CriarFalha(signatarios.Erro!);
+    }
+
     public async Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
     {
         var contrato = await contratoRepositorio.ObterParaGeracaoPdfAsync(contratoId, cancellationToken);
@@ -309,11 +325,29 @@ public class ContratoServico(
             return Resultado<SendForSignatureResultDto>.CriarFalha(
                 "PDF ainda nÃ£o gerado. Execute a geraÃ§Ã£o de PDF primeiro.");
 
-        await using var fluxoPdf = await servicoArmazenamento.BaixarAsync(contrato.PdfPath, cancellationToken);
+        if (contrato.TenantId != empresaAtual.TenantId)
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Contrato nao encontrado.");
 
-        var assinantes = requisicao.Signatarios
-            .Select(s => new DadosAssinante(s.Nome, s.Email, s.Cpf, s.Tipo))
-            .ToList();
+        var emailContratante = NormalizarEmail(requisicao.EmailContratante);
+        var emailContratada = NormalizarEmail(requisicao.EmailContratada);
+        if (emailContratante is null || emailContratada is null)
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Informe um e-mail valido para cada signatario.");
+        if (string.Equals(emailContratante, emailContratada, StringComparison.OrdinalIgnoreCase))
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Cada parte precisa de um e-mail diferente para assinar.");
+
+        var contratada = await contabilidadeRepositorio.ObterAtualAsync(cancellationToken);
+        var signatariosContrato = MontarSignatarios(contrato, contratada);
+        if (!signatariosContrato.Sucesso)
+            return Resultado<SendForSignatureResultDto>.CriarFalha(signatariosContrato.Erro!);
+
+        var dadosSignatarios = signatariosContrato.Valor!;
+        var assinantes = new List<DadosAssinante>
+        {
+            new(dadosSignatarios[0].Nome, emailContratante, dadosSignatarios[0].Cpf, dadosSignatarios[0].Tipo),
+            new(dadosSignatarios[1].Nome, emailContratada, dadosSignatarios[1].Cpf, dadosSignatarios[1].Tipo)
+        };
+
+        await using var fluxoPdf = await servicoArmazenamento.BaixarAsync(contrato.PdfPath, cancellationToken);
 
         var solicitacao = new SolicitacaoAssinatura(fluxoPdf, $"{contrato.Numero}.pdf", assinantes);
         var resultado = await servicoAssinatura.EnviarParaAssinaturaAsync(solicitacao, cancellationToken);
@@ -345,7 +379,7 @@ public class ContratoServico(
         solicitacaoAssinatura.DefinirIdentificadorExterno(resultado.EnvelopeId!);
 
         var ordemSignatario = 1;
-        foreach (var signatario in requisicao.Signatarios)
+        foreach (var signatario in assinantes)
         {
             solicitacaoAssinatura.AdicionarSignatario(
                 signatario.Nome,
@@ -793,6 +827,18 @@ public class ContratoServico(
     private static ContratoDto MapearContrato(Contrato contrato, bool pdfAssinadoDisponivel)
     {
         var razaoSocial = contrato.Cliente?.RazaoSocial ?? contrato.Prospecto.RazaoSocial;
+        var solicitacaoAssinatura = contrato.SolicitacoesAssinatura
+            .OrderByDescending(solicitacao => solicitacao.SolicitadoEm)
+            .FirstOrDefault();
+        var documentoConcluido = solicitacaoAssinatura?.ConcluidoEm.HasValue == true;
+        var signatarios = solicitacaoAssinatura?.Signatarios
+            .OrderBy(signatario => signatario.Ordem)
+            .Select(signatario => new AssinaturaSignatarioResumoDto(
+                signatario.Papel,
+                signatario.Nome,
+                signatario.AssinadoEm.HasValue || documentoConcluido,
+                signatario.AssinadoEm))
+            .ToList() ?? [];
 
         return new ContratoDto(
             contrato.Id,
@@ -814,7 +860,50 @@ public class ContratoServico(
             contrato.DuracaoAnos,
             contrato.CompetenciaInicialHonorarios,
             contrato.ValorHonorarioMensal,
-            contrato.ValorUnitarioPorFolha);
+            contrato.ValorUnitarioPorFolha,
+            signatarios);
+    }
+
+    private static Resultado<List<SignatarioContratoDto>> MontarSignatarios(
+        Contrato contrato,
+        Parceiro? contratada)
+    {
+        var representante = contrato.RepresentanteSocio;
+        if (representante is null || representante.TenantId != contrato.TenantId ||
+            (representante.ProspectId != contrato.ProspectId &&
+             (!contrato.ClientId.HasValue || representante.ClientId != contrato.ClientId)))
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "O contrato precisa ter um representante da CONTRATANTE valido cadastrado.");
+
+        var responsavel = contratada?.ResponsavelTecnico;
+        if (contratada is null || contratada.Id != contrato.TenantId || responsavel is null ||
+            responsavel.TenantId != contrato.TenantId || responsavel.ParceiroId != contratada.Id)
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "Cadastre o responsavel tecnico da contabilidade antes de enviar o contrato.");
+
+        var cpfRepresentante = DocumentoFiscal.SomenteDigitos(representante.Cpf);
+        if (string.IsNullOrWhiteSpace(representante.Nome) || cpfRepresentante?.Length != 11)
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "O cadastro do representante da CONTRATANTE precisa ter nome e CPF validos.");
+
+        var cpfResponsavel = DocumentoFiscal.SomenteDigitos(responsavel.Cpf);
+        if (string.IsNullOrWhiteSpace(responsavel.Nome) || cpfResponsavel?.Length != 11)
+            return Resultado<List<SignatarioContratoDto>>.CriarFalha(
+                "O cadastro do responsavel tecnico precisa ter nome e CPF validos.");
+
+        return Resultado<List<SignatarioContratoDto>>.CriarSucesso(
+        [
+            new("contratante", representante.Nome, cpfRepresentante, representante.Pessoa.Email),
+            new("contratada", responsavel.Nome, cpfResponsavel, null)
+        ]);
+    }
+
+    private static string? NormalizarEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email) || !MailAddress.TryCreate(email.Trim(), out var endereco))
+            return null;
+
+        return endereco.Address;
     }
 
     private sealed record EventoWebhookAutentique(

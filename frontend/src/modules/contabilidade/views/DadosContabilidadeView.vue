@@ -7,7 +7,7 @@ import BaseCard from '../../../components/base/BaseCard.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import EnderecoCadastro from '../../../components/shared/EnderecoCadastro.vue'
 import { normalizeError } from '../../../api/errors'
-import { formatarCnpj, formatarCpf, formatarTelefone } from '../../../utils/inputMasks'
+import { formatarCnpj, formatarCpf, formatarCrc, formatarTelefone } from '../../../utils/inputMasks'
 import { obterDadosContabilidade, atualizarDadosContabilidade } from '../contabilidade.service'
 import { novoEndereco, prepararDados, validarDados, temEndereco, type DadosContabilidade } from '../contabilidade-form'
 
@@ -72,7 +72,9 @@ onBeforeUnmount(() => controller?.abort())
           <BaseInput id="contabilidade-razao" v-model="form.razaoSocial" label="Razão social" maxlength="300" required />
           <BaseInput id="contabilidade-fantasia" v-model="form.nomeFantasia" label="Nome fantasia" maxlength="300" />
           <BaseInput id="contabilidade-cnpj" :model-value="form.cnpj" label="CNPJ" inputmode="numeric" maxlength="18" required @update:model-value="form.cnpj = formatarCnpj($event)" />
-          <BaseInput id="contabilidade-crc" v-model="form.crc" label="CRC da contabilidade" maxlength="50" />
+          <BaseInput id="contabilidade-crc" :model-value="form.crc" label="CRC da contabilidade" inputmode="text"
+            maxlength="13" placeholder="1UF123456/S-7" hint="Formato: 1UF123456/S-7 (8 digitos)."
+            @update:model-value="form.crc = formatarCrc($event)" />
           <BaseInput id="contabilidade-email" v-model="form.email" label="E-mail" type="email" maxlength="250" autocomplete="email" />
           <BaseInput id="contabilidade-telefone" :model-value="form.telefone" label="Telefone" inputmode="tel" maxlength="15" autocomplete="tel" @update:model-value="form.telefone = formatarTelefone($event)" />
         </div>
@@ -84,7 +86,9 @@ onBeforeUnmount(() => controller?.abort())
           <BaseInput id="tecnico-nome" v-model="tecnico.nome" label="Nome" maxlength="250" autocomplete="name" />
           <BaseInput id="tecnico-cpf" :model-value="tecnico.cpf" label="CPF" inputmode="numeric" maxlength="14" @update:model-value="tecnico.cpf = formatarCpf($event)" />
           <BaseInput id="tecnico-profissao" v-model="tecnico.profissao" label="Profissão" maxlength="150" />
-          <BaseInput id="tecnico-crc" v-model="tecnico.crc" label="CRC do responsável técnico" maxlength="50" />
+          <BaseInput id="tecnico-crc" :model-value="tecnico.crc" label="CRC do responsável técnico" inputmode="text"
+            maxlength="13" placeholder="1UF123456/S-7" hint="Formato: 1UF123456/S-7 (8 digitos)."
+            @update:model-value="tecnico.crc = formatarCrc($event)" />
         </div>
         <h3>Endereço do responsável técnico</h3><EnderecoCadastro ref="enderecoTecnicoComponente" v-model="enderecoTecnico" prefix="tecnico" :disabled="saving" />
       </BaseCard>

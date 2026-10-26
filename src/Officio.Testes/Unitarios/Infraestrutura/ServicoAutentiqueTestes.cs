@@ -34,7 +34,8 @@ public class ServicoAutentiqueTestes
                         "doc-1",
                         "Contrato Teste",
                         [
-                            new AssinaturaAutentique("assinatura-1", "cliente@teste.com", new LinkAutentique("https://link.test/assinar"))
+                            new AssinaturaAutentique("assinatura-1", "cliente@teste.com", new LinkAutentique("https://link.test/assinar-cliente")),
+                            new AssinaturaAutentique("assinatura-2", "contador@teste.com", new LinkAutentique("https://link.test/assinar-contador"))
                         ])),
                 null)
         };
@@ -45,9 +46,21 @@ public class ServicoAutentiqueTestes
         Assert.True(resultado.Sucesso);
         Assert.False(resultado.RequerFallback);
         Assert.Equal("doc-1", resultado.EnvelopeId);
-        var link = Assert.Single(resultado.LinksAssinantes);
-        Assert.Equal("cliente@teste.com", link.Email);
-        Assert.Equal("https://link.test/assinar", link.Link);
+        Assert.Collection(resultado.LinksAssinantes,
+            link =>
+            {
+                Assert.Equal("cliente@teste.com", link.Email);
+                Assert.Equal("https://link.test/assinar-cliente", link.Link);
+                Assert.Equal("Cliente Teste", link.Nome);
+                Assert.Equal("contratante", link.Tipo);
+            },
+            link =>
+            {
+                Assert.Equal("contador@teste.com", link.Email);
+                Assert.Equal("https://link.test/assinar-contador", link.Link);
+                Assert.Equal("Contador Teste", link.Nome);
+                Assert.Equal("contratada", link.Tipo);
+            });
         Assert.Equal(1, cliente.QuantidadeChamadas);
         Assert.Equal("token-teste", cliente.ApiTokenRecebido);
     }
@@ -123,7 +136,10 @@ public class ServicoAutentiqueTestes
         => new(
             new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 teste")),
             "contrato.pdf",
-            [new DadosAssinante("Cliente Teste", "cliente@teste.com", "12345678901", "Cliente")]);
+            [
+                new DadosAssinante("Cliente Teste", "cliente@teste.com", "12345678901", "contratante"),
+                new DadosAssinante("Contador Teste", "contador@teste.com", "98765432100", "contratada")
+            ]);
 
     private static async Task<byte[]> LerBytesAsync(Stream stream)
     {

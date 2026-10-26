@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Contratos;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.ConverterParaCliente;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.AtualizarProspecto;
+using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.AtualizarSociosProspecto;
+using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ListarTiposRelacaoSocietaria;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Comandos.ExcluirProspecto;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ObterProspectoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ObterProspectos;
@@ -29,7 +31,7 @@ public class ProspectosController(
     }
     [HttpGet]
     public async Task<IActionResult> TiposRelacaoSocietaria(CancellationToken ct)
-        => Ok(await mediator.Send(new Officio.Dominio.Mediador.Funcionalidades.Prospectos.Consultas.ListarTiposRelacaoSocietariaConsulta(), ct));
+        => Ok(await mediator.Send(new ListarTiposRelacaoSocietariaConsulta(), ct));
 
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]

@@ -18,6 +18,14 @@ export interface Contrato {
   pdfGerado: boolean
   pdfAssinadoDisponivel: boolean
   assinadoEm: string | null
+  signatariosAssinatura: SignatarioAssinaturaStatus[]
+}
+
+export interface SignatarioAssinaturaStatus {
+  tipo: string
+  nome: string
+  assinado: boolean
+  assinadoEm: string | null
 }
 
 export interface EmpresaContratoFiltro {
@@ -26,22 +34,23 @@ export interface EmpresaContratoFiltro {
   cnpj: string | null
 }
 
-export interface SignatarioPayload {
-  nome: string
-  email: string
-  cpf?: string
+export interface SignatarioContratoInfo {
   tipo: string
+  nome: string
+  cpf: string
+  email: string | null
 }
 
 export interface EnviarAssinaturaPayload {
-  signatarios: SignatarioPayload[]
+  emailContratante: string
+  emailContratada: string
   mensagemPersonalizada?: string
 }
 
 export interface EnvioAssinaturaResultado {
   metodo: string
   envelopeId: string | null
-  signatarios: Array<{ email: string; link: string }> | null
+  signatarios: Array<{ email: string; link: string; nome: string | null; tipo: string | null }> | null
   mensagem: string | null
   pdfUrl: string | null
 }

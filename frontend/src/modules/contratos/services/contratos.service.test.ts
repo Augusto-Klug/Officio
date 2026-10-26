@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, normalizeContratos, normalizeEmpresasContrato, obterPdfAssinado } from './contratos.service'
+import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, normalizeContratos, normalizeEmpresasContrato, normalizeSignatariosContrato, obterPdfAssinado, obterSignatariosContrato } from './contratos.service'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -27,6 +27,14 @@ describe('contrato HTTP de contratos', () => {
     expect(() => normalizeContratos([{ ...contract, pdfGerado: 'sim' }])).toThrow('indicador inválido')
   })
 
+  it('normaliza signatários e seus estados, mantendo compatibilidade com respostas antigas', () => {
+    expect(normalizeContratos([{ ...contract, signatariosAssinatura: [{ tipo: 'contratante', nome: 'Ana', assinado: true, assinadoEm: null }] }])[0]?.signatariosAssinatura)
+      .toEqual([{ tipo: 'contratante', nome: 'Ana', assinado: true, assinadoEm: null }])
+    expect(normalizeContratos([contract])[0]?.signatariosAssinatura).toEqual([])
+    expect(normalizeSignatariosContrato({ signatarios: [{ tipo: 'contratada', nome: 'Contador', cpf: '12345678901', email: null }] }))
+      .toEqual([{ tipo: 'contratada', nome: 'Contador', cpf: '12345678901', email: null }])
+  })
+
   it('envia os filtros de empresa e status e normaliza as opcoes disponiveis', async () => {
     const get = vi.spyOn(http, 'get')
       .mockResolvedValueOnce({ data: [contract] })
@@ -46,11 +54,27 @@ describe('contrato HTTP de contratos', () => {
 
   it('normaliza envio digital e fallback manual', async () => {
     const post = vi.spyOn(http, 'post')
-      .mockResolvedValueOnce({ data: { metodo: 'digital_api', assinaturaExternaId: 'ext-1', signatarios: [{ email: 'ana@empresa.com', link: 'https://assinatura.test/1' }] } })
+      .mockResolvedValueOnce({ data: { metodo: 'digital_api', assinaturaExternaId: 'ext-1', signatarios: [{ email: 'ana@empresa.com', nome: 'Ana', tipo: 'contratante', link: 'https://assinatura.test/1' }, { email: 'contador@empresa.com', nome: 'Contador', tipo: 'contratada', link: 'https://assinatura.test/2' }] } })
       .mockResolvedValueOnce({ data: { metodo: 'manual_upload', message: 'Use o PDF.', pdfUrl: 'https://arquivos.test/manual.pdf' } })
-    const payload = { signatarios: [{ nome: 'Ana', email: 'ana@empresa.com', tipo: 'cliente' }] }
-    await expect(enviarContratoParaAssinatura('con-1', payload)).resolves.toMatchObject({ envelopeId: 'ext-1', signatarios: [{ email: 'ana@empresa.com' }] })
+    const payload = { emailContratante: 'ana@empresa.com', emailContratada: 'contador@empresa.com' }
+    await expect(enviarContratoParaAssinatura('con-1', payload)).resolves.toMatchObject({
+      envelopeId: 'ext-1',
+      signatarios: [
+        { email: 'ana@empresa.com', tipo: 'contratante' },
+        { email: 'contador@empresa.com', tipo: 'contratada' },
+      ],
+    })
+    expect(post).toHaveBeenNthCalledWith(1, '/v1/contratos/EnviarParaAssinatura/con-1', payload)
     await expect(enviarContratoParaAssinatura('con-1', payload)).resolves.toMatchObject({ metodo: 'manual_upload', mensagem: 'Use o PDF.', pdfUrl: 'https://arquivos.test/manual.pdf' })
+  })
+
+  it('consulta os dois signatários que devem assinar o contrato', async () => {
+    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: { signatarios: [
+      { tipo: 'contratante', nome: 'Ana', cpf: '12345678901', email: 'ana@empresa.com' },
+      { tipo: 'contratada', nome: 'Contador', cpf: '98765432100', email: null },
+    ] } })
+    await expect(obterSignatariosContrato('con-1')).resolves.toHaveLength(2)
+    expect(get).toHaveBeenCalledWith('/v1/contratos/ObterSignatarios/con-1')
   })
 
   it('obtém os links dos PDFs gerado e assinado', async () => {

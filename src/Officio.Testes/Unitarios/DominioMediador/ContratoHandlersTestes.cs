@@ -166,6 +166,10 @@ public class ContratoHandlersTestes
             Guid contratoId, CancellationToken ct = default)
             => Task.FromResult(detalhe ?? throw new NotImplementedException());
 
+        public Task<Resultado<SignatariosContratoDto>> ObterSignatariosAsync(
+            Guid contratoId, CancellationToken ct = default)
+            => Task.FromResult(Resultado<SignatariosContratoDto>.CriarSucesso(new([])));
+
         public Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(
             Guid contratoId, CancellationToken ct = default)
             => throw new NotImplementedException();

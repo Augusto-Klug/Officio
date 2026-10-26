@@ -20,4 +20,5 @@ public record ContratoDto(
     int? DuracaoAnos = null,
     DateOnly? CompetenciaInicialHonorarios = null,
     decimal? ValorHonorarioMensal = null,
-    decimal? ValorUnitarioPorFolha = null);
+    decimal? ValorUnitarioPorFolha = null,
+    IReadOnlyList<AssinaturaSignatarioResumoDto>? SignatariosAssinatura = null);

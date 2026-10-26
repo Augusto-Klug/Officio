@@ -15,9 +15,9 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatCurrency, formatDate } from '../../../utils/format'
-import { formatarCpf, somenteDigitos } from '../../../utils/inputMasks'
-import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, obterPdfAssinado } from '../services/contratos.service'
-import type { Contrato, EmpresaContratoFiltro } from '../types/contrato'
+import { formatarCpf } from '../../../utils/inputMasks'
+import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, obterPdfAssinado, obterSignatariosContrato } from '../services/contratos.service'
+import type { Contrato, EmpresaContratoFiltro, SignatarioContratoInfo } from '../types/contrato'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
 import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
@@ -32,10 +32,16 @@ const empresasError = ref('')
 const success = ref('')
 const actionId = ref('')
 const signOpen = ref(false)
+const signerLoading = ref(false)
 const selected = ref<Contrato | null>(null)
 const formError = ref('')
 const resultLinks = ref<Array<{ label: string; url: string }>>([])
-const signer = ref({ nome: '', email: '', cpf: '', tipo: 'cliente', mensagemPersonalizada: '' })
+const signatarios = ref<SignatarioContratoInfo[]>([])
+const emailContratante = ref('')
+const emailContratada = ref('')
+const mensagemPersonalizada = ref('')
+const signatarioContratante = computed(() => signatarios.value.find((item) => item.tipo === 'contratante'))
+const signatarioContratada = computed(() => signatarios.value.find((item) => item.tipo === 'contratada'))
 let controller: AbortController | undefined
 let empresasController: AbortController | undefined
 let generation = 0
@@ -119,31 +125,56 @@ async function gerarPdf(item: Contrato) {
   finally { actionId.value = '' }
 }
 
-function abrirAssinatura(item: Contrato) {
+async function abrirAssinatura(item: Contrato) {
   selected.value = item
-  signer.value = { nome: item.razaoSocial, email: '', cpf: '', tipo: 'cliente', mensagemPersonalizada: '' }
+  signatarios.value = []
+  emailContratante.value = ''
+  emailContratada.value = ''
+  mensagemPersonalizada.value = ''
   formError.value = ''
   resultLinks.value = []
   signOpen.value = true
+  signerLoading.value = true
+  try {
+    const resultado = await obterSignatariosContrato(item.id)
+    if (selected.value?.id !== item.id) return
+    signatarios.value = resultado
+    emailContratante.value = resultado.find((signatario) => signatario.tipo === 'contratante')?.email || ''
+    emailContratada.value = resultado.find((signatario) => signatario.tipo === 'contratada')?.email || ''
+  } catch (cause) {
+    if (selected.value?.id === item.id) formError.value = normalizeError(cause).message
+  } finally {
+    if (selected.value?.id === item.id) signerLoading.value = false
+  }
 }
 
 async function enviarAssinatura() {
   if (!selected.value) return
-  if (!signer.value.nome.trim() || !/^\S+@\S+\.\S+$/.test(signer.value.email)) {
-    formError.value = 'Informe o nome e um e-mail válido para o signatário.'
+  if (!signatarioContratante.value || !signatarioContratada.value) {
+    formError.value = 'Não foi possível carregar os representantes que devem assinar o contrato.'
+    return
+  }
+  const emailValido = (email: string) => /^\S+@\S+\.\S+$/.test(email.trim())
+  if (!emailValido(emailContratante.value) || !emailValido(emailContratada.value)) {
+    formError.value = 'Informe um e-mail válido para cada parte.'
+    return
+  }
+  if (emailContratante.value.trim().toLowerCase() === emailContratada.value.trim().toLowerCase()) {
+    formError.value = 'Cada parte precisa de um e-mail diferente para assinar.'
     return
   }
   actionId.value = selected.value.id
   formError.value = ''
   try {
     const result = await enviarContratoParaAssinatura(selected.value.id, {
-      signatarios: [{ nome: signer.value.nome.trim(), email: signer.value.email.trim(), cpf: somenteDigitos(signer.value.cpf) || undefined, tipo: signer.value.tipo }],
-      mensagemPersonalizada: signer.value.mensagemPersonalizada.trim() || undefined,
+      emailContratante: emailContratante.value.trim(),
+      emailContratada: emailContratada.value.trim(),
+      mensagemPersonalizada: mensagemPersonalizada.value.trim() || undefined,
     })
     signOpen.value = false
     success.value = result.metodo === 'digital_api' ? 'Contrato enviado para assinatura.' : (result.mensagem || 'PDF disponível para assinatura manual.')
     resultLinks.value = [
-      ...(result.signatarios || []).map((item) => ({ label: `Assinar como ${item.email}`, url: item.link })),
+      ...(result.signatarios || []).map((item) => ({ label: `Assinar como ${item.nome || item.email} (${rotuloPapel(item.tipo)})`, url: item.link })),
       ...(result.pdfUrl ? [{ label: 'Abrir PDF para assinatura manual', url: result.pdfUrl }] : []),
     ]
     await load()
@@ -164,6 +195,16 @@ function severity(status: string) {
   if (status === 'AguardandoAssinatura') return 'warn'
   if (status === 'Cancelado' || status === 'Encerrado') return 'danger'
   return 'secondary'
+}
+
+function rotuloPapel(tipo: string | null | undefined) {
+  if (tipo === 'contratante') return 'CONTRATANTE'
+  if (tipo === 'contratada') return 'CONTRATADA'
+  return 'signatário'
+}
+
+function estadoAssinatura(assinado: boolean) {
+  return assinado ? 'Assinado' : 'Pendente'
 }
 
 watch(() => [route.query.empresaId, route.query.status], () => void load(), { immediate: true })
@@ -203,6 +244,7 @@ onBeforeUnmount(() => {
     <DataTable v-else :value="contratos" data-key="id" class="work-table contracts-table" :table-props="{ 'aria-label': 'Lista de contratos' }">
       <Column field="numero" header="Contrato"><template #body="{ data }"><div class="company-cell"><strong>{{ data.numero }}</strong><span>{{ data.razaoSocial }}</span></div></template></Column>
       <Column field="status" header="Status"><template #body="{ data }"><StatusBadge :label="data.status" :severity="severity(data.status)" /></template></Column>
+      <Column header="Assinaturas"><template #body="{ data }"><div v-if="data.signatariosAssinatura.length" class="signature-status-list"><div v-for="item in data.signatariosAssinatura" :key="`${item.tipo}-${item.nome}`"><strong>{{ rotuloPapel(item.tipo) }}</strong><span>{{ item.nome }} · {{ estadoAssinatura(item.assinado) }}</span></div></div><span v-else class="muted">—</span></template></Column>
       <Column field="valorTotal" header="Valor"><template #body="{ data }"><span class="numeric">{{ formatCurrency(data.valorTotal) }}</span></template></Column>
       <Column field="dataInicio" header="Início"><template #body="{ data }"><span class="numeric">{{ formatDate(data.dataInicio) }}</span></template></Column>
       <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton v-if="!data.pdfGerado" label="Gerar PDF" icon="pi pi-file-pdf" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="gerarPdf(data)" /><BaseButton v-else-if="data.status === 'Rascunho'" label="Enviar" icon="pi pi-send" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirAssinatura(data)" /><BaseButton v-if="data.pdfAssinadoDisponivel" label="Assinado" icon="pi pi-download" variant="text" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirPdfAssinado(data)" /></div></template></Column>
@@ -210,13 +252,23 @@ onBeforeUnmount(() => {
     </DataTable>
   </BaseCard>
 
-  <Dialog v-model:visible="signOpen" modal header="Enviar para assinatura" class="workflow-dialog" :style="{ width: 'min(580px, 94vw)' }">
+  <Dialog v-model:visible="signOpen" modal header="Enviar para assinatura" class="workflow-dialog" :style="{ width: 'min(680px, 94vw)' }">
     <form id="signature-form" class="dialog-form" @submit.prevent="enviarAssinatura">
       <Message v-if="formError" severity="error" :closable="false">{{ formError }}</Message>
-      <div class="field"><label for="signer-name">Nome do signatário</label><InputText id="signer-name" v-model="signer.nome" autocomplete="name" /></div>
-      <div class="form-grid two-columns"><div class="field"><label for="signer-email">E-mail</label><InputText id="signer-email" v-model="signer.email" type="email" autocomplete="email" /></div><div class="field"><label for="signer-cpf">CPF (opcional)</label><InputText id="signer-cpf" :model-value="signer.cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" @update:model-value="signer.cpf = formatarCpf($event)" /></div></div>
-      <div class="field"><label for="signature-message">Mensagem (opcional)</label><Textarea id="signature-message" v-model="signer.mensagemPersonalizada" rows="3" auto-resize /></div>
+      <div v-if="signerLoading" class="list-state compact-state" aria-live="polite"><i class="pi pi-spinner loading-spinner" /><p>Carregando representantes do contrato…</p></div>
+      <template v-else>
+        <section v-if="signatarioContratante" class="signature-party">
+          <div class="signature-party-heading"><strong>CONTRATANTE</strong><span>{{ signatarioContratante.nome }} · CPF {{ formatarCpf(signatarioContratante.cpf) }}</span></div>
+          <div class="field"><label for="signer-client-email">E-mail do representante</label><InputText id="signer-client-email" v-model="emailContratante" type="email" autocomplete="email" /></div>
+        </section>
+        <section v-if="signatarioContratada" class="signature-party">
+          <div class="signature-party-heading"><strong>CONTRATADA</strong><span>{{ signatarioContratada.nome }} · CPF {{ formatarCpf(signatarioContratada.cpf) }}</span></div>
+          <div class="field"><label for="signer-accounting-email">E-mail do responsável técnico</label><InputText id="signer-accounting-email" v-model="emailContratada" type="email" autocomplete="email" /></div>
+        </section>
+        <p class="signature-note">A ordem de assinatura é livre. O contrato será ativado somente após as duas assinaturas.</p>
+        <div class="field"><label for="signature-message">Mensagem (opcional)</label><Textarea id="signature-message" v-model="mensagemPersonalizada" rows="3" auto-resize /></div>
+      </template>
     </form>
-    <template #footer><BaseButton label="Cancelar" variant="text" @click="signOpen = false" /><BaseButton label="Enviar contrato" icon="pi pi-send" type="submit" form="signature-form" :loading="!!actionId" /></template>
+    <template #footer><BaseButton label="Cancelar" variant="text" @click="signOpen = false" /><BaseButton label="Enviar para ambos" icon="pi pi-send" type="submit" form="signature-form" :loading="!!actionId" :disabled="signerLoading || !signatarioContratante || !signatarioContratada" /></template>
   </Dialog>
 </template>

@@ -2,13 +2,17 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Contratos;
-using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AlterarAtivoItemCatalogoOrcamento;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AtualizarItemCatalogoOrcamento;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.CriarItemCatalogoOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AceitarOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ConverterParaContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.ExcluirOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterContratosAtivosParaOrcamento;
 using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterOrcamentosPorProspecto;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ListarCatalogoOrcamento;
+using Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterRepresentantesContrato;
 using Officio.ViewModels.Contratos;
 using Officio.ViewModels.Orcamentos;
 using Officio.WebApi.Conversores;
@@ -23,7 +27,7 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> ObterRepresentantes(Guid id, CancellationToken ct)
     {
-        var resultado = await mediator.Send(new Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Consultas.ObterRepresentantesContratoConsulta(id), ct);
+        var resultado = await mediator.Send(new ObterRepresentantesContratoConsulta(id), ct);
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
     [HttpGet("{id:guid}")]

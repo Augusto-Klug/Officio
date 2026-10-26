@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Officio.Dominio.Interfaces;
 using Officio.Infraestrutura.Integracoes;
@@ -39,8 +40,15 @@ public class AutentiqueIntegracaoClienteTestes
         Assert.Contains("organization_id: org-1", handler.Multipart["operations"]);
         Assert.Contains("folder_id: \\u0022folder-1\\u0022", handler.Multipart["operations"]);
         Assert.DoesNotContain("\"organization_id\"", handler.Multipart["operations"]);
-        Assert.Contains("\"name\":\"Cliente Teste\"", handler.Multipart["operations"]);
-        Assert.DoesNotContain("\"cpf\"", handler.Multipart["operations"]);
+        using var operacoes = JsonDocument.Parse(handler.Multipart["operations"]);
+        var documento = operacoes.RootElement.GetProperty("variables").GetProperty("document");
+        Assert.False(documento.GetProperty("sortable").GetBoolean());
+        var signatarios = operacoes.RootElement.GetProperty("variables").GetProperty("signers");
+        Assert.Equal(2, signatarios.GetArrayLength());
+        Assert.Equal("Representante Cliente", signatarios[0].GetProperty("name").GetString());
+        Assert.Equal("12345678901", signatarios[0].GetProperty("configs").GetProperty("cpf").GetString());
+        Assert.Equal("Responsavel Contabilidade", signatarios[1].GetProperty("name").GetString());
+        Assert.Equal("98765432100", signatarios[1].GetProperty("configs").GetProperty("cpf").GetString());
         Assert.Contains("\"delivery_method\":\"DELIVERY_METHOD_LINK\"", handler.Multipart["operations"]);
         Assert.Equal("""{"file":["variables.file"]}""", handler.Multipart["map"]);
         Assert.Equal("%PDF-1.4 teste", handler.Multipart["file"]);
@@ -91,7 +99,10 @@ public class AutentiqueIntegracaoClienteTestes
         => new(
             new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 teste")),
             "contrato.pdf",
-            [new DadosAssinante("Cliente Teste", "cliente@teste.com", "12345678901", "Cliente")]);
+            [
+                new DadosAssinante("Representante Cliente", "cliente@teste.com", "123.456.789-01", "contratante"),
+                new DadosAssinante("Responsavel Contabilidade", "contador@teste.com", "987.654.321-00", "contratada")
+            ]);
 
     private sealed class CapturaRequisicaoHandler : HttpMessageHandler
     {

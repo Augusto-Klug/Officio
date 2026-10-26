@@ -30,6 +30,8 @@ public interface IContratoServico
 
     Task<Resultado<ContratoDto>> ObterPorIdAsync(Guid contratoId, CancellationToken ct = default);
 
+    Task<Resultado<SignatariosContratoDto>> ObterSignatariosAsync(Guid contratoId, CancellationToken ct = default);
+
     Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(
         Guid contratoId,
         CancellationToken ct = default);

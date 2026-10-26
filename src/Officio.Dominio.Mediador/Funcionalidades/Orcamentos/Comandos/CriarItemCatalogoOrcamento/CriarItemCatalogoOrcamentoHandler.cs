@@ -1,14 +1,14 @@
 using MediatR;
 using Officio.Dominio.Contratos;
-using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Interfaces;
 
-namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
+namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.CriarItemCatalogoOrcamento;
 
-public class CriarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServico)
+public sealed class CriarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServico)
     : IRequestHandler<CriarItemCatalogoOrcamentoComando, Resultado<Guid>>
 {
-    public async Task<Resultado<Guid>> Handle(CriarItemCatalogoOrcamentoComando request, CancellationToken ct)
+    public Task<Resultado<Guid>> Handle(CriarItemCatalogoOrcamentoComando request, CancellationToken ct)
     {
         var requisicao = new CriarItemCatalogoOrcamentoRequisicao(
             request.Descricao,
@@ -17,6 +17,6 @@ public class CriarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServic
             request.ValorReferencia,
             request.NaturezaCobranca);
 
-        return await orcamentoServico.CriarItemCatalogoAsync(requisicao, ct);
+        return orcamentoServico.CriarItemCatalogoAsync(requisicao, ct);
     }
 }

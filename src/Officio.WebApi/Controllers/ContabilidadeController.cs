@@ -2,7 +2,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Officio.Dominio.Contratos;
-using Officio.Dominio.Mediador.Funcionalidades.Contabilidade;
+using Officio.Dominio.Mediador.Funcionalidades.Contabilidade.Comandos.AtualizarDadosContabilidade;
+using Officio.Dominio.Mediador.Funcionalidades.Contabilidade.Consultas.ObterDadosContabilidade;
 using Officio.Dominio.Seguranca;
 using Officio.ViewModels.Parceiros;
 

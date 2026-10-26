@@ -1,14 +1,14 @@
 using MediatR;
 using Officio.Dominio.Contratos;
-using Officio.Dominio.Interfaces;
 using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Interfaces;
 
-namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Catalogo;
+namespace Officio.Dominio.Mediador.Funcionalidades.Orcamentos.Comandos.AtualizarItemCatalogoOrcamento;
 
-public class AtualizarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServico)
+public sealed class AtualizarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoServico)
     : IRequestHandler<AtualizarItemCatalogoOrcamentoComando, Resultado<Guid>>
 {
-    public async Task<Resultado<Guid>> Handle(AtualizarItemCatalogoOrcamentoComando request, CancellationToken ct)
+    public Task<Resultado<Guid>> Handle(AtualizarItemCatalogoOrcamentoComando request, CancellationToken ct)
     {
         var requisicao = new AtualizarItemCatalogoOrcamentoRequisicao(
             request.ItemId,
@@ -18,6 +18,6 @@ public class AtualizarItemCatalogoOrcamentoHandler(IOrcamentoServico orcamentoSe
             request.ValorReferencia,
             request.NaturezaCobranca);
 
-        return await orcamentoServico.AtualizarItemCatalogoAsync(requisicao, ct);
+        return orcamentoServico.AtualizarItemCatalogoAsync(requisicao, ct);
     }
 }

@@ -13,9 +13,8 @@ internal class ContratoViewModelConversor : IContratoViewModelConversor
         => new(
             new EnviarAssinaturaRequisicao(
                 contratoId,
-                viewModel.Signatarios
-                    .Select(s => new SignatarioAssinatura(s.Nome, s.Email, s.Cpf, s.Tipo))
-                    .ToList(),
+                viewModel.EmailContratante,
+                viewModel.EmailContratada,
                 viewModel.MensagemPersonalizada));
 }
 

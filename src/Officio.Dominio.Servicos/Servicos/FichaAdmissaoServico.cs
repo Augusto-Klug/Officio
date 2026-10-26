@@ -40,7 +40,8 @@ public sealed class FichaAdmissaoServico(
         admissao.GerarAcessoTemporario(CalcularHash(token), expiraEm);
         var status = await repositorio.ObterOuCriarStatusAsync(
             StatusAdmissaoCodigos.AguardandoAdmitido, "Aguardando admitido", 2, ct);
-        admissao.AlterarStatus(status.Id);
+        if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.Rascunho)
+            admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<GerarLinkFichaAdmissaoDto>.CriarSucesso(new(token, expiraEm));
@@ -55,17 +56,18 @@ public sealed class FichaAdmissaoServico(
             return Resultado<GerarLinkFichaAdmissaoDto>.CriarFalha("Admissao nao encontrada.");
         if (StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo))
             return Resultado<GerarLinkFichaAdmissaoDto>.CriarFalha("Nao e possivel gerar link para uma admissao encerrada.");
-        if (admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.DocumentosValidados)
-            return Resultado<GerarLinkFichaAdmissaoDto>.CriarFalha("O link do empregador sera liberado apos a contabilidade concluir a revisao documental.");
         if (admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
             return Resultado<GerarLinkFichaAdmissaoDto>.CriarFalha("O empregador ja concluiu o preenchimento da ficha.");
 
         var token = GerarToken();
         var expiraEm = DateTime.UtcNow.Add(ValidadeLink);
         admissao.GerarAcessoEmpresa(CalcularHash(token), expiraEm);
-        var status = await repositorio.ObterOuCriarStatusAsync(
-            StatusAdmissaoCodigos.AguardandoEmpregador, "Aguardando empregador", 5, ct);
-        admissao.AlterarStatus(status.Id);
+        if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.Rascunho)
+        {
+            var status = await repositorio.ObterOuCriarStatusAsync(
+                StatusAdmissaoCodigos.AguardandoAdmitido, "Aguardando admitido", 2, ct);
+            admissao.AlterarStatus(status.Id);
+        }
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<GerarLinkFichaAdmissaoDto>.CriarSucesso(new(token, expiraEm));
@@ -77,13 +79,6 @@ public sealed class FichaAdmissaoServico(
         if (admissao is null)
             return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
         admissao.RevogarAcessoTemporario();
-        if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.AguardandoAdmitido &&
-            !admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
-        {
-            var status = await repositorio.ObterOuCriarStatusAsync(
-                StatusAdmissaoCodigos.Rascunho, "Rascunho", 1, ct);
-            admissao.AlterarStatus(status.Id);
-        }
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
@@ -95,13 +90,6 @@ public sealed class FichaAdmissaoServico(
         if (admissao is null)
             return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
         admissao.RevogarAcessoEmpresa();
-        if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.AguardandoEmpregador &&
-            !admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
-        {
-            var status = await repositorio.ObterOuCriarStatusAsync(
-                StatusAdmissaoCodigos.DocumentosValidados, "Documentos validados", 4, ct);
-            admissao.AlterarStatus(status.Id);
-        }
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
@@ -147,11 +135,13 @@ public sealed class FichaAdmissaoServico(
 
     public async Task<Resultado<bool>> ConcluirAsync(string token, CancellationToken ct = default)
     {
-        var resultado = await ObterFuncionarioPorTokenAsync(token, rastreamento: true, exigirEditavel: true, ct);
+        var resultado = await ObterFuncionarioPorTokenAsync(token, rastreamento: true, exigirEditavel: false, ct);
         if (!resultado.Sucesso)
             return Resultado<bool>.CriarFalha(resultado.Erro!);
 
         var admissao = resultado.Valor!;
+        if (admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
+            return Resultado<bool>.CriarSucesso(true);
         if (string.IsNullOrWhiteSpace(admissao.Cpf) || admissao.DataNascimento is null ||
             (string.IsNullOrWhiteSpace(admissao.Email) && string.IsNullOrWhiteSpace(admissao.Telefone)))
             return Resultado<bool>.CriarFalha("Preencha CPF, data de nascimento e ao menos um contato antes de finalizar.");
@@ -207,20 +197,25 @@ public sealed class FichaAdmissaoServico(
 
     public async Task<Resultado<bool>> ConcluirEmpresaAsync(string token, CancellationToken ct = default)
     {
-        var resultado = await ObterEmpresaPorTokenAsync(token, rastreamento: true, exigirEditavel: true, ct);
+        var resultado = await ObterEmpresaPorTokenAsync(token, rastreamento: true, exigirEditavel: false, ct);
         if (!resultado.Sucesso)
             return Resultado<bool>.CriarFalha(resultado.Erro!);
 
         var admissao = resultado.Valor!;
+        if (admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
+            return Resultado<bool>.CriarSucesso(true);
         if (admissao.DataAdmissaoPrevista is null)
             return Resultado<bool>.CriarFalha("Data de admissao e obrigatoria para concluir o preenchimento do empregador.");
         if (string.IsNullOrWhiteSpace(admissao.Funcao))
             return Resultado<bool>.CriarFalha("Funcao do funcionario e obrigatoria para concluir o preenchimento do empregador.");
 
         admissao.MarcarPreenchimentoEmpresaConcluido();
-        var status = await repositorio.ObterOuCriarStatusAsync(
-            StatusAdmissaoCodigos.LiberadoPeloEmpregador, "Liberado pelo empregador", 6, ct);
-        admissao.AlterarStatus(status.Id);
+        if (admissao.PreenchimentoFuncionarioConcluidoEm.HasValue &&
+            admissao.StatusAdmissao.Codigo is StatusAdmissaoCodigos.AguardandoEmpregador or StatusAdmissaoCodigos.DocumentosValidados)
+        {
+            var status = await ObterStatusFinalAsync(ct);
+            admissao.AlterarStatus(status.Id);
+        }
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
@@ -232,6 +227,13 @@ public sealed class FichaAdmissaoServico(
                 admissao.TenantId,
                 EntidadesAtualizacaoTempoReal.Admissao,
                 admissao.Id),
+            ct);
+
+    private Task<StatusAdmissao> ObterStatusFinalAsync(CancellationToken ct)
+        => repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.LiberadoParaRevisaoFinal,
+            "Liberado para revisão final",
+            6,
             ct);
 
     public async Task<Resultado<bool>> EnviarLinkPorEmailAsync(
@@ -348,8 +350,6 @@ public sealed class FichaAdmissaoServico(
             return Resultado<Admissao>.CriarFalha("Link de admissao invalido ou expirado.");
         if (StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo))
             return Resultado<Admissao>.CriarFalha("Esta admissao ja foi encerrada.");
-        if (!admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
-            return Resultado<Admissao>.CriarFalha("O admitido ainda nao concluiu o preenchimento da ficha.");
         if (exigirEditavel && admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
             return Resultado<Admissao>.CriarFalha("A ficha do empregador ja foi finalizada e nao pode mais ser alterada.");
 
@@ -386,7 +386,7 @@ public sealed class FichaAdmissaoServico(
     private static AdmissaoDocumentoDto MapearDocumento(AdmissaoDocumento item)
     {
         var validacao = item.Documento?.Validacoes.OrderByDescending(x => x.CriadoEm).FirstOrDefault();
-        var status = item.Documento is null ? "PENDENTE_ENVIO" : validacao?.Status switch
+        var status = item.Documento is null ? "PENDENTE_ENVIO" : item.RevisaoPendente ? "PENDENTE_VALIDACAO" : validacao?.Status switch
         {
             StatusValidacao.Aprovado => "APROVADO",
             StatusValidacao.Reprovado => "REPROVADO",
