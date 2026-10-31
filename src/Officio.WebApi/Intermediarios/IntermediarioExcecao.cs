@@ -1,4 +1,5 @@
 using Officio.Dominio.Mediador.Comum.Excecoes;
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 
 namespace Officio.WebApi.Intermediarios;
@@ -26,6 +27,12 @@ public class IntermediarioExcecao(RequestDelegate next, ILogger<IntermediarioExc
         {
             context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
             await context.Response.WriteAsJsonAsync(new { error = ex.Message });
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            logger.LogWarning(ex, "Alteracao concorrente detectada. TraceId={TraceId}", context.TraceIdentifier);
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            await context.Response.WriteAsJsonAsync(new { error = "Os dados foram alterados por outra operacao. Atualize a tela e tente novamente.", traceId = context.TraceIdentifier });
         }
         catch (Exception ex)
         {

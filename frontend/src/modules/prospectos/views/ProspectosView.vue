@@ -15,8 +15,9 @@ import BaseCard from '../../../components/base/BaseCard.vue'
 import PageHeader from '../../../components/layout/PageHeader.vue'
 import ProspectoStatus from '../components/ProspectoStatus.vue'
 import ProspectoCadastroDialog from '../components/ProspectoCadastroDialog.vue'
-import { excluirProspecto, listarProspectos } from '../services/prospectos.service'
-import { prospectoNaEtapaInicial, statusOptions, type Prospecto, type ProspectosPagina } from '../types/prospecto'
+import { excluirProspecto, listarProspectos, obterProspecto } from '../services/prospectos.service'
+import { statusOptions, type Prospecto, type ProspectosPagina } from '../types/prospecto'
+import type { ProspectoDetalhe } from '../types/prospecto'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatDate } from '../../../utils/format'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
@@ -31,6 +32,10 @@ const error = ref('')
 const result = ref<ProspectosPagina | null>(null)
 const cadastroOpen = ref(false)
 const prospectoEdicaoId = ref<string | null>(null)
+const detalheOpen = ref(false)
+const detalheLoading = ref(false)
+const detalheErro = ref('')
+const prospectoDetalhe = ref<ProspectoDetalhe | null>(null)
 const exclusaoOpen = ref(false)
 const prospectoExclusao = ref<Prospecto | null>(null)
 const excluindo = ref(false)
@@ -105,6 +110,25 @@ function abrirEdicao(prospecto: Prospecto) {
   prospectoEdicaoId.value = prospecto.id
   cadastroOpen.value = true
 }
+async function abrirVisualizacao(prospecto: Prospecto) {
+  detalheOpen.value = true
+  detalheLoading.value = true
+  detalheErro.value = ''
+  prospectoDetalhe.value = null
+  try {
+    prospectoDetalhe.value = await obterProspecto(prospecto.id)
+  } catch (cause) {
+    detalheErro.value = normalizeError(cause).message
+  } finally {
+    detalheLoading.value = false
+  }
+}
+function regimeDescricao(value: number | null | undefined) {
+  return ({ 0: 'Simples Nacional', 1: 'Lucro Presumido', 2: 'Lucro Real', 3: 'MEI' } as Record<number, string>)[value ?? -1] || 'Não informado'
+}
+function texto(value: string | number | null | undefined) {
+  return value === null || value === undefined || value === '' ? 'Não informado' : String(value)
+}
 function prospectoAtualizado() {
   cadastroOpen.value = false
   sucesso.value = 'Prospecto atualizado.'
@@ -168,10 +192,10 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
         <Column field="criadoEm" header="Criado em"><template #body="{ data }"><span class="numeric">{{ formatDate(data.criadoEm) }}</span></template></Column>
         <Column header="Ações"><template #body="{ data }"><div class="prospect-actions">
           <BaseButton label="Orçamentos" icon="pi pi-file-edit" variant="text" @click="abrirOrcamentos(data.id, data.razaoSocial)" />
-          <template v-if="prospectoNaEtapaInicial(data)">
-            <BaseButton label="Editar" icon="pi pi-pencil" variant="text" :aria-label="`Editar ${data.razaoSocial}`" @click="abrirEdicao(data)" />
-            <BaseButton label="Excluir" icon="pi pi-trash" variant="text" :aria-label="`Excluir ${data.razaoSocial}`" @click="solicitarExclusao(data)" />
-          </template>
+          <BaseButton v-if="data.podeEditar" label="Editar" icon="pi pi-pencil" variant="text" :aria-label="`Editar ${data.razaoSocial}`" @click="abrirEdicao(data)" />
+          <BaseButton v-else label="Visualizar" icon="pi pi-eye" variant="text" :aria-label="`Visualizar ${data.razaoSocial}`" @click="abrirVisualizacao(data)" />
+          <BaseButton v-if="data.podeExcluir" label="Excluir" icon="pi pi-trash" variant="text" :aria-label="`Excluir ${data.razaoSocial}`" @click="solicitarExclusao(data)" />
+          <span v-if="!data.podeEditar && data.motivoBloqueio" class="muted" :title="data.motivoBloqueio" :aria-label="data.motivoBloqueio" tabindex="0"><i class="pi pi-info-circle" aria-hidden="true" /></span>
         </div></template></Column>
         <template #empty><div class="empty-state"><i class="pi pi-users" aria-hidden="true" /><h3>{{ filtered ? 'Nenhum resultado encontrado' : 'Nenhum prospecto por aqui' }}</h3><p>{{ filtered ? 'Tente outra busca ou remova os filtros aplicados.' : 'Os prospectos cadastrados no escritório aparecerão nesta lista.' }}</p><BaseButton v-if="filtered" label="Limpar filtros" variant="secondary" @click="clearFilters" /></div></template>
       </DataTable>
@@ -183,6 +207,43 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
   </BaseCard>
   <p class="list-footnote">20 prospectos por página</p>
   <ProspectoCadastroDialog v-model:visible="cadastroOpen" :prospecto-id="prospectoEdicaoId" @criado="prospectoCriado" @atualizado="prospectoAtualizado" />
+  <Dialog v-model:visible="detalheOpen" modal header="Dados do prospecto" :style="{ width: 'min(760px, calc(100vw - 24px))' }" :draggable="false">
+    <div v-if="detalheLoading" class="detail-state" role="status" aria-live="polite"><i class="pi pi-spinner loading-spinner" aria-hidden="true" /> Carregando dados do prospecto...</div>
+    <Message v-else-if="detalheErro" severity="error" :closable="false" role="alert">{{ detalheErro }}</Message>
+    <div v-else-if="prospectoDetalhe" class="prospect-detail">
+      <section aria-labelledby="detail-company-heading">
+        <h3 id="detail-company-heading">Empresa</h3>
+        <dl class="detail-grid">
+          <div><dt>Razão social</dt><dd>{{ texto(prospectoDetalhe.dados.razaoSocial) }}</dd></div>
+          <div><dt>Nome fantasia</dt><dd>{{ texto(prospectoDetalhe.dados.nomeFantasia) }}</dd></div>
+          <div><dt>CNPJ</dt><dd>{{ formatCnpj(prospectoDetalhe.dados.cnpj) || 'Não informado' }}</dd></div>
+          <div><dt>Regime tributário</dt><dd>{{ regimeDescricao(prospectoDetalhe.dados.regimeTributario) }}</dd></div>
+          <div><dt>Inscrição estadual</dt><dd>{{ texto(prospectoDetalhe.dados.inscricaoEstadual) }}</dd></div>
+          <div><dt>Inscrição municipal</dt><dd>{{ texto(prospectoDetalhe.dados.inscricaoMunicipal) }}</dd></div>
+          <div><dt>Tipo de empresa</dt><dd>{{ texto(prospectoDetalhe.dados.tipoEmpresa) }}</dd></div>
+          <div><dt>Porte</dt><dd>{{ texto(prospectoDetalhe.dados.porteEmpresa) }}</dd></div>
+          <div><dt>E-mail</dt><dd>{{ texto(prospectoDetalhe.dados.email) }}</dd></div>
+          <div><dt>Telefone</dt><dd>{{ texto(prospectoDetalhe.dados.telefone) }}</dd></div>
+          <div><dt>WhatsApp</dt><dd>{{ texto(prospectoDetalhe.dados.whatsapp) }}</dd></div>
+          <div><dt>Contato</dt><dd>{{ texto(prospectoDetalhe.dados.nomeContato) }}</dd></div>
+        </dl>
+      </section>
+      <section aria-labelledby="detail-address-heading">
+        <h3 id="detail-address-heading">Endereço</h3>
+        <p>{{ [prospectoDetalhe.dados.logradouro, prospectoDetalhe.dados.numero, prospectoDetalhe.dados.complemento, prospectoDetalhe.dados.bairro, prospectoDetalhe.dados.cidade, prospectoDetalhe.dados.uf, prospectoDetalhe.dados.cep].filter(Boolean).join(', ') || 'Não informado' }}</p>
+      </section>
+      <section aria-labelledby="detail-partners-heading">
+        <h3 id="detail-partners-heading">Sócios</h3>
+        <div v-if="prospectoDetalhe.dados.socios.length" class="detail-partners">
+          <div v-for="(socio, index) in prospectoDetalhe.dados.socios" :key="socio.id || socio.pessoaId || index" class="detail-partner">
+            <strong>{{ texto(socio.nome) }}</strong><span>CPF: {{ texto(socio.cpf) }}</span><span>Participação: {{ texto(socio.participacao) }}%</span><span>Profissão: {{ texto(socio.profissao) }}</span>
+          </div>
+        </div>
+        <p v-else>Sem sócios informados.</p>
+      </section>
+    </div>
+    <template #footer><BaseButton label="Fechar" variant="text" @click="detalheOpen = false" /></template>
+  </Dialog>
   <Dialog v-model:visible="exclusaoOpen" modal header="Excluir prospecto" :style="{ width: 'min(460px, calc(100vw - 24px))' }"
     :closable="!excluindo" :close-on-escape="!excluindo" :draggable="false">
     <Message v-if="exclusaoErro" severity="error" :closable="false" role="alert">{{ exclusaoErro }}</Message>
@@ -198,6 +259,17 @@ onBeforeUnmount(() => { ++generation; controller?.abort(); clearTimeout(timer) }
 .prospect-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .prospect-actions :deep(.base-button.p-button) { min-height: 32px; padding: 4px 8px; font-size: 13px; font-weight: 600; }
 .confirmation-copy { overflow-wrap: anywhere; }
+.prospect-detail { display: grid; gap: 20px; }
+.prospect-detail h3 { margin: 0 0 10px; font-size: 15px; }
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 0; }
+.detail-grid div, .detail-partner { min-width: 0; }
+.detail-grid dt, .detail-partner span { color: var(--text-color-secondary); font-size: 12px; }
+.detail-grid dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.prospect-detail p { margin: 0; overflow-wrap: anywhere; }
+.detail-partners { display: grid; gap: 10px; }
+.detail-partner { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; padding: 10px 0; border-top: 1px solid var(--surface-border); }
+.detail-state { display: flex; align-items: center; gap: 10px; min-height: 90px; }
+@media (max-width: 560px) { .detail-grid { grid-template-columns: 1fr; } .detail-partner { grid-template-columns: 1fr; } }
 :deep(.prospects-table th:first-child) { width: 30%; }
 :deep(.prospects-table th:nth-child(2)) { width: 19%; }
 :deep(.prospects-table th:last-child) { width: 210px; }

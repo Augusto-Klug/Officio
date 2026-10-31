@@ -108,9 +108,13 @@ public class Prospecto : EntidadeAuditavel
     public bool EstaNaEtapaInicial()
         => Status == StatusProspecto.EmNegociacao && ClientId is null && ConvertidoEm is null && EmpresaId is null;
 
+    public bool PodeAtualizarCadastro()
+        => Status is StatusProspecto.EmNegociacao or StatusProspecto.PropostaEnviada
+            && ClientId is null && ConvertidoEm is null;
+
     public void AtualizarIdentificacao(string razaoSocial, string? cnpj, RegimeTributario? regime)
     {
-        if (!EstaNaEtapaInicial())
+        if (!PodeAtualizarCadastro())
             throw new InvalidOperationException("Somente prospectos na etapa inicial podem ser editados.");
 
         RazaoSocial = razaoSocial.Trim();

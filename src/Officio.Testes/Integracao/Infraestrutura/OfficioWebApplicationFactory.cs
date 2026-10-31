@@ -20,6 +20,7 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
 {
     private readonly string banco = $"officio-integracao-{Guid.NewGuid()}";
     public bool UsarIntegracoesReais { get; set; }
+    public IServicoAssinatura? ServicoAssinaturaSubstituto { get; set; }
 
     public ServicoEmailFake ServicoEmail { get; } = new();
     public FilaWebhookAutentiqueFake FilaWebhook { get; } = new();
@@ -52,6 +53,11 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
 
         builder.ConfigureServices(services =>
         {
+            if (ServicoAssinaturaSubstituto is not null)
+            {
+                services.RemoveAll<IServicoAssinatura>();
+                services.AddSingleton(ServicoAssinaturaSubstituto);
+            }
             services.RemoveAll<ContextoAplicacao>();
             services.RemoveAll<DbContext>();
             services.RemoveAll<DbContextOptions<ContextoAplicacao>>();

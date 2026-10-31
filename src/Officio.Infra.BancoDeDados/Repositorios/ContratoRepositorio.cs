@@ -12,9 +12,12 @@ internal class ContratoRepositorio(
     public Task AdicionarAsync(Contrato contrato, CancellationToken cancellationToken = default)
         => AdicionarAsync<Contrato>(contrato, cancellationToken);
 
+    public Task<Guid?> ObterProspectoIdAsync(Guid contratoId, CancellationToken cancellationToken = default)
+        => Contexto.Contracts.Where(c => c.Id == contratoId).Select(c => (Guid?)c.ProspectId).FirstOrDefaultAsync(cancellationToken);
+
     public Task<Contrato?> ObterPorOrcamentoAsync(Guid orcamentoId, CancellationToken cancellationToken = default)
         => Contexto.Contracts
-            .FirstOrDefaultAsync(contrato => contrato.BudgetId == orcamentoId, cancellationToken);
+            .FirstOrDefaultAsync(contrato => contrato.BudgetId == orcamentoId && contrato.Status != StatusContrato.Cancelado, cancellationToken);
 
     public Task<List<Contrato>> ListarAsync(
         Guid? empresaId = null,
@@ -139,6 +142,7 @@ internal class ContratoRepositorio(
             .Where(solicitacao =>
                 solicitacao.Provedor == provedor &&
                 solicitacao.IdExterno != null &&
+                solicitacao.Contrato.Status != StatusContrato.Cancelado &&
                 ((solicitacao.ConcluidoEm == null &&
                   !Contexto.AssinaturaEventos.IgnoreQueryFilters().Any(evento =>
                       evento.AssinaturaSolicitacaoId == solicitacao.Id &&

@@ -48,6 +48,8 @@ public class ContratoServico(
         if (orcamento.TenantId != empresaAtual.TenantId)
             return Resultado<Guid>.CriarFalha("Orcamento nao encontrado.");
 
+        await using var bloqueio = await prospectoRepositorio.BloquearFluxoContratosAsync(orcamento.ProspectId, ct);
+
         if (await contratoRepositorio.ObterPorOrcamentoAsync(orcamento.Id, ct) is not null)
             return Resultado<Guid>.CriarFalha("Ja existe contrato para este orcamento.");
 
@@ -261,6 +263,9 @@ public class ContratoServico(
         if (contrato.TenantId != empresaAtual.TenantId)
             return Resultado<ResultadoPdfContratoDto>.CriarFalha("Contrato nao encontrado.");
 
+        if (contrato.Status != StatusContrato.Rascunho)
+            return Resultado<ResultadoPdfContratoDto>.CriarFalha("Somente contratos em rascunho podem gerar PDF.");
+
         var parceiro = await contabilidadeRepositorio.ObterAtualAsync(cancellationToken);
         var pendencias = ValidadorProntidaoContrato.ValidarParaGeracao(empresaAtual.TenantId, parceiro, contrato);
         if (pendencias.Count > 0)
@@ -316,6 +321,10 @@ public class ContratoServico(
         EnviarAssinaturaRequisicao requisicao,
         CancellationToken cancellationToken = default)
     {
+        var prospectoId = await contratoRepositorio.ObterProspectoIdAsync(requisicao.ContratoId, cancellationToken);
+        if (!prospectoId.HasValue)
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Contrato nao encontrado.");
+        await using var bloqueio = await prospectoRepositorio.BloquearFluxoContratosAsync(prospectoId.Value, cancellationToken);
         var contrato = await contratoRepositorio.ObterParaAssinaturaAsync(requisicao.ContratoId, cancellationToken);
 
         if (contrato is null)
@@ -327,6 +336,9 @@ public class ContratoServico(
 
         if (contrato.TenantId != empresaAtual.TenantId)
             return Resultado<SendForSignatureResultDto>.CriarFalha("Contrato nao encontrado.");
+
+        if (contrato.Status != StatusContrato.Rascunho)
+            return Resultado<SendForSignatureResultDto>.CriarFalha("Somente contratos em rascunho podem ser enviados para assinatura.");
 
         var emailContratante = NormalizarEmail(requisicao.EmailContratante);
         var emailContratada = NormalizarEmail(requisicao.EmailContratada);
@@ -635,6 +647,13 @@ public class ContratoServico(
         bool documentoAssinadoJaArmazenado,
         CancellationToken ct)
     {
+        if (solicitacao.Contrato.Status == StatusContrato.Cancelado)
+        {
+            logger.LogWarning("Conclusao ignorada para contrato cancelado. ContratoId={ContratoId} DocumentoId={DocumentoId}",
+                solicitacao.ContratoId, documentoId);
+            return Resultado<bool>.CriarSucesso(true);
+        }
+
         var conversao = await GarantirClienteDoContratoAsync(solicitacao.Contrato, ct);
         if (!conversao.Sucesso)
             return Resultado<bool>.CriarFalha(conversao.Erro!);

@@ -10,6 +10,27 @@ namespace Officio.Testes.Unitarios.InfraBancoDeDados;
 public class ContratoRepositorioTestes
 {
     [Fact]
+    public async Task ObterPorOrcamentoAsync_IgnoraCanceladoEPreservaHistorico()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var (prospecto, orcamento, cancelado) = CriarContratoAceito(tenantId);
+        cancelado.Cancelar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.Add(orcamento);
+        contexto.Contracts.Add(cancelado);
+        await contexto.SaveChangesAsync();
+        var repositorio = new ContratoRepositorio(contexto);
+        Assert.Null(await repositorio.ObterPorOrcamentoAsync(orcamento.Id));
+
+        var novo = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.Today, null, null);
+        contexto.Contracts.Add(novo);
+        await contexto.SaveChangesAsync();
+        Assert.Equal(novo.Id, (await repositorio.ObterPorOrcamentoAsync(orcamento.Id))!.Id);
+        Assert.Equal(2, await contexto.Contracts.CountAsync(c => c.BudgetId == orcamento.Id));
+    }
+
+    [Fact]
     public async Task ObterPorOrcamentoAsync_RetornaContratoDoOrcamento()
     {
         var tenantId = Guid.NewGuid();

@@ -111,7 +111,7 @@ public class ProspectosController(
     private IActionResult FalhaAlteracao(string erro) => erro switch
     {
         ProspectoErros.NaoEncontrado => NotFound(erro),
-        ProspectoErros.ForaDaEtapaInicial or ProspectoErros.PossuiVinculos => Conflict(erro),
+        ProspectoErros.ForaDaEtapaInicial or ProspectoErros.CadastroBloqueado or ProspectoErros.ContratoAguardandoAssinatura or ProspectoErros.PossuiVinculos or ProspectoErros.ConfirmacaoCancelamentoNecessaria => Conflict(erro),
         LocalidadeErros.CepInvalido or LocalidadeErros.MunicipioDivergenteDoCep => UnprocessableEntity(erro),
         LocalidadeErros.ConsultaCepIndisponivel => StatusCode(StatusCodes.Status503ServiceUnavailable, erro),
         _ => BadRequest(erro)

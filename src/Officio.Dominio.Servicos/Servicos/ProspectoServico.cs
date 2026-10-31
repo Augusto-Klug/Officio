@@ -13,6 +13,7 @@ internal class ProspectoServico(
     IProspectoRepositorio prospectoRepositorio,
     IServicoEnderecoComercial servicoEnderecoComercial,
     ILocalidadeServico localidadeServico,
+    IServicoAssinatura servicoAssinatura,
     IEmpresaAtual empresaAtual,
     IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IProspectoServico
 {
@@ -89,7 +90,8 @@ internal class ProspectoServico(
             MunicipioCodigoIbge: prospecto.Municipio?.CodigoIbge, Origem: prospecto.Origem,
             ResponsavelId: prospecto.ResponsavelId, InscricaoEstadual: prospecto.InscricaoEstadual,
             InscricaoMunicipal: prospecto.InscricaoMunicipal, TipoEmpresa: prospecto.TipoEmpresa);
-        return Resultado<ProspectoDetalheDto>.CriarSucesso(new(id, prospecto.Status.ToString(), dados));
+        var contratos = await prospectoRepositorio.ListarContratosCancelaveisAsync(id, ct);
+        return Resultado<ProspectoDetalheDto>.CriarSucesso(new(id, prospecto.Status.ToString(), dados, contratos.Select(c => new ContratoCancelavelDto(c.Id, c.Numero)).ToArray()));
     }
 
     public Task<Resultado<bool>> AtualizarAsync(Guid id, CriarProspectoRequisicao requisicao, CancellationToken ct = default)
@@ -100,11 +102,14 @@ internal class ProspectoServico(
 
     private async Task<Resultado<bool>> AtualizarCadastroAsync(Guid id, CriarProspectoRequisicao requisicao, bool somenteSocios, CancellationToken ct)
     {
+        await using var bloqueio = await prospectoRepositorio.BloquearFluxoContratosAsync(id, ct);
         var prospecto = await prospectoRepositorio.ObterComSociosAsync(id, ct);
         if (prospecto is null)
             return Resultado<bool>.CriarFalha(ProspectoErros.NaoEncontrado);
-        if (!somenteSocios && !prospecto.EstaNaEtapaInicial())
-            return Resultado<bool>.CriarFalha(ProspectoErros.ForaDaEtapaInicial);
+        if (somenteSocios && (await prospectoRepositorio.ListarContratosCancelaveisAsync(id, ct)).Count > 0)
+            return Resultado<bool>.CriarFalha(ProspectoErros.ConfirmacaoCancelamentoNecessaria);
+        if (!somenteSocios && !prospecto.PodeAtualizarCadastro())
+            return Resultado<bool>.CriarFalha(ProspectoErros.CadastroBloqueado);
 
         var cadastro = somenteSocios ? Resultado<Municipio?>.CriarSucesso(prospecto.Municipio)
             : await ValidarCadastroAsync(requisicao, id, ct);
@@ -120,6 +125,24 @@ internal class ProspectoServico(
         var sociosValidados = await ValidarSociosAsync(socios, ct);
         if (!sociosValidados.Sucesso) return sociosValidados;
 
+        var contratos = somenteSocios ? [] : await prospectoRepositorio.ListarContratosCancelaveisAsync(id, ct);
+        if (contratos.Count > 0 && (!requisicao.ConfirmarCancelamentoContratos || requisicao.ContratosConfirmados is null ||
+            !contratos.Select(c => c.Id).ToHashSet().SetEquals(requisicao.ContratosConfirmados)))
+            return Resultado<bool>.CriarFalha(ProspectoErros.ConfirmacaoCancelamentoNecessaria);
+        Empresa? empresa = null;
+        if (!somenteSocios && prospecto.EmpresaId.HasValue)
+        {
+            var cnpj = DocumentoFiscal.SomenteDigitos(requisicao.Cnpj);
+            if (cnpj?.Length != 14)
+                return Resultado<bool>.CriarFalha("A empresa vinculada exige CNPJ valido.");
+            empresa = await prospectoRepositorio.ObterEmpresaPorIdAsync(prospecto.EmpresaId.Value, ct);
+            if (empresa is null)
+                return Resultado<bool>.CriarFalha("Empresa vinculada nao encontrada.");
+            var outraEmpresa = await prospectoRepositorio.ObterEmpresaPorCnpjAsync(cnpj, ct);
+            if (outraEmpresa is not null && outraEmpresa.Id != empresa.Id)
+                return Resultado<bool>.CriarFalha("Ja existe empresa com este CNPJ.");
+        }
+
         var removidos = socios is null ? [] : existentes.Where(s => !ids.Contains(s.Id)).ToArray();
         if (await prospectoRepositorio.SociosPossuemDocumentosAsync(removidos.Select(s => s.Id).ToArray(), ct))
             return Resultado<bool>.CriarFalha("Nao e possivel remover socios com documentos vinculados.");
@@ -130,6 +153,16 @@ internal class ProspectoServico(
         {
             prospecto.AtualizarIdentificacao(requisicao.RazaoSocial, requisicao.Cnpj, requisicao.RegimeTributario);
             AplicarDadosCadastrais(prospecto, requisicao, cadastro.Valor);
+            if (empresa is not null)
+            {
+                empresa.AtualizarDadosDoProspecto(prospecto);
+                var endereco = await servicoEnderecoComercial.AtualizarOuCriarAsync(empresa.Endereco,
+                    new EnderecoComercialRequisicao(prospecto.Cep, prospecto.Logradouro, prospecto.Numero, prospecto.Complemento,
+                        prospecto.Bairro, prospecto.Cidade, prospecto.Uf, prospecto.MunicipioId), ct);
+                if (!endereco.Sucesso)
+                    return Resultado<bool>.CriarFalha(endereco.Erro!);
+                empresa.VincularEndereco(endereco.Valor?.Id);
+            }
         }
         prospectoRepositorio.RemoverSocios(removidos);
         if (socios is not null)
@@ -147,8 +180,44 @@ internal class ProspectoServico(
                 }
             }
         }
+        var documentos = new List<(string Id, HashSet<string> Emails)>();
+        foreach (var contrato in contratos.Where(c => c.Status == StatusContrato.AguardandoAssinatura))
+        {
+            var solicitacoes = contrato.SolicitacoesAssinatura.Where(s => !string.IsNullOrWhiteSpace(s.IdExterno)).ToArray();
+            if (solicitacoes.Length == 0)
+                return Resultado<bool>.CriarFalha("Nao foi encontrada solicitacao para bloquear o contrato na Autentique.");
+            foreach (var solicitacao in solicitacoes)
+            {
+                if (!string.Equals(solicitacao.Provedor, "autentique", StringComparison.OrdinalIgnoreCase))
+                    return Resultado<bool>.CriarFalha("O provedor da assinatura nao permite cancelamento automatico.");
+                var emails = solicitacao.Signatarios.Select(s => s.Email.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (emails.Count == 0 || emails.Count != solicitacao.Signatarios.Count)
+                    return Resultado<bool>.CriarFalha("Os signatarios registrados nao permitem confirmar o estado da assinatura.");
+                var antes = await servicoAssinatura.ConsultarEstadoDocumentoAsync(solicitacao.IdExterno!, ct);
+                if (!antes.Sucesso || antes.Concluido)
+                    return Resultado<bool>.CriarFalha(antes.Concluido ? "O documento ja foi assinado; atualize o prospecto antes de continuar." : "Nao foi possivel consultar a assinatura na Autentique.");
+                if (!emails.SetEquals(antes.EmailsSignatarios))
+                    return Resultado<bool>.CriarFalha("Os signatarios da Autentique divergem dos registrados no contrato.");
+                documentos.Add((solicitacao.IdExterno!, emails));
+            }
+        }
+        foreach (var documento in documentos)
+        {
+                var resultadoBloqueio = await servicoAssinatura.BloquearDocumentoAsync(documento.Id, ct);
+                if (!resultadoBloqueio.Sucesso)
+                    return Resultado<bool>.CriarFalha("Nao foi possivel confirmar todos os bloqueios. Alguns documentos podem ja ter sido bloqueados; tente novamente.");
+                var depois = await servicoAssinatura.ConsultarEstadoDocumentoAsync(documento.Id, ct);
+                if (!depois.Sucesso || depois.Concluido)
+                    return Resultado<bool>.CriarFalha(depois.Concluido ? "O documento foi assinado durante o bloqueio; atualize o prospecto." : "O bloqueio foi enviado, mas nao foi possivel confirmar o estado da assinatura. Tente novamente.");
+                if (!documento.Emails.SetEquals(depois.EmailsSignatarios))
+                    return Resultado<bool>.CriarFalha("O documento foi bloqueado, mas os signatarios mudaram. Confira a Autentique antes de tentar novamente.");
+        }
+        foreach (var contrato in contratos) contrato.Cancelar();
         await prospectoRepositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(prospecto.Id, ct);
+        foreach (var contrato in contratos)
+            await publicadorAtualizacaoTempoReal.PublicarAsync(
+                new EventoAtualizacaoTempoReal(contrato.TenantId, EntidadesAtualizacaoTempoReal.Contrato, contrato.Id), ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
@@ -352,10 +421,15 @@ internal class ProspectoServico(
                          .Contains(documento)))));
         }
 
-        if (!string.IsNullOrEmpty(filtro.Status) &&
+        if (string.Equals(filtro.Status, "AguardandoAssinatura", StringComparison.OrdinalIgnoreCase))
+        {
+            query = prospectoRepositorio.FiltrarAguardandoAssinatura(query, true);
+        }
+        else if (!string.IsNullOrEmpty(filtro.Status) &&
             Enum.TryParse<StatusProspecto>(filtro.Status, ignoreCase: true, out var status))
         {
             query = query.Where(p => p.Status == status);
+            query = prospectoRepositorio.FiltrarAguardandoAssinatura(query, false);
         }
 
         if (filtro.ResponsavelId.HasValue)
@@ -376,9 +450,14 @@ internal class ProspectoServico(
                         p.Id,
                         p.RazaoSocial,
                         p.Cnpj,
-                        p.Status,
+                        p.AguardandoAssinatura ? "AguardandoAssinatura" : p.Status,
                         p.ResponsavelNome,
-                        p.CriadoEm))
+                        p.CriadoEm,
+                        p.PodeEditar,
+                        p.PodeExcluir,
+                        p.AguardandoAssinatura
+                            ? "Ha um contrato aguardando assinatura; dados do documento nao podem ser alterados."
+                            : p.PodeEditar ? null : ProspectoErros.CadastroBloqueado))
                     .ToList(),
                 totalRegistros,
                 filtro.Pagina,

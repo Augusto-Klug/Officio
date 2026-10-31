@@ -15,6 +15,17 @@ public sealed class AutentiqueIntegracaoCliente(
 {
     private const string EndpointGraphQl = "";
 
+    public Task<RespostaAtualizarDocumentoAutentique?> AtualizarPrazoAsync(string documentoId, DateTime prazo, string apiToken, CancellationToken cancellationToken = default)
+    {
+        var requisicao = RequisicaoBuilder.Post(EndpointGraphQl).ComBearerToken(apiToken)
+            .ComJson(new
+            {
+                query = "mutation UpdateDocument($id: UUID!, $document: UpdateDocumentInput!) { updateDocument(id: $id, document: $document) { id deadline_at } }",
+                variables = new { id = documentoId, document = new { deadline_at = prazo.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") } }
+            }).Criar<RespostaAtualizarDocumentoAutentique>();
+        return ClienteIntegracao.EnviarAsync(requisicao, cancellationToken);
+    }
+
     public Task<RespostaCriarDocumentoAutentique?> CriarDocumentoAsync(
         SolicitacaoAssinatura request,
         string apiToken,
@@ -56,7 +67,7 @@ public sealed class AutentiqueIntegracaoCliente(
                         id
                         name
                         files { original signed certified pades }
-                        signatures { signed { created_at } }
+                        signatures { email action { name } signed { created_at } }
                       }
                     }
                     """,

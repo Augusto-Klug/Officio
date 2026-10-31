@@ -9,6 +9,7 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
     public void Configure(EntityTypeBuilder<Contrato> builder)
     {
         builder.HasKey(c => c.Id);
+        builder.Property(c => c.VersaoConcorrencia).IsRowVersion();
         builder.HasOne(c => c.RepresentanteSocio).WithMany().HasForeignKey(c => c.RepresentanteSocioId)
             .OnDelete(DeleteBehavior.Restrict).IsRequired(false);
 
@@ -42,8 +43,8 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
             .IsRequired(false);
 
         builder.HasOne(c => c.Orcamento)
-            .WithOne()
-            .HasForeignKey<Contrato>(c => c.BudgetId)
+            .WithMany()
+            .HasForeignKey(c => c.BudgetId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(c => c.Assinaturas)
@@ -56,7 +57,7 @@ internal class ContratoMap : IEntityTypeConfiguration<Contrato>
 
         builder.HasIndex(c => new { c.TenantId, c.BudgetId })
             .IsUnique()
-            .HasFilter("[BudgetId] IS NOT NULL");
+            .HasFilter("[BudgetId] IS NOT NULL AND [Status] <> 4");
     }
 }
 

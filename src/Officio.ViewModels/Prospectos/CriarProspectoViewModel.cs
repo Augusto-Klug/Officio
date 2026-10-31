@@ -11,6 +11,8 @@ public class CriarProspectoViewModel
     public string? InscricaoEstadual { get; set; }
     public string? InscricaoMunicipal { get; set; }
     public string? TipoEmpresa { get; set; }
+    public bool ConfirmarCancelamentoContratos { get; set; }
+    public List<Guid>? ContratosConfirmados { get; set; }
     public RegimeTributarioViewModel? RegimeTributario { get; set; }
     public string? PorteEmpresa { get; set; }
     public string? CnaePrincipal { get; set; }

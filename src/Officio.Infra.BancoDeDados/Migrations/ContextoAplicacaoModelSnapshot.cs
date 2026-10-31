@@ -666,11 +666,14 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<byte[]>("VersaoConcorrencia")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("BudgetId")
-                        .IsUnique()
-                        .HasFilter("[BudgetId] IS NOT NULL");
+                    b.HasIndex("BudgetId");
 
                     b.HasIndex("ClientId");
 
@@ -688,7 +691,7 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.HasIndex("TenantId", "BudgetId")
                         .IsUnique()
-                        .HasFilter("[BudgetId] IS NOT NULL");
+                        .HasFilter("[BudgetId] IS NOT NULL AND [Status] <> 4");
 
                     b.HasIndex("TenantId", "Numero")
                         .IsUnique();
@@ -3295,8 +3298,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
             modelBuilder.Entity("Officio.Dominio.Entidades.Contrato", b =>
                 {
                     b.HasOne("Officio.Dominio.Entidades.Orcamento", "Orcamento")
-                        .WithOne()
-                        .HasForeignKey("Officio.Dominio.Entidades.Contrato", "BudgetId")
+                        .WithMany()
+                        .HasForeignKey("BudgetId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Officio.Dominio.Entidades.Cliente", "Cliente")

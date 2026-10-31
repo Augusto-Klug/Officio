@@ -11,6 +11,25 @@ namespace Officio.Testes.Unitarios.Infraestrutura;
 public class AutentiqueIntegracaoClienteTestes
 {
     [Fact]
+    public async Task AtualizarPrazoAsync_EnviaMutationComPrazoUtc()
+    {
+        var handler = new CapturaRequisicaoHandler();
+        var opcoes = Options.Create(new OpcoesAutentique { BaseUrl = "https://api.autentique.com.br/v2/graphql" });
+        var cliente = new AutentiqueIntegracaoCliente(new ClienteIntegracao<OpcoesAutentique>(new HttpClient(handler), opcoes), opcoes);
+        var prazo = new DateTime(2026, 10, 28, 12, 30, 0, DateTimeKind.Utc);
+
+        await cliente.AtualizarPrazoAsync("doc-1", prazo, "token-teste");
+
+        Assert.Equal(HttpMethod.Post, handler.Metodo);
+        Assert.Equal("token-teste", handler.AuthorizationParameter);
+        using var json = JsonDocument.Parse(handler.Json!);
+        Assert.Contains("updateDocument(id: $id, document: $document)", json.RootElement.GetProperty("query").GetString());
+        var variables = json.RootElement.GetProperty("variables");
+        Assert.Equal("doc-1", variables.GetProperty("id").GetString());
+        Assert.Equal("2026-10-28T12:30:00.000Z", variables.GetProperty("document").GetProperty("deadline_at").GetString());
+    }
+
+    [Fact]
     public async Task CriarDocumentoAsync_EnviaPostComBearerMultipartOperationsMapEArquivo()
     {
         var handler = new CapturaRequisicaoHandler();
@@ -92,6 +111,7 @@ public class AutentiqueIntegracaoClienteTestes
         Assert.Equal("token-teste", handler.AuthorizationParameter);
         Assert.NotNull(handler.Json);
         Assert.Contains("query RetrieveDocument($id: UUID!)", handler.Json);
+        Assert.Contains("action { name }", handler.Json);
         Assert.Contains("\"id\":\"doc-1\"", handler.Json);
     }
 

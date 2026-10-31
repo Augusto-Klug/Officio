@@ -3,6 +3,10 @@ using System.Text.Json.Serialization;
 
 namespace Officio.Infraestrutura.Integracoes.Autentique;
 
+public sealed record RespostaAtualizarDocumentoAutentique(DadosAtualizarDocumentoAutentique? Data, List<ErroGraphQlAutentique>? Errors);
+public sealed record DadosAtualizarDocumentoAutentique(DocumentoPrazoAutentique? UpdateDocument);
+public sealed record DocumentoPrazoAutentique(string? Id, [property: JsonPropertyName("deadline_at")] DateTimeOffset? DeadlineAt);
+
 public sealed record RespostaCriarDocumentoAutentique(
     DadosCriarDocumentoAutentique? Data,
     List<ErroGraphQlAutentique>? Errors);
@@ -36,7 +40,8 @@ public sealed record DocumentoArquivoAutentique(
 
 public sealed record ArquivosAutentique(string? Original, string? Signed, string? Certified, string? Pades);
 
-public sealed record AssinaturaEstadoAutentique(MarcaTemporalAutentique? Signed);
+public sealed record AssinaturaEstadoAutentique(MarcaTemporalAutentique? Signed, AcaoAssinaturaAutentique? Action = null, string? Email = null);
+public sealed record AcaoAssinaturaAutentique(string? Name);
 
 public sealed record MarcaTemporalAutentique(
     [property: JsonPropertyName("created_at")] DateTime? CreatedAt);

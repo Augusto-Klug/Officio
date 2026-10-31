@@ -731,6 +731,36 @@ public class ContratoServicoTestes
     }
 
     [Fact]
+    public async Task ProcessarWebhookAutentiqueAsync_ContratoCanceladoNaoConverteProspecto()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Prospect", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.UtcNow, null, null);
+        contrato.MarcarAguardandoAssinatura();
+        contrato.Cancelar();
+        var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
+        var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, status.Id, "autentique");
+        solicitacao.DefinirIdentificadorExterno("doc-autentique-1");
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.Add(orcamento);
+        contexto.Contracts.Add(contrato);
+        contexto.StatusAssinaturas.Add(status);
+        contexto.AssinaturaSolicitacoes.Add(solicitacao);
+        await contexto.SaveChangesAsync();
+
+        var resultado = await CriarServico(contexto, tenantId).ProcessarWebhookAutentiqueAsync(
+            """{"event":"document.finished","document":{"id":"doc-autentique-1"}}""");
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(StatusContrato.Cancelado, contrato.Status);
+        Assert.Null(contrato.AssinadoEm);
+        Assert.Null(prospecto.ClientId);
+        Assert.Empty(contexto.Clients);
+    }
+
+    [Fact]
     public async Task ProcessarWebhookAutentiqueAsync_ContratoComDataAssinaturaAnteriorVoltaParaAtivo()
     {
         var tenantId = Guid.NewGuid();
@@ -738,7 +768,7 @@ public class ContratoServicoTestes
         var (_, contrato, _) = await CriarContratoComSolicitacaoAsync(contexto, tenantId);
         var assinaturaAnterior = new DateTime(2026, 9, 26, 18, 32, 13, DateTimeKind.Utc);
         contrato.MarkAsSigned(assinaturaAnterior);
-        contrato.MarcarAguardandoAssinatura();
+        contexto.Entry(contrato).Property(c => c.Status).CurrentValue = StatusContrato.AguardandoAssinatura;
         await contexto.SaveChangesAsync();
         var servico = CriarServico(contexto, tenantId);
         var payload = """
@@ -1517,6 +1547,9 @@ public class ContratoServicoTestes
         ResultadoDocumentoAssinado? documentoAssinado = null) : IServicoAssinatura
     {
         public SolicitacaoAssinatura? UltimaSolicitacao { get; private set; }
+
+        public Task<ResultadoBloqueioAssinatura> BloquearDocumentoAsync(string documentoId, CancellationToken ct = default)
+            => Task.FromResult(new ResultadoBloqueioAssinatura(true));
 
         public Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default)
         {

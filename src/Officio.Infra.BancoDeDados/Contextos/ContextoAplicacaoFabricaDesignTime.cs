@@ -53,7 +53,8 @@ public sealed class ContextoAplicacaoFabricaDesignTime : IDesignTimeDbContextFac
                     if (variavel is null)
                         continue;
 
-                    Environment.SetEnvironmentVariable(variavel.Value.Chave, variavel.Value.Valor);
+                    if (Environment.GetEnvironmentVariable(variavel.Value.Chave) is null)
+                        Environment.SetEnvironmentVariable(variavel.Value.Chave, variavel.Value.Valor);
                 }
 
                 return;
