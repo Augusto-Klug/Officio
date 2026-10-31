@@ -6,6 +6,22 @@ namespace Officio.Testes.Unitarios.Dominio;
 public class ContratoTestes
 {
     [Fact]
+    public void MarkAsSigned_ContratoCanceladoNaoPodeSerReativado()
+    {
+        var tenantId = Guid.NewGuid();
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.UtcNow, null, null);
+        contrato.MarcarAguardandoAssinatura();
+        contrato.Cancelar();
+
+        contrato.MarkAsSigned();
+
+        Assert.Equal(StatusContrato.Cancelado, contrato.Status);
+        Assert.Null(contrato.AssinadoEm);
+    }
+
+    [Fact]
     public void CriarDeOrcamento_ComOrcamentoAceito_CriaContratoRascunhoVinculadoAoProspecto()
     {
         var tenantId = Guid.NewGuid();

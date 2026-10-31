@@ -7,6 +7,7 @@ public interface IContratoRepositorio
 {
     Task AdicionarAsync(Contrato contrato, CancellationToken cancellationToken = default);
     Task<Contrato?> ObterPorOrcamentoAsync(Guid orcamentoId, CancellationToken cancellationToken = default);
+    Task<Guid?> ObterProspectoIdAsync(Guid contratoId, CancellationToken cancellationToken = default);
     Task<List<Contrato>> ListarAsync(
         Guid? empresaId = null,
         StatusContrato? status = null,

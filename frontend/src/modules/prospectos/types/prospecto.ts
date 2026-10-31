@@ -5,6 +5,9 @@ export interface Prospecto {
   status: string | null
   responsavel: string | null
   criadoEm: string | null
+  podeEditar: boolean
+  podeExcluir: boolean
+  motivoBloqueio: string | null
 }
 
 export interface ProspectosFiltro {
@@ -67,6 +70,8 @@ export interface CriarProspectoPayload {
   uf?: string | null
   municipioCodigoIbge?: string | null
   origem?: string | null
+  confirmarCancelamentoContratos?: boolean
+  contratosConfirmados?: string[]
   socios: CriarSocioPayload[]
 }
 
@@ -79,10 +84,15 @@ export interface ProspectoDetalhe {
   id: string
   status: string
   dados: CriarProspectoPayload
+  contratosCancelaveis?: { id: string; numero: string }[]
 }
 
 export function prospectoNaEtapaInicial(prospecto: Pick<Prospecto, 'status'>): boolean {
   return prospecto.status === 'EmNegociacao'
+}
+
+export function prospectoPodeEditarCadastro(prospecto: Pick<Prospecto, 'status'>): boolean {
+  return prospecto.status === 'EmNegociacao' || prospecto.status === 'PropostaEnviada'
 }
 
 export const regimeTributarioOptions = [
@@ -95,6 +105,7 @@ export const regimeTributarioOptions = [
 export const statusOptions = [
   { label: 'Em negociação', value: 'EmNegociacao', severity: 'info' },
   { label: 'Proposta enviada', value: 'PropostaEnviada', severity: 'warn' },
+  { label: 'Aguardando assinatura', value: 'AguardandoAssinatura', severity: 'warn' },
   { label: 'Convertido', value: 'Convertido', severity: 'success' },
   { label: 'Perdido', value: 'Perdido', severity: 'danger' },
   { label: 'Inativo', value: 'Inativo', severity: 'secondary' },

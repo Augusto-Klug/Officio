@@ -42,7 +42,9 @@ internal class ProspectoViewModelConversor : IProspectoViewModelConversor
                 ResponsavelId: viewModel.ResponsavelId,
                 InscricaoEstadual: viewModel.InscricaoEstadual,
                 InscricaoMunicipal: viewModel.InscricaoMunicipal,
-                TipoEmpresa: viewModel.TipoEmpresa));
+                TipoEmpresa: viewModel.TipoEmpresa,
+                ConfirmarCancelamentoContratos: viewModel.ConfirmarCancelamentoContratos,
+                ContratosConfirmados: viewModel.ContratosConfirmados));
 
     public ObterProspectosConsulta ParaConsulta(
         int pagina,

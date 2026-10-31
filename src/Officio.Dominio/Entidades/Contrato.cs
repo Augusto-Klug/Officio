@@ -25,6 +25,7 @@ public class Contrato : EntidadeAuditavel
     public DateOnly? CompetenciaInicialHonorarios { get; private set; }
     public string? ClausulasExtras { get; private set; }
     public string? PdfPath { get; private set; }
+    public byte[]? VersaoConcorrencia { get; private set; }
     public DateTime? AssinadoEm { get; private set; }
 
     // Navigation
@@ -156,12 +157,23 @@ public class Contrato : EntidadeAuditavel
     }
 
     public void MarcarAguardandoAssinatura()
-        => Status = StatusContrato.AguardandoAssinatura;
+    {
+        if (Status != StatusContrato.Rascunho)
+            throw new InvalidOperationException("Somente contratos em rascunho podem aguardar assinatura.");
+        Status = StatusContrato.AguardandoAssinatura;
+    }
 
     public void Encerrar()
     {
         if (Status == StatusContrato.Ativo)
             Status = StatusContrato.Encerrado;
+    }
+
+    public void Cancelar()
+    {
+        if (Status is not (StatusContrato.Rascunho or StatusContrato.AguardandoAssinatura))
+            throw new InvalidOperationException("Somente contratos em rascunho ou aguardando assinatura podem ser cancelados.");
+        Status = StatusContrato.Cancelado;
     }
 
     public void VincularCliente(Guid clientId)
@@ -188,7 +200,7 @@ public class Contrato : EntidadeAuditavel
 
     public void MarkAsSigned(DateTime? assinadoEm = null)
     {
-        if (AssinadoEm.HasValue && (Status is StatusContrato.Encerrado or StatusContrato.Cancelado))
+        if (Status == StatusContrato.Cancelado || (AssinadoEm.HasValue && Status == StatusContrato.Encerrado))
             return;
 
         var jaEstavaAssinado = AssinadoEm.HasValue;

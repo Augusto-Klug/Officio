@@ -13,6 +13,28 @@ public class ServicoAutentique(
     IOptions<OpcoesAutentique> options,
     ILogger<ServicoAutentique> logger) : IServicoAssinatura
 {
+    public async Task<ResultadoBloqueioAssinatura> BloquearDocumentoAsync(string documentoId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(options.Value.ApiToken))
+            return new(false, "Autentique sem ApiToken configurado.");
+        try
+        {
+            var prazo = DateTime.UtcNow;
+            var resposta = await autentiqueIntegracaoCliente.AtualizarPrazoAsync(documentoId, prazo, options.Value.ApiToken, ct);
+            LogarErrosGraphQl(resposta?.Errors);
+            var documento = resposta?.Data?.UpdateDocument;
+            if (resposta?.Errors is { Count: > 0 } || documento?.Id != documentoId ||
+                documento.DeadlineAt is null || documento.DeadlineAt.Value > DateTimeOffset.UtcNow)
+                return new(false, "Nao foi possivel confirmar o bloqueio do documento na Autentique.");
+            return new(true);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException || ex is TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            LogarFalhaIntegracao("BloquearDocumento", ex, 0, documentoId);
+            return new(false, "Falha de comunicacao ao bloquear o documento na Autentique.");
+        }
+    }
+
     public async Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(
         SolicitacaoAssinatura request,
         CancellationToken ct = default)
@@ -151,7 +173,13 @@ public class ServicoAutentique(
             if (assinaturas is null || assinaturas.Count == 0)
                 return ResultadoEstadoAssinatura.CriarFalha("Autentique nao retornou os signatarios do documento.");
 
-            var concluidas = assinaturas
+            var signatarios = assinaturas
+                .Where(assinatura => !string.IsNullOrWhiteSpace(assinatura.Action?.Name))
+                .ToList();
+            if (signatarios.Count == 0 || signatarios.Any(s => string.IsNullOrWhiteSpace(s.Email)))
+                return ResultadoEstadoAssinatura.CriarFalha("Autentique nao retornou os signatarios do documento.");
+
+            var concluidas = signatarios
                 .Select(assinatura => assinatura.Signed?.CreatedAt)
                 .ToList();
             var concluido = concluidas.All(data => data.HasValue);
@@ -164,7 +192,7 @@ public class ServicoAutentique(
                 documentoId,
                 concluido,
                 timer.ElapsedMilliseconds);
-            return ResultadoEstadoAssinatura.CriarSucesso(concluido, concluidoEm);
+            return ResultadoEstadoAssinatura.CriarSucesso(concluido, concluidoEm, signatarios.Select(s => s.Email!).ToArray());
         }
         catch (HttpRequestException ex)
         {

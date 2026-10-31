@@ -5,12 +5,17 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IProspectoRepositorio
 {
+    Task<IAsyncDisposable> BloquearFluxoContratosAsync(Guid prospectoId, CancellationToken cancellationToken = default);
     Task<List<Socio>> ObterSociosClienteAsync(Guid clienteId, CancellationToken ct = default);
     Task<bool> SociosPossuemContratosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
     Task<List<TipoRelacao>> ListarTiposRelacaoSocietariaAsync(CancellationToken ct = default);
     Task<TipoRelacao?> ObterTipoRelacaoSocietariaAsync(Guid id, CancellationToken ct = default);
     Task<bool> ExisteComCnpjAsync(string cnpj, CancellationToken cancellationToken = default, Guid? ignorarProspectoId = null);
     Task<bool> PossuiVinculosAsync(Guid prospectoId, CancellationToken cancellationToken = default);
+    Task<bool> PossuiContratoAguardandoAssinaturaAsync(Guid prospectoId, CancellationToken cancellationToken = default);
+    Task<List<Contrato>> ListarContratosCancelaveisAsync(Guid prospectoId, CancellationToken cancellationToken = default);
+    Task<Empresa?> ObterEmpresaPorIdAsync(Guid empresaId, CancellationToken cancellationToken = default);
+    IQueryable<Prospecto> FiltrarAguardandoAssinatura(IQueryable<Prospecto> consulta, bool aguardando);
     Task<bool> SociosPossuemDocumentosAsync(IReadOnlyCollection<Guid> sociosIds, CancellationToken cancellationToken = default);
     void RemoverSocios(IEnumerable<Socio> socios);
     void Remover(Prospecto prospecto);

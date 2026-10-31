@@ -12,7 +12,7 @@ import { normalizeError } from '../../../api/errors'
 import { consultarCep, listarEstados, listarMunicipios } from '../services/localidades.service'
 import { atualizarProspecto, atualizarSociosProspecto, criarProspecto, obterProspecto, listarTiposRelacaoSocietaria } from '../services/prospectos.service'
 import type { EstadoLocalidade, MunicipioLocalidade } from '../types/localidade'
-import { prospectoNaEtapaInicial, regimeTributarioOptions, type CriarProspectoPayload, type ProspectoCriado } from '../types/prospecto'
+import { prospectoPodeEditarCadastro, regimeTributarioOptions, type CriarProspectoPayload, type ProspectoCriado } from '../types/prospecto'
 import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limparPayload, montarFormularioProspecto, novoProspecto, somenteDigitos, validarProspecto, type ProspectoFormErrors } from './prospecto-form'
 
 const props = defineProps<{ visible: boolean; prospectoId?: string | null; somenteSocios?: boolean }>()
@@ -24,6 +24,8 @@ const emit = defineEmits<{
 const dialogVisible = computed({ get: () => props.visible, set: (value) => emit('update:visible', value) })
 const form = reactive(montarFormularioProspecto())
 const dadosOriginais = ref<CriarProspectoPayload | null>(null)
+const contratosCancelaveis = ref<{ id: string; numero: string }[]>([])
+const confirmacaoCancelamento = ref(false)
 const carregandoCadastro = ref(false)
 const cadastroPronto = ref(false)
 let cadastroController: AbortController | undefined
@@ -62,6 +64,8 @@ function reset() {
   expandirEnderecos.value = false
   Object.assign(form, montarFormularioProspecto())
   dadosOriginais.value = null
+  contratosCancelaveis.value = []
+  confirmacaoCancelamento.value = false
   errors.value = {}
   submitError.value = ''
   enderecoAviso.value = ''
@@ -211,8 +215,9 @@ async function handleShow() {
     if (props.prospectoId) {
       const prospecto = await obterProspecto(props.prospectoId, controller.signal, props.somenteSocios)
       if (controller.signal.aborted) return
-      if (!props.somenteSocios && !prospectoNaEtapaInicial(prospecto)) throw new Error('Este prospecto já saiu da etapa inicial e não pode ser editado.')
+      if (!props.somenteSocios && !prospectoPodeEditarCadastro(prospecto)) throw new Error('Este prospecto não pode ser editado nesta etapa.')
       dadosOriginais.value = prospecto.dados
+      contratosCancelaveis.value = prospecto.contratosCancelaveis ?? []
       Object.assign(form, montarFormularioProspecto(prospecto.dados))
       await carregarMunicipios(form.uf, form.municipioCodigoIbge)
     }
@@ -272,7 +277,7 @@ function montarPayload() {
   })
 }
 
-async function submit() {
+async function submit(confirmado = false) {
   if (loading.value || carregandoCadastro.value || !cadastroPronto.value) return
   submitError.value = ''
   let payload = montarPayload()
@@ -303,6 +308,13 @@ async function submit() {
     return
   }
   payload = montarPayload()
+  if (!props.somenteSocios && props.prospectoId && contratosCancelaveis.value.length && !confirmado) {
+    confirmacaoCancelamento.value = true
+    return
+  }
+  payload.confirmarCancelamentoContratos = confirmado
+  payload.contratosConfirmados = confirmado ? contratosCancelaveis.value.map(contrato => contrato.id) : []
+  confirmacaoCancelamento.value = false
   loading.value = true
   try {
     if (props.prospectoId) {
@@ -330,7 +342,7 @@ async function submit() {
     <Message v-if="submitError" severity="error" :closable="false" role="alert">{{ submitError }}</Message>
     <p v-if="carregandoCadastro" role="status" aria-live="polite">Carregando cadastro...</p>
     <BaseButton v-else-if="!cadastroPronto" label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="handleShow" />
-    <form v-else id="prospect-form" class="prospect-form" novalidate @submit.prevent="submit">
+    <form v-else id="prospect-form" class="prospect-form" novalidate @submit.prevent="submit()">
       <template v-if="!props.somenteSocios">
       <div class="prospect-company-grid">
         <BaseInput id="razaoSocial" v-model="form.razaoSocial" label="Razão social *" name="razaoSocial" autocomplete="organization" maxlength="300" :error="fieldError('razaoSocial')" class="company-name-field" />
@@ -405,6 +417,13 @@ async function submit() {
       </section>
     </form>
     <template #footer><BaseButton label="Cancelar" variant="text" :disabled="loading" @click="close" /><BaseButton :label="props.prospectoId ? 'Salvar alterações' : 'Cadastrar prospecto'" icon="pi pi-check" type="submit" form="prospect-form" :loading="loading" :disabled="loading || carregandoCadastro || !cadastroPronto || (!props.somenteSocios && (cepLoading || cepStatus === 'pendente' || cepStatus === 'invalido'))" /></template>
+  </Dialog>
+  <Dialog v-model:visible="confirmacaoCancelamento" modal header="Cancelar contrato" :style="{ width: 'min(480px, calc(100vw - 24px))' }">
+    <p>Os contratos {{ contratosCancelaveis.map(contrato => contrato.numero).join(', ') }} serão cancelados ao salvar. Será necessário gerar e enviar um novo contrato para assinatura.</p>
+    <template #footer>
+      <BaseButton label="Voltar" variant="text" @click="confirmacaoCancelamento = false" />
+      <BaseButton label="Cancelar contrato e salvar" @click="submit(true)" />
+    </template>
   </Dialog>
 </template>
 

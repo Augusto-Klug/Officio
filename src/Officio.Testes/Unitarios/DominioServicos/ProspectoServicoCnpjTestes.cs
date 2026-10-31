@@ -27,6 +27,7 @@ public class ProspectoServicoCnpjTestes
             empresaAtual, new PublicadorEventosFake());
 
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         var publicador = new PublicadorAtualizacaoFake();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
@@ -148,6 +149,7 @@ public class ProspectoServicoCnpjTestes
             empresaAtual, new PublicadorEventosFake());
 
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
         servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(
@@ -178,6 +180,7 @@ public class ProspectoServicoCnpjTestes
             empresaAtual, new PublicadorEventosFake());
 
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
         servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(
@@ -218,6 +221,7 @@ public class ProspectoServicoCnpjTestes
         await db.SaveChangesAsync();
 
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         var publicador = new PublicadorAtualizacaoFake();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
@@ -257,6 +261,7 @@ public class ProspectoServicoCnpjTestes
         await db.SaveChangesAsync();
 
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
         servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(
@@ -289,6 +294,7 @@ public class ProspectoServicoCnpjTestes
         await db.SaveChangesAsync();
 
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
         servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(
@@ -320,6 +326,7 @@ public class ProspectoServicoCnpjTestes
             ? new EnderecoCepLocalidade("89010000", "Rua", null, "Centro", "Blumenau", "SC", "4202404")
             : null;
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(db));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
         servicos.AddSingleton<ILocalidadeServico>(new LocalidadeServicoFake(Resultado<EnderecoCepLocalidade?>.CriarSucesso(cep)));
@@ -373,12 +380,21 @@ public class ProspectoServicoCnpjTestes
         }
     }
 
+    private sealed class ServicoAssinaturaNaoUsado : IServicoAssinatura
+    {
+        public Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(string documentoId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ResultadoBloqueioAssinatura> BloquearDocumentoAsync(string documentoId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ResultadoDocumentoAssinado> BaixarDocumentoAssinadoAsync(string documentoId, CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
     private static ServiceProvider CriarServico(
         ContextoAplicacao contexto,
         IEmpresaAtual empresaAtual,
         IPublicadorAtualizacaoTempoReal publicador)
     {
         var servicos = new ServiceCollection();
+        servicos.AddSingleton<IServicoAssinatura, ServicoAssinaturaNaoUsado>();
         servicos.AddSingleton<IProspectoRepositorio>(new ProspectoRepositorio(contexto));
         servicos.AddSingleton<IEmpresaAtual>(empresaAtual);
         servicos.AddSingleton<IPublicadorAtualizacaoTempoReal>(publicador);

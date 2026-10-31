@@ -139,6 +139,17 @@ public class Empresa : EntidadeAuditavel
         AtualizadoEm = DateTime.UtcNow;
     }
 
+    public void AtualizarDadosDoProspecto(Prospecto prospecto)
+    {
+        if (prospecto.TenantId != TenantId || string.IsNullOrWhiteSpace(prospecto.Cnpj))
+            throw new InvalidOperationException("Empresa vinculada requer prospecto do mesmo parceiro e CNPJ valido.");
+        AtualizarDadosCadastrais(prospecto.RazaoSocial, prospecto.NomeFantasia, prospecto.Cnpj,
+            prospecto.Email, prospecto.Telefone, prospecto.Whatsapp, prospecto.RegimeTributario?.ToString());
+        InscricaoEstadual = prospecto.InscricaoEstadual;
+        InscricaoMunicipal = prospecto.InscricaoMunicipal;
+        TipoEmpresa = prospecto.TipoEmpresa;
+    }
+
     private static string? Normalizar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 }

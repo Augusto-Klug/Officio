@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Enumeradores;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 using Officio.Infraestrutura.Identidade;
@@ -8,6 +9,38 @@ namespace Officio.Testes.Unitarios.InfraBancoDeDados;
 
 public class ProspectoRepositorioTestes
 {
+    [Fact]
+    public async Task ObterPagina_IdentificaContratoPendenteEPermissoesReais()
+    {
+        var tenant = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenant);
+        await using var db = new ContextoAplicacao(new DbContextOptionsBuilder<ContextoAplicacao>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, empresaAtual, new PublicadorEventosFake());
+        var prospecto = Prospecto.Create(tenant, "Prospecto", "99093538000155", null);
+        var empresa = Empresa.CriarDoProspecto(prospecto);
+        prospecto.VincularEmpresa(empresa.Id);
+        var orcamento = Orcamento.Criar(tenant, prospecto.Id, "Orcamento", 10, null);
+        var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.Today, null, null);
+        contrato.MarcarAguardandoAssinatura();
+        db.Prospects.Add(prospecto);
+        db.Empresas.Add(empresa);
+        db.Budgets.Add(orcamento);
+        db.Contracts.Add(contrato);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var repositorio = new ProspectoRepositorio(db);
+        var consulta = repositorio.MontarConsulta(false);
+        var item = Assert.Single(repositorio.ObterPagina(consulta, 1, 20));
+
+        Assert.True(item.AguardandoAssinatura);
+        Assert.True(item.PodeEditar);
+        Assert.False(item.PodeExcluir);
+        Assert.Equal(1, await repositorio.ContarAsync(repositorio.FiltrarAguardandoAssinatura(consulta, true)));
+        Assert.Equal(0, await repositorio.ContarAsync(repositorio.FiltrarAguardandoAssinatura(consulta, false)));
+    }
+
     [Fact]
     public async Task ExisteComCnpjAsync_IgnoraPontuacaoDeRegistroLegado()
     {

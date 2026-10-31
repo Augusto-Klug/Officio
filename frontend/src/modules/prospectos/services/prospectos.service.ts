@@ -24,6 +24,9 @@ export function normalizeProspectos(value: unknown): ProspectosPagina {
         status: optionalString(field(row, 'status')),
         responsavel: optionalString(field(row, 'responsavel', 'responsavelNome')),
         criadoEm: optionalString(field(row, 'criadoEm')),
+        podeEditar: field(row, 'podeEditar') === true,
+        podeExcluir: field(row, 'podeExcluir') === true,
+        motivoBloqueio: optionalString(field(row, 'motivoBloqueio')),
       }
     }),
     totalRegistros: integer(field(body, 'totalCount', 'totalRegistros'), 0),

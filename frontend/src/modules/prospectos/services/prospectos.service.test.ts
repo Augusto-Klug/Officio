@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { prospectoNaEtapaInicial, RegimeTributario, type CriarProspectoPayload } from '../types/prospecto'
+import { prospectoNaEtapaInicial, prospectoPodeEditarCadastro, RegimeTributario, type CriarProspectoPayload } from '../types/prospecto'
 import { atualizarProspecto, criarProspecto, excluirProspecto, normalizeProspectoCriado, normalizeProspectos, obterProspecto } from './prospectos.service'
 
 afterEach(() => vi.restoreAllMocks())
@@ -12,6 +12,8 @@ describe('manutencao de prospectos', () => {
 
   it('habilita a manutencao apenas na etapa inicial', () => {
     expect(prospectoNaEtapaInicial({ status: 'EmNegociacao' })).toBe(true)
+    expect(prospectoPodeEditarCadastro({ status: 'PropostaEnviada' })).toBe(true)
+    expect(prospectoPodeEditarCadastro({ status: 'AguardandoAssinatura' })).toBe(false)
   })
 
   it('consulta o cadastro completo e usa os endpoints de atualizacao e exclusao', async () => {
@@ -34,7 +36,7 @@ describe('manutencao de prospectos', () => {
 describe('normalização do contrato de prospectos', () => {
   it('interpreta o PagedResult efetivamente retornado pelo endpoint', () => {
     expect(normalizeProspectos({ data: [{ id: '1', razaoSocial: 'Escritório Exemplo', cnpj: null, status: 'EmNegociacao', responsavel: 'Ana', criadoEm: null }], totalCount: 21, page: 2, pageSize: 20, totalPages: 2 })).toEqual({
-      dados: [{ id: '1', razaoSocial: 'Escritório Exemplo', cnpj: null, status: 'EmNegociacao', responsavel: 'Ana', criadoEm: null }], totalRegistros: 21, pagina: 2, tamanhoPagina: 20, totalPaginas: 2,
+      dados: [{ id: '1', razaoSocial: 'Escritório Exemplo', cnpj: null, status: 'EmNegociacao', responsavel: 'Ana', criadoEm: null, podeEditar: false, podeExcluir: false, motivoBloqueio: null }], totalRegistros: 21, pagina: 2, tamanhoPagina: 20, totalPaginas: 2,
     })
   })
   it('aceita o contrato português e PascalCase sem vazar a diferença para a tela', () => {

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Enumeradores;
+using Officio.Dominio.Interfaces;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Testes.Integracao.Infraestrutura;
 
@@ -61,7 +62,6 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
     }
 
     [Theory]
-    [InlineData(StatusProspecto.PropostaEnviada)]
     [InlineData(StatusProspecto.Convertido)]
     [InlineData(StatusProspecto.Perdido)]
     [InlineData(StatusProspecto.Inativo)]
@@ -82,6 +82,156 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Conflict, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await cliente.DeleteAsync($"/api/v1/prospectos/Excluir/{id}")).StatusCode);
         Assert.Equal("Empresa inicial", (await ObterDadosAsync(cliente, id))["razaoSocial"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task PropostaEnviada_PermiteEditarSemPermitirExclusao()
+    {
+        await factory.PrepararTenantAsync();
+        using var cliente = await ClienteAutenticadoAsync();
+        var id = await CriarAsync(cliente);
+        var dados = await ObterDadosAsync(cliente, id);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            (await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == id)).UpdateStatus(StatusProspecto.PropostaEnviada);
+            await db.SaveChangesAsync();
+        }
+
+        dados["razaoSocial"] = "Empresa revisada";
+        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await cliente.DeleteAsync($"/api/v1/prospectos/Excluir/{id}")).StatusCode);
+        Assert.Equal("Empresa revisada", (await ObterDadosAsync(cliente, id))["razaoSocial"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ContratoAguardandoAssinatura_BloqueiaAtualizacaoDeSocios()
+    {
+        var tenant = await factory.PrepararTenantAsync();
+        using var cliente = await ClienteAutenticadoAsync();
+        var id = await CriarAsync(cliente);
+        var dados = await ObterDadosAsync(cliente, id);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var prospecto = await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == id);
+            var empresa = Empresa.CriarDoProspecto(prospecto);
+            prospecto.VincularEmpresa(empresa.Id);
+            var orcamento = Orcamento.Criar(tenant, id, "Orcamento", 10, null);
+            var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.Today, null, null);
+            contrato.MarcarAguardandoAssinatura();
+            db.Empresas.Add(empresa);
+            db.Budgets.Add(orcamento);
+            db.Contracts.Add(contrato);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ContratoRascunho_ExigeConfirmacaoECancelaAoEditar()
+    {
+        var tenant = await factory.PrepararTenantAsync();
+        using var cliente = await ClienteAutenticadoAsync();
+        var id = await CriarAsync(cliente);
+        var dados = await ObterDadosAsync(cliente, id);
+        Guid contratoId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var prospecto = await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == id);
+            var empresa = Empresa.CriarDoProspecto(prospecto);
+            prospecto.VincularEmpresa(empresa.Id);
+            prospecto.UpdateStatus(StatusProspecto.PropostaEnviada);
+            var orcamento = Orcamento.Criar(tenant, id, "Orcamento", 10, null);
+            var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.Today, null, null);
+            contratoId = contrato.Id;
+            db.Empresas.Add(empresa);
+            db.Budgets.Add(orcamento);
+            db.Contracts.Add(contrato);
+            await db.SaveChangesAsync();
+        }
+        dados["razaoSocial"] = "Empresa revisada";
+        Assert.Equal(HttpStatusCode.Conflict, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        dados["confirmarCancelamentoContratos"] = true;
+        dados["contratosConfirmados"] = new System.Text.Json.Nodes.JsonArray(System.Text.Json.Nodes.JsonValue.Create(contratoId));
+        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        using var verificacao = factory.Services.CreateScope();
+        var contexto = verificacao.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+        Assert.Equal(StatusContrato.Cancelado, (await contexto.Contracts.IgnoreQueryFilters().SingleAsync(c => c.Id == contratoId)).Status);
+        Assert.Equal("Empresa revisada", (await contexto.Empresas.IgnoreQueryFilters().SingleAsync(e => e.TenantId == tenant)).RazaoSocial);
+    }
+
+    [Theory]
+    [InlineData(false, false, false, true, false)]
+    [InlineData(true, false, false, false, false)]
+    [InlineData(false, true, false, false, false)]
+    [InlineData(false, false, true, false, false)]
+    [InlineData(false, false, false, false, true)]
+    public async Task AssinaturaPendente_EditaApenasAposBloqueioConfirmado(bool concluidoAntes, bool bloqueioFalhou, bool concluidoDepois, bool deveSalvar, bool signatariosDivergentes)
+    {
+        var assinaturas = new AssinaturaParaEdicaoFake(concluidoAntes, bloqueioFalhou, concluidoDepois, signatariosDivergentes);
+        using var api = new OfficioWebApplicationFactory { ServicoAssinaturaSubstituto = assinaturas };
+        var tenant = await api.PrepararTenantAsync();
+        using var cliente = api.CreateClient();
+        var login = await cliente.PostAsJsonAsync("/api/v1/autenticacao/Login", new { email = "admin@integracao.test", senha = "Tenant@123" });
+        var token = (await login.Content.ReadFromJsonAsync<JsonObject>())!["token"]!.GetValue<string>();
+        cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var id = await CriarAsync(cliente);
+        var dados = await ObterDadosAsync(cliente, id);
+        Guid contratoId;
+        using (var scope = api.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var prospecto = await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == id);
+            var empresa = Empresa.CriarDoProspecto(prospecto);
+            prospecto.VincularEmpresa(empresa.Id);
+            prospecto.UpdateStatus(StatusProspecto.PropostaEnviada);
+            var orcamento = Orcamento.Criar(tenant, id, "Orcamento", 10, null);
+            var contrato = Contrato.CriarDeOrcamento(orcamento, prospecto, DateTime.Today, null, null);
+            contrato.MarcarAguardandoAssinatura();
+            contratoId = contrato.Id;
+            var status = new StatusAssinatura("aguardando_assinatura", "Aguardando assinatura", 10);
+            var solicitacao = AssinaturaSolicitacao.Criar(tenant, contrato.Id, status.Id, "autentique");
+            solicitacao.DefinirIdentificadorExterno("documento-teste");
+            solicitacao.AdicionarSignatario("Um", "um@example.invalid", "contratante", 1);
+            solicitacao.AdicionarSignatario("Dois", "dois@example.invalid", "contratada", 2);
+            db.Empresas.Add(empresa); db.Budgets.Add(orcamento); db.Contracts.Add(contrato);
+            db.StatusAssinaturas.Add(status); db.AssinaturaSolicitacoes.Add(solicitacao);
+            await db.SaveChangesAsync();
+        }
+        dados["razaoSocial"] = "Empresa revisada";
+        dados["confirmarCancelamentoContratos"] = true;
+        dados["contratosConfirmados"] = new JsonArray(JsonValue.Create(contratoId));
+        var resposta = await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados);
+        Assert.Equal(deveSalvar, resposta.IsSuccessStatusCode);
+        using var verificacao = api.Services.CreateScope();
+        var contexto = verificacao.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+        Assert.Equal(deveSalvar ? StatusContrato.Cancelado : StatusContrato.AguardandoAssinatura,
+            (await contexto.Contracts.IgnoreQueryFilters().SingleAsync(c => c.Id == contratoId)).Status);
+        Assert.Equal(deveSalvar ? "Empresa revisada" : "Empresa inicial",
+            (await contexto.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == id)).RazaoSocial);
+        Assert.Equal(!concluidoAntes && !signatariosDivergentes, assinaturas.Bloqueou);
+    }
+
+    private sealed class AssinaturaParaEdicaoFake(bool concluidoAntes, bool bloqueioFalhou, bool concluidoDepois, bool signatariosDivergentes) : IServicoAssinatura
+    {
+        public bool Bloqueou { get; private set; }
+        private int consultas;
+        public Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(string documentoId, CancellationToken ct = default)
+            => Task.FromResult(ResultadoEstadoAssinatura.CriarSucesso(++consultas == 1 ? concluidoAntes : concluidoDepois,
+                emailsSignatarios: signatariosDivergentes ? ["um@example.invalid", "outro@example.invalid"] : ["um@example.invalid", "dois@example.invalid"]));
+        public Task<ResultadoBloqueioAssinatura> BloquearDocumentoAsync(string documentoId, CancellationToken ct = default)
+        {
+            Bloqueou = true;
+            return Task.FromResult(new ResultadoBloqueioAssinatura(!bloqueioFalhou));
+        }
+        public Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ResultadoDocumentoAssinado> BaixarDocumentoAssinadoAsync(string documentoId, CancellationToken ct = default) => throw new NotSupportedException();
     }
 
     [Fact]
@@ -320,7 +470,6 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         dados["socios"]![0]!["profissao"] = "Arquiteta";
         dados["socios"]![0]!["endereco"] = new JsonObject { ["logradouro"] = "Rua", ["numero"] = "10",
             ["bairro"] = "Centro", ["uf"] = "SC", ["municipioCodigoIbge"] = "4202404" };
-        Assert.Equal(HttpStatusCode.Conflict, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
         Assert.Equal("Empresa inicial", (await ObterDadosAsync(cliente, id))["razaoSocial"]!.GetValue<string>());
         using (var scope = factory.Services.CreateScope())
@@ -342,8 +491,35 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         var contratoId = await resposta.Content.ReadFromJsonAsync<Guid>();
         var contrato = await cliente.GetFromJsonAsync<JsonObject>($"/api/v1/contratos/ObterPorId/{contratoId}");
         Assert.Equal(socioId, contrato!["representanteSocioId"]!.GetValue<Guid>());
+        dados = await ObterDadosAsync(cliente, id);
+        dados["razaoSocial"] = "Empresa revisada apos cancelamento";
+        dados["confirmarCancelamentoContratos"] = true;
+        dados["contratosConfirmados"] = new JsonArray(JsonValue.Create(contratoId));
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        using (var validacaoCancelamento = factory.Services.CreateScope())
+        {
+            var db = validacaoCancelamento.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            Assert.Equal(StatusContrato.Cancelado,
+                (await db.Contracts.IgnoreQueryFilters().SingleAsync(c => c.Id == contratoId)).Status);
+        }
+        var novaConversao = await cliente.PostAsJsonAsync($"/api/v1/orcamentos/ConverterParaContrato/{orcamentoId}",
+            new { dataInicio = DateTime.Today, duracaoAnos = 4,
+                competenciaInicialHonorarios = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1),
+                representanteSocioId = socioId });
+        Assert.Equal(HttpStatusCode.Created, novaConversao.StatusCode);
+        var novoContratoId = await novaConversao.Content.ReadFromJsonAsync<Guid>();
+        Assert.NotEqual(contratoId, novoContratoId);
+        using (var validacaoHistorico = factory.Services.CreateScope())
+        {
+            var db = validacaoHistorico.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var contratosDoOrcamento = await db.Contracts.IgnoreQueryFilters().Where(c => c.BudgetId == orcamentoId).ToListAsync();
+            Assert.Equal(2, contratosDoOrcamento.Count);
+            Assert.Single(contratosDoOrcamento, c => c.Status == StatusContrato.Cancelado);
+            Assert.Single(contratosDoOrcamento, c => c.Id == novoContratoId && c.Status == StatusContrato.Rascunho);
+        }
         dados = await ObterDadosAsync(cliente, id); dados["socios"] = new JsonArray();
-        Assert.Equal(HttpStatusCode.BadRequest, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
     }
 
     [Fact]

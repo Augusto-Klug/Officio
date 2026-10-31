@@ -6,7 +6,10 @@ public record ProspectoDto(
     string? Cnpj,
     string? Status,
     string? Responsavel,
-    DateTime CriadoEm);
+    DateTime CriadoEm,
+    bool PodeEditar,
+    bool PodeExcluir,
+    string? MotivoBloqueio);
 
 public record ProspectoCriadoDto(Guid Id, string RazaoSocial);
 

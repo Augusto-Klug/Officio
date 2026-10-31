@@ -2,10 +2,13 @@ namespace Officio.Dominio.Interfaces;
 
 public interface IServicoAssinatura
 {
+    Task<ResultadoBloqueioAssinatura> BloquearDocumentoAsync(string documentoId, CancellationToken ct = default);
     Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default);
     Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(string documentoId, CancellationToken ct = default);
     Task<ResultadoDocumentoAssinado> BaixarDocumentoAssinadoAsync(string documentoId, CancellationToken ct = default);
 }
+
+public record ResultadoBloqueioAssinatura(bool Sucesso, string? Mensagem = null);
 
 public record SolicitacaoAssinatura(
     Stream FluxoPdf,
@@ -36,10 +39,11 @@ public record ResultadoEstadoAssinatura
     public bool Sucesso { get; init; }
     public bool Concluido { get; init; }
     public DateTime? ConcluidoEm { get; init; }
+    public IReadOnlyList<string> EmailsSignatarios { get; init; } = [];
     public string? Mensagem { get; init; }
 
-    public static ResultadoEstadoAssinatura CriarSucesso(bool concluido, DateTime? concluidoEm = null)
-        => new() { Sucesso = true, Concluido = concluido, ConcluidoEm = concluidoEm };
+    public static ResultadoEstadoAssinatura CriarSucesso(bool concluido, DateTime? concluidoEm = null, IReadOnlyList<string>? emailsSignatarios = null)
+        => new() { Sucesso = true, Concluido = concluido, ConcluidoEm = concluidoEm, EmailsSignatarios = emailsSignatarios ?? [] };
 
     public static ResultadoEstadoAssinatura CriarFalha(string mensagem)
         => new() { Sucesso = false, Mensagem = mensagem };
