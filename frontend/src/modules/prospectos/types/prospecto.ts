@@ -31,6 +31,7 @@ export enum RegimeTributario {
   LucroPresumido = 1,
   LucroReal = 2,
   MEI = 3,
+  SimplesNacionalHibrido = 4,
 }
 
 export interface CriarSocioPayload {
@@ -96,7 +97,8 @@ export function prospectoPodeEditarCadastro(prospecto: Pick<Prospecto, 'status'>
 }
 
 export const regimeTributarioOptions = [
-  { label: 'Simples Nacional', value: RegimeTributario.SimplesNacional },
+  { label: 'Simples Nacional puro (IBS/CBS no DAS)', value: RegimeTributario.SimplesNacional },
+  { label: 'Simples Nacional híbrido (IBS/CBS no regime regular)', value: RegimeTributario.SimplesNacionalHibrido },
   { label: 'Lucro Presumido', value: RegimeTributario.LucroPresumido },
   { label: 'Lucro Real', value: RegimeTributario.LucroReal },
   { label: 'MEI', value: RegimeTributario.MEI },

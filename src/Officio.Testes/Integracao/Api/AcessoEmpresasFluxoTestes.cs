@@ -18,6 +18,7 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
     public async Task IsolamentoTenant_ImpedeAlterarProspectoDeOutraEmpresa()
     {
         await factory.PrepararTenantAsync();
+        await GarantirMunicipioBlumenauAsync();
         using var cliente = factory.CreateClient();
         var tokenPrimeiroTenant = await LoginAsync(cliente, "admin@integracao.test", "Tenant@123");
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenPrimeiroTenant);
@@ -25,7 +26,17 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         var criacao = await cliente.PostAsJsonAsync("/api/v1/prospectos/Criar", new
         {
             razaoSocial = "Prospecto Restrito Ltda",
-            cnpj = "44.555.666/0001-77"
+            cnpj = "44.555.666/0001-77",
+            nomeContato = "Contato restrito",
+            email = "contato@restrito.test",
+            telefone = "47999998888",
+            cep = "89010000",
+            logradouro = "Rua inicial",
+            numero = "10",
+            bairro = "Centro",
+            cidade = "Blumenau",
+            uf = "SC",
+            municipioCodigoIbge = "4202404"
         });
         Assert.Equal(HttpStatusCode.Created, criacao.StatusCode);
         var prospectoId = Guid.Parse(
@@ -51,6 +62,7 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
     public async Task FluxoComercial_CriaProspectoOrcamentoAceitoEContrato()
     {
         var tenantId = await factory.PrepararTenantAsync();
+        await GarantirMunicipioBlumenauAsync();
         using var cliente = factory.CreateClient();
         var token = await LoginAsync(cliente, "admin@integracao.test", "Tenant@123");
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -60,6 +72,16 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
             razaoSocial = "Cliente Integracao Ltda",
             cnpj = "44.555.666/0001-77",
             regimeTributario = 0,
+            nomeContato = "Contato Integracao",
+            email = "contato@integracao.test",
+            telefone = "47999998888",
+            cep = "89010000",
+            logradouro = "Rua inicial",
+            numero = "10",
+            bairro = "Centro",
+            cidade = "Blumenau",
+            uf = "SC",
+            municipioCodigoIbge = "4202404",
             socios = new[]
             {
                 new { nome = "Socio Integracao", cpf = "117.892.999-00", participacao = 0.1m }
@@ -132,13 +154,11 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         using (var socioScope = factory.Services.CreateScope())
         {
             var db = socioScope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
-            var estado = Estado.Criar("42", "SC", "Santa Catarina");
-            var municipio = Municipio.Criar(estado.Id, "4202404", "Blumenau");
-            db.Estados.Add(estado);
-            db.Municipios.Add(municipio);
+            _ = await db.Estados.IgnoreQueryFilters().SingleAsync(e => e.Sigla == "SC");
+            var municipio = await db.Municipios.IgnoreQueryFilters().SingleAsync(m => m.CodigoIbge == "4202404");
             var prospecto = await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == prospectoId);
             prospecto.VincularMunicipio(municipio.Id, "Blumenau", "SC");
-            prospecto.AtualizarDadosCadastrais(null, null, null, null, null, null, null, null, null,
+            prospecto.AtualizarDadosCadastrais(null, null, null, null, null, "contato@integracao.test", "47999998888", null, "Contato Integracao",
                 "89010000", "Rua da CONTRATANTE", "10", null, "Centro", "Blumenau", "SC", null, null, null, null, null);
 
             var parceiro = await db.Parceiros.IgnoreQueryFilters().SingleAsync(p => p.Id == tenantId);
@@ -249,5 +269,18 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         var inicio = corpo.IndexOf(marcador, StringComparison.Ordinal);
         Assert.True(inicio >= 0, "O e-mail de convite nao contem o token de ativacao.");
         return Uri.UnescapeDataString(corpo[(inicio + marcador.Length)..]);
+    }
+
+    private async Task GarantirMunicipioBlumenauAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+        if (await db.Municipios.IgnoreQueryFilters().AnyAsync(m => m.CodigoIbge == "4202404"))
+            return;
+
+        var estado = Estado.Criar("42", "SC", "Santa Catarina");
+        db.Estados.Add(estado);
+        db.Municipios.Add(Municipio.Criar(estado.Id, "4202404", "Blumenau"));
+        await db.SaveChangesAsync();
     }
 }

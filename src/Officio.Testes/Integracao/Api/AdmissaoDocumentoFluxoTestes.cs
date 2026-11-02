@@ -4,7 +4,10 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Entidades;
+using Officio.Dominio.Interfaces;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Testes.Integracao.Infraestrutura;
 
@@ -22,23 +25,7 @@ public class AdmissaoDocumentoFluxoTestes(OfficioWebApplicationFactory factory)
         var tokenAcesso = await LoginAsync(cliente);
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenAcesso);
 
-        var criacao = await cliente.PostAsJsonAsync("/api/v1/admissoes/CriarManual", new
-        {
-            clienteId,
-            dados = new
-            {
-                nomeFuncionario = "Funcionaria Integracao",
-                cpf = "11789299900",
-                rg = "1234567",
-                dataNascimento = new DateOnly(1995, 6, 15),
-                sexo = "Feminino",
-                telefone = "47999990000",
-                dependentes = Array.Empty<object>()
-            }
-        });
-        Assert.True(criacao.StatusCode == HttpStatusCode.Created,
-            $"Criacao da admissao retornou {(int)criacao.StatusCode}: {await criacao.Content.ReadAsStringAsync()}");
-        var admissaoId = await criacao.Content.ReadFromJsonAsync<Guid>();
+        var admissaoId = await CriarAdmissaoAsync(tenantId, clienteId);
 
         var linkResposta = await cliente.PostAsync($"/api/v1/admissoes/GerarLinkFicha/{admissaoId}", null);
         Assert.Equal(HttpStatusCode.OK, linkResposta.StatusCode);
@@ -76,6 +63,8 @@ public class AdmissaoDocumentoFluxoTestes(OfficioWebApplicationFactory factory)
         Assert.True(envioConferencia.StatusCode == HttpStatusCode.NoContent,
             $"Envio para conferencia retornou {(int)envioConferencia.StatusCode}: {await envioConferencia.Content.ReadAsStringAsync()}");
 
+        await MarcarEnvioEmpregadorAsync(tenantId, admissaoId);
+
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenAcesso);
         var validacao = await cliente.PostAsync(
             $"/api/v1/admissoes/ValidarDocumento/{admissaoId}/itens/{itemId}", null);
@@ -98,6 +87,22 @@ public class AdmissaoDocumentoFluxoTestes(OfficioWebApplicationFactory factory)
         Assert.Equal("APROVADO", documentoRevisado!["statusValidacao"]!.GetValue<string>());
     }
 
+    private async Task MarcarEnvioEmpregadorAsync(Guid tenantId, Guid admissaoId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var tenant = scope.ServiceProvider.GetRequiredService<IEmpresaAtual>();
+        tenant.SetTenant(tenantId);
+        var repositorio = scope.ServiceProvider.GetRequiredService<IAdmissaoRepositorio>();
+        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId);
+        Assert.NotNull(admissao);
+        var status = await repositorio.ObterOuCriarStatusAsync(
+            Officio.Dominio.Admissoes.StatusAdmissaoCodigos.LiberadoParaRevisaoFinal,
+            "Liberado para revisao final", 6);
+        admissao!.MarcarPreenchimentoEmpresaConcluido();
+        admissao.AlterarStatus(status.Id);
+        await repositorio.SalvarAlteracoesAsync();
+    }
+
     private async Task<Guid> CriarClienteAsync(Guid tenantId)
     {
         using var scope = factory.Services.CreateScope();
@@ -108,6 +113,20 @@ public class AdmissaoDocumentoFluxoTestes(OfficioWebApplicationFactory factory)
         contexto.Clients.Add(cliente);
         await contexto.SaveChangesAsync();
         return cliente.Id;
+    }
+
+    private async Task<Guid> CriarAdmissaoAsync(Guid tenantId, Guid clienteId)
+    {
+        using var scope = factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IEmpresaAtual>().SetTenant(tenantId);
+        var admissoes = scope.ServiceProvider.GetRequiredService<IAdmissaoServico>();
+        var requisicao = new CriarAdmissaoManualRequisicao(clienteId, new DadosAdmissaoRequisicao(
+            "Funcionaria Integracao", "11789299900", "1234567", new DateOnly(1995, 6, 15),
+            "Feminino", null, null, "47999990000", "funcionaria@integracao.test", null,
+            null, null, null, null, null, null, null, null, null, null, null, null, []));
+        var resultado = await admissoes.CriarManualAsync(requisicao);
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        return resultado.Valor;
     }
 
     private static async Task<string> LoginAsync(HttpClient cliente)

@@ -17,6 +17,7 @@ public class Admissao : EntidadeAuditavel
     public string? Sexo { get; private set; }
     public string? EstadoCivil { get; private set; }
     public string? Escolaridade { get; private set; }
+    public string? Etnia { get; private set; }
     public Guid? EnderecoId { get; private set; }
     public string? Telefone { get; private set; }
     public string? Email { get; private set; }
@@ -34,8 +35,6 @@ public class Admissao : EntidadeAuditavel
     public string? HorarioTrabalho { get; private set; }
     public string? TokenAcessoHash { get; private set; }
     public DateTime? TokenExpiraEm { get; private set; }
-    public string? TokenEmpresaAcessoHash { get; private set; }
-    public DateTime? TokenEmpresaExpiraEm { get; private set; }
     public DateTime? PreenchimentoFuncionarioConcluidoEm { get; private set; }
     public DateTime? PreenchimentoEmpresaConcluidoEm { get; private set; }
     public string? Observacoes { get; private set; }
@@ -153,24 +152,6 @@ public class Admissao : EntidadeAuditavel
         TokenExpiraEm = null;
     }
 
-    public void GerarAcessoEmpresa(string tokenHash, DateTime expiraEm)
-    {
-        if (string.IsNullOrWhiteSpace(tokenHash))
-            throw new ArgumentException("Hash do token e obrigatorio.", nameof(tokenHash));
-        if (expiraEm <= DateTime.UtcNow)
-            throw new ArgumentException("A expiracao do token deve estar no futuro.", nameof(expiraEm));
-
-        TokenEmpresaAcessoHash = tokenHash;
-        TokenEmpresaExpiraEm = expiraEm;
-        PreenchimentoEmpresaConcluidoEm = null;
-    }
-
-    public void RevogarAcessoEmpresa()
-    {
-        TokenEmpresaAcessoHash = null;
-        TokenEmpresaExpiraEm = null;
-    }
-
     public void MarcarPreenchimentoFuncionarioConcluido()
         => PreenchimentoFuncionarioConcluidoEm ??= DateTime.UtcNow;
 
@@ -184,7 +165,14 @@ public class Admissao : EntidadeAuditavel
         string? estadoCivil,
         string? escolaridade,
         string? telefone,
-        string? email)
+        string? email,
+        string? banco,
+        string? agencia,
+        string? conta,
+        string? tipoConta,
+        string? cpf = null,
+        string? rg = null,
+        string? etnia = null)
     {
         if (string.IsNullOrWhiteSpace(nomeFuncionario))
             throw new ArgumentException("Nome do funcionario e obrigatorio.", nameof(nomeFuncionario));
@@ -194,12 +182,19 @@ public class Admissao : EntidadeAuditavel
             throw new ArgumentException("Selecione Masculino ou Feminino para o sexo do funcionario.", nameof(sexo));
 
         NomeFuncionario = nomeFuncionario.Trim();
+        Cpf = DocumentoFiscal.SomenteDigitos(cpf);
+        Rg = Normalizar(rg);
         DataNascimento = dataNascimento;
         Sexo = sexo;
         EstadoCivil = Normalizar(estadoCivil);
         Escolaridade = Normalizar(escolaridade);
+        Etnia = Normalizar(etnia);
         Telefone = Normalizar(telefone);
         Email = Normalizar(email)?.ToLowerInvariant();
+        Banco = Normalizar(banco);
+        Agencia = Normalizar(agencia);
+        Conta = Normalizar(conta);
+        TipoConta = Normalizar(tipoConta);
     }
 
     public void AtualizarDadosEmpresa(

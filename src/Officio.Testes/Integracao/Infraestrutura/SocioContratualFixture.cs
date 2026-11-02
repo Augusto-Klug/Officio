@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Officio.Dominio.Entidades;
 using Officio.Infra.BancoDeDados.Contextos;
 namespace Officio.Testes.Integracao.Infraestrutura;
@@ -16,7 +17,9 @@ internal static class SocioContratualFixture
         var municipio = contexto.Municipios.Local.FirstOrDefault() ?? Municipio.Criar(estado.Id, "4202404", "Blumenau");
         var tipo = contexto.TiposRelacao.Local.FirstOrDefault(t => t.Codigo == codigo)
             ?? new TipoRelacao(codigo, codigo == "SOCIO" ? "Sócio" : "Sócio administrador", "SOCIETARIO");
-        contexto.Estados.Add(estado); contexto.Municipios.Add(municipio); contexto.TiposRelacao.Add(tipo);
+        if (contexto.Entry(estado).State == EntityState.Detached) contexto.Estados.Add(estado);
+        if (contexto.Entry(municipio).State == EntityState.Detached) contexto.Municipios.Add(municipio);
+        if (contexto.Entry(tipo).State == EntityState.Detached) contexto.TiposRelacao.Add(tipo);
         var endereco = Endereco.Criar(municipio.Id, "Rua do Representante", "89010000", "10", "Centro");
         contexto.Set<Endereco>().Add(endereco);
         socio.Pessoa.AtualizarDadosSocietarios(socio.Nome, socio.Cpf, "Arquiteta", endereco);

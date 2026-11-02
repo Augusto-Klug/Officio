@@ -1309,9 +1309,29 @@ public class ContratoServicoTestes
             servicoAssinatura,
             servicoArmazenamento ?? new ServicoArmazenamentoFake(),
             tenantAtual,
+            CriarGestaoAcessoFake(),
             publicadorAtualizacaoTempoReal ?? new PublicadorAtualizacaoTempoRealFake(),
             NullLogger<ContratoServico>.Instance,
             timeProvider ?? TimeProvider.System);
+    }
+
+    private static IGestaoAcessoServico CriarGestaoAcessoFake()
+        => DispatchProxy.Create<IGestaoAcessoServico, GestaoAcessoServicoProxy>();
+
+    public class GestaoAcessoServicoProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name == nameof(IGestaoAcessoServico.ConvidarClienteAsync))
+            {
+                var email = args?[3] as string ?? string.Empty;
+                var resultado = Resultado<ConviteCriadoDto>.CriarSucesso(
+                    new ConviteCriadoDto(Guid.NewGuid(), email, DateTime.UtcNow.AddHours(48)));
+                return Task.FromResult(resultado);
+            }
+
+            throw new NotSupportedException($"Operacao de teste nao configurada: {targetMethod?.Name}");
+        }
     }
 
     private static (Parceiro Parceiro, ResponsavelTecnico Responsavel) AdicionarContratadaCompleta(

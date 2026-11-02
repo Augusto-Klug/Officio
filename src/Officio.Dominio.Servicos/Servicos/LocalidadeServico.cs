@@ -131,6 +131,16 @@ internal sealed class LocalidadeServico(
             if (endereco is null)
                 return Resultado<EnderecoCepLocalidade?>.CriarSucesso(null);
 
+            var municipioConhecido = await repositorio.ObterMunicipioPorCodigoIbgeAsync(
+                endereco.CodigoMunicipioIbge,
+                cancellationToken);
+            if (municipioConhecido is not null &&
+                municipioConhecido.Ativo &&
+                municipioConhecido.Estado.Sigla.Equals(endereco.Uf, StringComparison.OrdinalIgnoreCase))
+            {
+                return Resultado<EnderecoCepLocalidade?>.CriarSucesso(MapearEndereco(endereco));
+            }
+
             var municipiosResultado = await ListarMunicipiosPorUfAsync(endereco.Uf, cancellationToken);
             if (!municipiosResultado.Sucesso)
                 return Resultado<EnderecoCepLocalidade?>.CriarFalha(municipiosResultado.Erro!);
@@ -138,14 +148,7 @@ internal sealed class LocalidadeServico(
             if (!municipiosResultado.Valor!.Any(item => item.CodigoIbge == endereco.CodigoMunicipioIbge))
                 return Resultado<EnderecoCepLocalidade?>.CriarFalha("O municipio do CEP nao foi localizado no IBGE.");
 
-            return Resultado<EnderecoCepLocalidade?>.CriarSucesso(new EnderecoCepLocalidade(
-                endereco.Cep,
-                endereco.Logradouro,
-                endereco.Complemento,
-                endereco.Bairro,
-                endereco.Cidade,
-                endereco.Uf,
-                endereco.CodigoMunicipioIbge));
+            return Resultado<EnderecoCepLocalidade?>.CriarSucesso(MapearEndereco(endereco));
         }
         catch (Exception exception) when (EhFalhaIntegracao(exception))
         {
@@ -155,4 +158,14 @@ internal sealed class LocalidadeServico(
 
     private static bool EhFalhaIntegracao(Exception exception)
         => exception is HttpRequestException or TaskCanceledException or JsonException;
+
+    private static EnderecoCepLocalidade MapearEndereco(EnderecoCep endereco)
+        => new(
+            endereco.Cep,
+            endereco.Logradouro,
+            endereco.Complemento,
+            endereco.Bairro,
+            endereco.Cidade,
+            endereco.Uf,
+            endereco.CodigoMunicipioIbge);
 }

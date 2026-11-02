@@ -8,13 +8,13 @@ import AdmissaoDocumentosSection from './AdmissaoDocumentosSection.vue'
 
 const visible = defineModel<boolean>('visible', { required: true })
 const props = defineProps<{ admissao: AdmissaoResumo | null; loading?: boolean; linkLoading?: boolean }>()
-const emit = defineEmits<{ gerarLink: [admissaoId: string, papel: 'funcionario' | 'empresa']; concluirRevisao: [admissaoId: string] }>()
+const emit = defineEmits<{ gerarLink: [admissaoId: string, papel: 'funcionario']; concluirRevisao: [admissaoId: string] }>()
 
 const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.admissao?.status === 'CANCELADA')
 const funcionarioConcluiu = computed(() => props.admissao?.preenchimentoFuncionarioConcluido === true)
 const empresaConcluiu = computed(() => props.admissao?.preenchimentoEmpresaConcluido === true)
-const aguardandoValidacao = computed(() => props.admissao?.status === 'AGUARDANDO_VALIDACAO')
-const documentosValidados = computed(() => ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR', 'LIBERADO_PARA_REVISAO_FINAL', 'CONCLUIDA'].includes(props.admissao?.status ?? ''))
+const aguardandoValidacao = computed(() => ['AGUARDANDO_VALIDACAO', 'LIBERADO_PARA_REVISAO_FINAL'].includes(props.admissao?.status ?? '') && funcionarioConcluiu.value && empresaConcluiu.value)
+const documentosValidados = computed(() => ['DOCUMENTOS_VALIDADOS', 'CONCLUIDA'].includes(props.admissao?.status ?? ''))
 const documentosEditaveis = computed(() => ['RASCUNHO', 'AGUARDANDO_ADMITIDO', 'AGUARDANDO_VALIDACAO'].includes(props.admissao?.status ?? ''))
 const severity = computed(() => {
   if (props.admissao?.status === 'CONCLUIDA') return 'success'
@@ -34,8 +34,8 @@ const severity = computed(() => {
       </header>
       <div class="admission-form-progress" aria-label="Etapas de preenchimento">
         <div><span>Admitido</span><StatusBadge :label="funcionarioConcluiu ? 'Concluído' : 'Pendente'" :severity="funcionarioConcluiu ? 'success' : 'warn'" /></div>
-        <div><span>Revisão documental</span><StatusBadge :label="documentosValidados ? 'Concluída' : funcionarioConcluiu ? 'Pendente' : 'Aguardando admitido'" :severity="documentosValidados ? 'success' : funcionarioConcluiu ? 'warn' : 'secondary'" /></div>
         <div><span>Empregador</span><StatusBadge :label="empresaConcluiu ? 'Concluído' : 'Pendente'" :severity="empresaConcluiu ? 'success' : 'warn'" /></div>
+        <div><span>Revisão documental</span><StatusBadge :label="documentosValidados ? 'Concluída' : funcionarioConcluiu && empresaConcluiu ? 'Pendente' : 'Aguardando fichas'" :severity="documentosValidados ? 'success' : funcionarioConcluiu && empresaConcluiu ? 'warn' : 'secondary'" /></div>
       </div>
       <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal && documentosEditaveis" :can-validate="aguardandoValidacao" />
     </div>
@@ -43,7 +43,6 @@ const severity = computed(() => {
     <template #footer>
       <BaseButton label="Fechar" variant="text" @click="visible = false" />
       <BaseButton v-if="admissao && !terminal && !funcionarioConcluiu" label="Gerar link do admitido" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'funcionario')" />
-      <BaseButton v-if="admissao && !terminal && !empresaConcluiu" label="Gerar link do empregador" icon="pi pi-link" variant="secondary" :loading="linkLoading" :disabled="linkLoading" @click="emit('gerarLink', admissao.id, 'empresa')" />
       <BaseButton v-if="admissao && aguardandoValidacao" label="Concluir revisão documental" icon="pi pi-check-circle" :loading="linkLoading" :disabled="linkLoading" @click="emit('concluirRevisao', admissao.id)" />
     </template>
   </Dialog>

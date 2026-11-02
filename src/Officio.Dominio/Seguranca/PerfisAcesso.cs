@@ -4,13 +4,15 @@ public static class PerfisAcesso
 {
     public const string PlatformAdmin = "PlatformAdmin";
     public const string Admin = "Admin";
-    public const string Comercial = "Comercial";
     public const string Operacional = "Operacional";
-    public const string Financeiro = "Financeiro";
     public const string Consulta = "Consulta";
+    public const string Cliente = "Cliente";
+
+    public const string PerfisLeituraTenantCsv = Admin + "," + Operacional + "," + Consulta;
+    public const string PerfisOperacaoTenantCsv = Admin + "," + Operacional;
 
     public static readonly IReadOnlySet<string> PerfisTenant = new HashSet<string>(
-        [Admin, Comercial, Operacional, Financeiro, Consulta],
+        [Admin, Operacional, Consulta, Cliente],
         StringComparer.OrdinalIgnoreCase);
 
     public static string? NormalizarPerfilTenant(string perfil)

@@ -2,6 +2,7 @@
 import { hasRole } from '../../stores/session'
 defineEmits<{ navigate: [] }>()
 const platformAdmin = hasRole('PlatformAdmin')
+const cliente = hasRole('Cliente')
 </script>
 <template>
   <div class="sidebar-content">
@@ -10,7 +11,11 @@ const platformAdmin = hasRole('PlatformAdmin')
     </RouterLink>
     <div class="workspace-label">{{ platformAdmin ? 'Administração da plataforma' : 'Gestão do escritório' }}</div>
     <nav aria-label="Navegação principal">
-      <template v-if="!platformAdmin">
+      <template v-if="cliente">
+        <p class="nav-section">EMPRESA</p>
+        <RouterLink to="/portal-cliente" class="nav-item" @click="$emit('navigate')"><i class="pi pi-building" aria-hidden="true" />Área de trabalho</RouterLink>
+      </template>
+      <template v-else-if="!platformAdmin">
         <p class="nav-section">ESCRITORIO</p>
         <RouterLink to="/dashboard" class="nav-item" @click="$emit('navigate')"><i class="pi pi-chart-bar" aria-hidden="true" />Visao geral</RouterLink>
         <p class="nav-section nav-section-spaced">COMERCIAL</p>

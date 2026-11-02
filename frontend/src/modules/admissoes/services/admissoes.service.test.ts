@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
 import { listarEmpresasComAdmissoes, normalizeEmpresasComAdmissoes } from './admissoes.service'
-import { aprovarDocumentoAdmissao, atualizarAdmissao, atualizarFichaAdmissao, atualizarFichaEmpresaAdmissao, cancelarAdmissao, concluirAdmissao, concluirFichaAdmissao, concluirFichaEmpresaAdmissao, criarAdmissao, enviarDocumentoAdmissao, enviarDocumentoFichaAdmissao, gerarLinkFichaAdmissao, gerarLinkFichaEmpresaAdmissao, listarAdmissoes, listarDocumentosAdmissao, normalizeAdmissao, normalizeAdmissoes, normalizeDocumentosAdmissao, normalizeFichaEmpresa, normalizeFichaFuncionario, obterAdmissao, obterFichaAdmissao, obterFichaEmpresaAdmissao, obterUrlDocumentoAdmissao, obterUrlDocumentoFichaAdmissao, removerDocumentoAdmissao, revogarLinkFichaAdmissao, revogarLinkFichaEmpresaAdmissao, validarDocumentoAdmissao } from './admissoes.service'
+import { aprovarDocumentoAdmissao, atualizarAdmissao, atualizarFichaAdmissao, cancelarAdmissao, concluirAdmissao, concluirFichaAdmissao, enviarDocumentoAdmissao, enviarDocumentoFichaAdmissao, gerarLinkFichaAdmissao, listarAdmissoes, listarDocumentosAdmissao, normalizeAdmissao, normalizeAdmissoes, normalizeDocumentosAdmissao, normalizeFichaFuncionario, obterAdmissao, obterFichaAdmissao, obterUrlDocumentoAdmissao, obterUrlDocumentoFichaAdmissao, removerDocumentoAdmissao, revogarLinkFichaAdmissao, validarDocumentoAdmissao } from './admissoes.service'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -38,9 +38,10 @@ describe('contrato HTTP de admissões', () => {
     expect(normalizeAdmissoes([resumo])).toEqual([resumo])
   })
 
-  it('normaliza o detalhe e os dependentes', () => {
+  it('normaliza o detalhe, dependentes e marcadores de envio das fichas', () => {
     const detalhe = normalizeAdmissao({
-      ...resumo, rg: null, dataNascimento: null, sexo: null, estadoCivil: null, escolaridade: null,
+      ...resumo, preenchimentoFuncionarioConcluido: true, preenchimentoEmpresaConcluido: false,
+      etnia: 'Parda', rg: null, dataNascimento: null, sexo: null, estadoCivil: null, escolaridade: null,
       telefone: null, email: null, pis: null, banco: null, agencia: null, conta: null, tipoConta: null,
       comissao: null, contratoExperienciaDias: 90, utilizaValeTransporte: true, horarioTrabalho: null,
       observacoes: null, atualizadoEm: '2026-09-19T11:00:00Z',
@@ -66,23 +67,20 @@ describe('contrato HTTP de admissões', () => {
     expect(get).toHaveBeenNthCalledWith(2, '/v1/admissoes/ObterPorId/adm-1')
   })
 
-  it('cria, atualiza, conclui e cancela admissões', async () => {
+  it('atualiza, conclui e cancela admissões existentes', async () => {
     const post = vi.spyOn(http, 'post')
-      .mockResolvedValueOnce({ data: 'adm-1' })
       .mockResolvedValueOnce({ data: undefined })
       .mockResolvedValueOnce({ data: undefined })
     const put = vi.spyOn(http, 'put').mockResolvedValue({ data: 'adm-1' })
     const dados = { nomeFuncionario: 'Ana Silva', cpf: '12345678901', funcao: 'Analista', dataAdmissaoPrevista: '2026-09-22', dependentes: [] }
 
-    await expect(criarAdmissao({ clienteId: 'cli-1', dados })).resolves.toBe('adm-1')
     await expect(atualizarAdmissao('adm-1', dados)).resolves.toBe('adm-1')
     await concluirAdmissao('adm-1')
     await cancelarAdmissao('adm-2')
 
-    expect(post).toHaveBeenNthCalledWith(1, '/v1/admissoes/CriarManual', { clienteId: 'cli-1', dados })
     expect(put).toHaveBeenCalledWith('/v1/admissoes/Atualizar/adm-1', { dados })
-    expect(post).toHaveBeenNthCalledWith(2, '/v1/admissoes/Concluir/adm-1')
-    expect(post).toHaveBeenNthCalledWith(3, '/v1/admissoes/Cancelar/adm-2')
+    expect(post).toHaveBeenNthCalledWith(1, '/v1/admissoes/Concluir/adm-1')
+    expect(post).toHaveBeenNthCalledWith(2, '/v1/admissoes/Cancelar/adm-2')
   })
   it('normaliza documentos da admissao', () => {
     const documentos = normalizeDocumentosAdmissao([{
@@ -186,39 +184,4 @@ describe('contrato HTTP de admissões', () => {
     expect(get).toHaveBeenNthCalledWith(2, `/v1/admissoes-publicas/ObterUrlDocumento/${token}/itens/item-1`, { skipAuth: true })
   })
 
-  it('usa endpoints anônimos separados para a etapa do empregador', async () => {
-    const ficha = {
-      id: 'adm-1', empresaNome: 'Empresa Teste', nomeFuncionario: 'Ana Silva', cpf: '12345678901',
-      rg: '1234567', dataNascimento: '1995-05-10', sexo: 'Feminino', estadoCivil: 'Solteira',
-      escolaridade: 'Superior', telefone: '47999999999', email: 'ana@example.com', banco: null,
-      agencia: null, conta: null, tipoConta: null, pis: null, dataAdmissaoPrevista: null, salario: null,
-      comissao: null, funcao: null, contratoExperienciaDias: null, utilizaValeTransporte: null,
-      horarioTrabalho: null, preenchimentoConcluido: false, expiraEm: '2026-09-26T10:00:00Z',
-    }
-    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: ficha })
-    const put = vi.spyOn(http, 'put').mockResolvedValue({ data: undefined })
-    const post = vi.spyOn(http, 'post')
-      .mockResolvedValueOnce({ data: { token: 'employer-token', expiraEm: ficha.expiraEm } })
-      .mockResolvedValueOnce({ data: undefined })
-      .mockResolvedValueOnce({ data: undefined })
-      .mockResolvedValueOnce({ data: undefined })
-
-    await expect(gerarLinkFichaEmpresaAdmissao('adm-1')).resolves.toEqual({ token: 'employer-token', expiraEm: ficha.expiraEm })
-    await revogarLinkFichaEmpresaAdmissao('adm-1')
-    await expect(obterFichaEmpresaAdmissao('emp/token')).resolves.toMatchObject({ id: 'adm-1' })
-    expect(normalizeFichaEmpresa(ficha)).toMatchObject({ nomeFuncionario: 'Ana Silva' })
-    const payload = {
-      pis: '12345678901', funcao: 'Analista', banco: 'Banco Teste', agencia: '0001',
-      conta: '12345-6', tipoConta: 'Corrente',
-    }
-    await atualizarFichaEmpresaAdmissao('emp/token', payload)
-    await concluirFichaEmpresaAdmissao('emp/token')
-
-    expect(post).toHaveBeenNthCalledWith(1, '/v1/admissoes/GerarLinkFichaEmpresa/adm-1')
-    expect(post).toHaveBeenNthCalledWith(2, '/v1/admissoes/RevogarLinkFichaEmpresa/adm-1')
-    const token = 'emp%2Ftoken'
-    expect(get).toHaveBeenCalledWith(`/v1/admissoes-publicas/ObterEmpresa/${token}`, { skipAuth: true })
-    expect(put).toHaveBeenCalledWith(`/v1/admissoes-publicas/AtualizarEmpresa/${token}`, payload, { skipAuth: true })
-    expect(post).toHaveBeenNthCalledWith(3, `/v1/admissoes-publicas/ConcluirEmpresa/${token}`, undefined, { skipAuth: true })
-  })
 })

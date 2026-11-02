@@ -10,7 +10,6 @@ export const router = createRouter({
     { path: '/esqueci-senha', name: 'esqueci-senha', component: () => import('../views/auth/EsqueciSenhaView.vue'), meta: { title: 'Recuperar senha' } },
     { path: '/redefinir-senha', name: 'redefinir-senha', component: () => import('../views/auth/RedefinirSenhaView.vue'), meta: { title: 'Redefinir senha' } },
     { path: '/ficha-admissao/:token', name: 'ficha-admissao', component: () => import('../modules/admissoes/views/FichaAdmissaoView.vue'), meta: { title: 'Ficha de admissão' } },
-    { path: '/ficha-admissao-empresa/:token', name: 'ficha-admissao-empresa', component: () => import('../modules/admissoes/views/FichaAdmissaoEmpresaView.vue'), meta: { title: 'Dados do empregador' } },
     {
       path: '/', component: () => import('../components/layout/AppLayout.vue'), meta: { requiresAuth: true },
       children: [
@@ -23,6 +22,7 @@ export const router = createRouter({
         { path: 'clientes', name: 'clientes', component: () => import('../modules/clientes/views/ClientesView.vue'), meta: { title: 'Clientes' } },
         { path: 'admissoes', name: 'admissoes', component: () => import('../modules/admissoes/views/AdmissoesEmpresasView.vue'), meta: { title: 'Admissões' } },
         { path: 'admissoes/empresa/:empresaId', name: 'admissoes-empresa', component: () => import('../modules/admissoes/views/AdmissoesView.vue'), meta: { title: 'Admissões da empresa' } },
+        { path: 'portal-cliente', name: 'portal-cliente', component: () => import('../modules/portal-cliente/views/PortalClienteView.vue'), meta: { title: 'Portal da empresa', roles: ['Cliente'] } },
         { path: 'contratos', name: 'contratos', component: () => import('../modules/contratos/views/ContratosView.vue'), meta: { title: 'Contratos' } },
         { path: 'faturamentos', name: 'faturamentos', component: () => import('../modules/faturamentos/views/FaturamentosView.vue'), meta: { title: 'Faturamento mensal' } },
         { path: 'acessos', name: 'acessos', component: () => import('../modules/acessos/views/AcessosView.vue'), meta: { title: 'Usuários e acessos', roles: ['Admin'] } },
@@ -36,6 +36,7 @@ export const router = createRouter({
 router.beforeEach((to) => {
   const token = accessToken()
   if (to.meta.requiresAuth && !token) return { name: 'login', query: { redirect: to.fullPath } }
+  if (token && hasRole('Cliente') && to.name !== 'portal-cliente') return { name: 'portal-cliente' }
   const roles = to.meta.roles as string[] | undefined
   if (token && roles?.length && !roles.some(hasRole)) return defaultAuthenticatedRoute()
   if (to.name === 'login' && token) return defaultAuthenticatedRoute()
@@ -49,7 +50,7 @@ onUnauthorized(() => {
 
 export function safeRedirect(value: unknown): string {
   // Restringe o retorno pós-login às áreas autenticadas conhecidas.
-  if (typeof value !== 'string' || !/^\/(?:dashboard|prospectos|catalogo-orcamento|clientes|admissoes|contratos|faturamentos|acessos|dados-contabilidade|admin\/parceiros)(?:\/|\?|$)/.test(value)) return defaultAuthenticatedRoute()
+  if (typeof value !== 'string' || !/^\/(?:dashboard|portal-cliente|prospectos|catalogo-orcamento|clientes|admissoes|contratos|faturamentos|acessos|dados-contabilidade|admin\/parceiros)(?:\/|\?|$)/.test(value)) return defaultAuthenticatedRoute()
   if (value.startsWith('/dados-contabilidade') && !hasRole('Admin')) return defaultAuthenticatedRoute()
   if (value.startsWith('/admin/') && !hasRole('PlatformAdmin')) return defaultAuthenticatedRoute()
   if (value.startsWith('/acessos') && !hasRole('Admin')) return defaultAuthenticatedRoute()

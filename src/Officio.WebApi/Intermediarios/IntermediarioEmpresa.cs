@@ -76,6 +76,14 @@ public class IntermediarioEmpresa(RequestDelegate next)
             return;
         }
 
+        if (context.User.IsInRole(PerfisAcesso.Cliente) &&
+            !context.Request.Path.StartsWithSegments("/api/v1/portal-cliente"))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new { error = "Acesso restrito ao portal da empresa." });
+            return;
+        }
+
         await next(context);
     }
 

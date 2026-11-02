@@ -1,11 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { prospectoNaEtapaInicial, prospectoPodeEditarCadastro, RegimeTributario, type CriarProspectoPayload } from '../types/prospecto'
+import { prospectoNaEtapaInicial, prospectoPodeEditarCadastro, regimeTributarioOptions, RegimeTributario, type CriarProspectoPayload } from '../types/prospecto'
 import { atualizarProspecto, criarProspecto, excluirProspecto, normalizeProspectoCriado, normalizeProspectos, obterProspecto } from './prospectos.service'
 
 afterEach(() => vi.restoreAllMocks())
 
 describe('manutencao de prospectos', () => {
+  it('oferece os modelos puros e hibridos do Simples com codigos distintos', () => {
+    expect(regimeTributarioOptions).toContainEqual({
+      label: 'Simples Nacional puro (IBS/CBS no DAS)',
+      value: RegimeTributario.SimplesNacional,
+    })
+    expect(regimeTributarioOptions).toContainEqual({
+      label: 'Simples Nacional híbrido (IBS/CBS no regime regular)',
+      value: RegimeTributario.SimplesNacionalHibrido,
+    })
+  })
+
   it.each(['Convertido', 'PropostaEnviada', 'Perdido', 'Inativo', null])('oculta a manutencao no status %s', (status) => {
     expect(prospectoNaEtapaInicial({ status })).toBe(false)
   })

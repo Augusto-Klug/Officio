@@ -231,10 +231,11 @@ public sealed class AdmissaoDocumentoServico(
         CancellationToken ct = default)
     {
         var item = await repositorio.ObterDocumentoAsync(admissaoId, admissaoDocumentoId, rastreamento: true, ct);
-        var erro = ValidarItemEditavel(item);
+        var erro = ValidarDocumentoParaRevisao(item);
         if (erro is not null)
             return Resultado<ValidationResultDto>.CriarFalha(erro);
-        if (item!.Admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.AguardandoValidacao)
+        if (item!.Admissao.StatusAdmissao.Codigo is not (StatusAdmissaoCodigos.AguardandoValidacao or StatusAdmissaoCodigos.LiberadoParaRevisaoFinal) ||
+            !item.Admissao.PreenchimentoFuncionarioConcluidoEm.HasValue || !item.Admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
             return Resultado<ValidationResultDto>.CriarFalha("A validacao documental so pode ocorrer enquanto a admissao aguarda revisao da contabilidade.");
         if (item.DocumentoId is null)
             return Resultado<ValidationResultDto>.CriarFalha("Envie o arquivo antes de iniciar a validacao.");
@@ -259,10 +260,11 @@ public sealed class AdmissaoDocumentoServico(
     {
         var item = await repositorio.ObterDocumentoAsync(
             requisicao.AdmissaoId, requisicao.AdmissaoDocumentoId, rastreamento: true, ct);
-        var erro = ValidarItemEditavel(item);
+        var erro = ValidarDocumentoParaRevisao(item);
         if (erro is not null)
             return Resultado<bool>.CriarFalha(erro);
-        if (item!.Admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.AguardandoValidacao)
+        if (item!.Admissao.StatusAdmissao.Codigo is not (StatusAdmissaoCodigos.AguardandoValidacao or StatusAdmissaoCodigos.LiberadoParaRevisaoFinal) ||
+            !item.Admissao.PreenchimentoFuncionarioConcluidoEm.HasValue || !item.Admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
             return Resultado<bool>.CriarFalha("A revisao manual so pode ocorrer enquanto a admissao aguarda revisao da contabilidade.");
         if (item.DocumentoId is null)
             return Resultado<bool>.CriarFalha("Arquivo ainda nao enviado.");
@@ -325,9 +327,19 @@ public sealed class AdmissaoDocumentoServico(
             return "Documentos de uma admissao concluida ou cancelada nao podem ser alterados.";
         return status is StatusAdmissaoCodigos.Rascunho
             or StatusAdmissaoCodigos.AguardandoAdmitido
-            or StatusAdmissaoCodigos.AguardandoValidacao
                 ? null
                 : "Documentos nao podem ser alterados apos a conclusao da revisao documental.";
+    }
+
+    private static string? ValidarDocumentoParaRevisao(AdmissaoDocumento? item)
+    {
+        if (item is null)
+            return "Documento da admissao nao encontrado.";
+        if (StatusAdmissaoCodigos.Terminal(item.Admissao.StatusAdmissao.Codigo))
+            return "Documentos de uma admissao concluida ou cancelada nao podem ser alterados.";
+        return item.Admissao.StatusAdmissao.Codigo is StatusAdmissaoCodigos.AguardandoValidacao or StatusAdmissaoCodigos.LiberadoParaRevisaoFinal
+            ? null
+            : "A revisao documental fica disponivel depois que funcionario e empregador enviarem suas fichas.";
     }
 
     private static AdmissaoDocumentoDto Mapear(AdmissaoDocumento item)

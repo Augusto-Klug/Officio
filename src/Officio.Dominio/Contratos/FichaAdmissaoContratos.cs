@@ -18,7 +18,14 @@ public record AtualizarFichaFuncionarioRequisicao(
     string? Escolaridade,
     string? Telefone,
     string? Email,
-    IReadOnlyCollection<DependenteAdmissaoRequisicao> Dependentes);
+    string? Banco,
+    string? Agencia,
+    string? Conta,
+    string? TipoConta,
+    IReadOnlyCollection<DependenteAdmissaoRequisicao> Dependentes,
+    string? Cpf = null,
+    string? Rg = null,
+    string? Etnia = null);
 
 public record AtualizarFichaEmpresaRequisicao(
     string? Pis,
@@ -28,11 +35,7 @@ public record AtualizarFichaEmpresaRequisicao(
     string? Funcao,
     int? ContratoExperienciaDias,
     bool? UtilizaValeTransporte,
-    string? HorarioTrabalho,
-    string? Banco,
-    string? Agencia,
-    string? Conta,
-    string? TipoConta);
+    string? HorarioTrabalho);
 
 public record FichaFuncionarioPublicaDto(
     Guid Id,
@@ -46,46 +49,12 @@ public record FichaFuncionarioPublicaDto(
     string? Escolaridade,
     string? Telefone,
     string? Email,
-    string? Pis,
     string? Banco,
     string? Agencia,
     string? Conta,
     string? TipoConta,
-    DateOnly? DataAdmissaoPrevista,
-    decimal? Salario,
-    string? Comissao,
-    string? Funcao,
-    int? ContratoExperienciaDias,
-    bool? UtilizaValeTransporte,
-    string? HorarioTrabalho,
+    string? Etnia,
     bool PreenchimentoConcluido,
     DateTime ExpiraEm,
     IReadOnlyCollection<AdmissaoDependenteDto> Dependentes,
     IReadOnlyCollection<AdmissaoDocumentoDto> Documentos);
-
-public record FichaEmpresaPublicaDto(
-    Guid Id,
-    string EmpresaNome,
-    string NomeFuncionario,
-    string? Cpf,
-    string? Rg,
-    DateOnly? DataNascimento,
-    string? Sexo,
-    string? EstadoCivil,
-    string? Escolaridade,
-    string? Telefone,
-    string? Email,
-    string? Banco,
-    string? Agencia,
-    string? Conta,
-    string? TipoConta,
-    string? Pis,
-    DateOnly? DataAdmissaoPrevista,
-    decimal? Salario,
-    string? Comissao,
-    string? Funcao,
-    int? ContratoExperienciaDias,
-    bool? UtilizaValeTransporte,
-    string? HorarioTrabalho,
-    bool PreenchimentoConcluido,
-    DateTime ExpiraEm);

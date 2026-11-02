@@ -8,6 +8,8 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Officio.Dominio.Contratos;
+using Officio.Dominio.Contratos.Dtos;
 using Officio.Dominio.Entidades;
 using Officio.Dominio.Interfaces;
 using Officio.Infra.BancoDeDados.Contextos;
@@ -62,7 +64,7 @@ public class AdmissaoOcrRealIntegracaoTestes
         {
             cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenAcesso);
             var admissaoId = await CriarAdmissaoAsync(
-                cliente, clienteId, "Amostra de Integracao OCR", "11789299900", "1234567");
+                factory, tenantId, clienteId, "Amostra de Integracao OCR", "11789299900", "1234567");
             var tokenFicha = await GerarLinkFichaAsync(cliente, admissaoId);
             var itemId = await ObterItemDocumentoAsync(cliente, tokenFicha, tipo);
 
@@ -157,29 +159,23 @@ public class AdmissaoOcrRealIntegracaoTestes
         };
 
     private static async Task<Guid> CriarAdmissaoAsync(
-        HttpClient cliente,
+        OfficioWebApplicationFactory factory,
+        Guid tenantId,
         Guid clienteId,
         string nome,
         string cpf,
         string rg)
     {
-        var criacao = await cliente.PostAsJsonAsync("/api/v1/admissoes/CriarManual", new
-        {
-            clienteId,
-            dados = new
-            {
-                nomeFuncionario = nome,
-                cpf,
-                rg,
-                dataNascimento = new DateOnly(1995, 6, 15),
-                sexo = "Feminino",
-                telefone = "47999990000",
-                dependentes = Array.Empty<object>()
-            }
-        });
-        Assert.True(criacao.StatusCode == HttpStatusCode.Created,
-            $"Criacao da admissao retornou {(int)criacao.StatusCode}: {await criacao.Content.ReadAsStringAsync()}");
-        return (await criacao.Content.ReadFromJsonAsync<Guid>());
+        using var scope = factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IEmpresaAtual>().SetTenant(tenantId);
+        var admissoes = scope.ServiceProvider.GetRequiredService<IAdmissaoServico>();
+        var requisicao = new CriarAdmissaoManualRequisicao(clienteId, new DadosAdmissaoRequisicao(
+            nome, cpf, rg, new DateOnly(1995, 6, 15), "Feminino", null, null, "47999990000",
+            "funcionario@integracao.test", null, null, null, null, null, null, null, null, null,
+            null, null, null, null, []));
+        var resultado = await admissoes.CriarManualAsync(requisicao);
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        return resultado.Valor;
     }
 
     private static async Task<string> GerarLinkFichaAsync(HttpClient cliente, Guid admissaoId)
@@ -230,13 +226,14 @@ public class AdmissaoOcrRealIntegracaoTestes
             .FirstOrDefaultAsync(item => item.Id == admissaoId);
         Assert.NotNull(admissao);
         var status = await contexto.StatusAdmissoes.FirstOrDefaultAsync(item =>
-            item.Codigo == Officio.Dominio.Admissoes.StatusAdmissaoCodigos.AguardandoValidacao);
+            item.Codigo == Officio.Dominio.Admissoes.StatusAdmissaoCodigos.LiberadoParaRevisaoFinal);
         if (status is null)
         {
-            status = new StatusAdmissao("AGUARDANDO_VALIDACAO", "Aguardando validacao", 3);
+            status = new StatusAdmissao("LIBERADO_PARA_REVISAO_FINAL", "Liberado para revisao final", 6);
             contexto.StatusAdmissoes.Add(status);
         }
         admissao!.MarcarPreenchimentoFuncionarioConcluido();
+        admissao.MarcarPreenchimentoEmpresaConcluido();
         admissao.AlterarStatus(status.Id);
         await contexto.SaveChangesAsync();
     }

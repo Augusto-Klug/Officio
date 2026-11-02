@@ -302,6 +302,7 @@ internal static class MapeamentoModelagemOfficio
             entity.HasOne(e => e.Usuario).WithMany().HasForeignKey(e => e.UsuarioId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Empresa).WithMany().HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.UsuarioId, e.EmpresaId }).IsUnique();
+            entity.HasIndex(e => e.EmpresaId);
         });
 
         builder.Entity<Documento>(entity =>
@@ -325,11 +326,8 @@ internal static class MapeamentoModelagemOfficio
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Salario).HasPrecision(18, 2);
             entity.Property(e => e.TokenAcessoHash).HasMaxLength(64);
-            entity.Property(e => e.TokenEmpresaAcessoHash).HasMaxLength(64);
+              entity.Property(e => e.Etnia).HasMaxLength(40);
             entity.HasIndex(e => e.TokenAcessoHash).IsUnique();
-            entity.HasIndex(e => e.TokenEmpresaAcessoHash)
-                .IsUnique()
-                .HasFilter("[TokenEmpresaAcessoHash] IS NOT NULL");
             entity.HasOne(e => e.Empresa).WithMany(e => e.Admissoes).HasForeignKey(e => e.EmpresaId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Pessoa).WithMany().HasForeignKey(e => e.PessoaId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.StatusAdmissao).WithMany().HasForeignKey(e => e.StatusAdmissaoId).OnDelete(DeleteBehavior.Restrict);

@@ -37,6 +37,7 @@ public record AdmissaoDetalheDto(
     string NomeFuncionario,
     string? Cpf,
     string? Rg,
+    string? Etnia,
     DateOnly? DataNascimento,
     string? Sexo,
     string? EstadoCivil,
@@ -60,4 +61,6 @@ public record AdmissaoDetalheDto(
     string StatusDescricao,
     DateTime CriadoEm,
     DateTime AtualizadoEm,
-    IReadOnlyCollection<AdmissaoDependenteDto> Dependentes);
+    IReadOnlyCollection<AdmissaoDependenteDto> Dependentes,
+    bool PreenchimentoFuncionarioConcluido,
+    bool PreenchimentoEmpresaConcluido);

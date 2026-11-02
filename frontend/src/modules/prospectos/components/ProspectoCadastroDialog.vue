@@ -242,8 +242,7 @@ onBeforeUnmount(handleHide)
 
 async function focusFirstInvalid() {
   await nextTick()
-  const first = Object.keys(errors.value)[0]
-  if (first) document.getElementById(first.replaceAll('.', '-'))?.focus()
+  document.getElementById('prospect-form-error-summary')?.focus()
 }
 
 function montarPayload() {
@@ -340,13 +339,14 @@ async function submit(confirmado = false) {
     :draggable="false" aria-describedby="prospect-dialog-description" @show="handleShow" @hide="handleHide">
     <p id="prospect-dialog-description" class="dialog-description">{{ props.somenteSocios ? 'Atualize os sócios e seus dados pessoais. Ao fechar, você retornará à seleção do representante.' : props.prospectoId ? 'Atualize os dados comerciais deste prospecto.' : 'Cadastre os dados comerciais usados na proposta e na futura conversão em cliente.' }}</p>
     <Message v-if="submitError" severity="error" :closable="false" role="alert">{{ submitError }}</Message>
+    <div v-if="Object.keys(errors).length" id="prospect-form-error-summary" tabindex="-1"><Message severity="error" :closable="false" role="alert">Revise os campos indicados antes de continuar.</Message></div>
     <p v-if="carregandoCadastro" role="status" aria-live="polite">Carregando cadastro...</p>
     <BaseButton v-else-if="!cadastroPronto" label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="handleShow" />
     <form v-else id="prospect-form" class="prospect-form" novalidate @submit.prevent="submit()">
       <template v-if="!props.somenteSocios">
       <div class="prospect-company-grid">
         <BaseInput id="razaoSocial" v-model="form.razaoSocial" label="Razão social *" name="razaoSocial" autocomplete="organization" maxlength="300" :error="fieldError('razaoSocial')" class="company-name-field" />
-        <BaseInput id="cnpj" :model-value="form.cnpj" label="CNPJ" name="cnpj" inputmode="numeric" autocomplete="off" placeholder="00.000.000/0000-00" maxlength="18" :error="fieldError('cnpj')" @update:model-value="form.cnpj = formatarCnpj($event)" />
+        <BaseInput id="cnpj" :model-value="form.cnpj" label="CNPJ" name="cnpj" numeric-only inputmode="numeric" autocomplete="off" placeholder="00.000.000/0000-00" maxlength="18" :error="fieldError('cnpj')" @update:model-value="form.cnpj = formatarCnpj($event)" />
         <div class="field"><label for="regimeTributario">Regime tributário</label><Select input-id="regimeTributario" v-model="form.regimeTributario" :options="[...regimeTributarioOptions]" option-label="label" option-value="value" placeholder="Selecione" show-clear /></div>
       </div>
       <section class="form-section" aria-labelledby="company-details-heading">
@@ -354,10 +354,10 @@ async function submit(confirmado = false) {
         <div class="prospect-company-grid">
           <BaseInput id="nomeFantasia" v-model="form.nomeFantasia" label="Nome fantasia" name="nomeFantasia" maxlength="300" />
           <BaseInput id="tipoEmpresa" v-model="form.tipoEmpresa" label="Tipo de empresa" name="tipoEmpresa" maxlength="100" placeholder="Ex.: Sociedade limitada" />
-          <BaseInput id="inscricaoEstadual" v-model="form.inscricaoEstadual" label="Inscricao estadual" name="inscricaoEstadual" maxlength="30" />
-          <BaseInput id="inscricaoMunicipal" v-model="form.inscricaoMunicipal" label="Inscricao municipal" name="inscricaoMunicipal" maxlength="30" />
+          <BaseInput id="inscricaoEstadual" :model-value="form.inscricaoEstadual" label="Inscricao estadual" name="inscricaoEstadual" numeric-only inputmode="numeric" maxlength="30" @update:model-value="form.inscricaoEstadual = somenteDigitos($event)" />
+          <BaseInput id="inscricaoMunicipal" :model-value="form.inscricaoMunicipal" label="Inscricao municipal" name="inscricaoMunicipal" numeric-only inputmode="numeric" maxlength="30" @update:model-value="form.inscricaoMunicipal = somenteDigitos($event)" />
           <BaseInput id="porteEmpresa" v-model="form.porteEmpresa" label="Porte da empresa" name="porteEmpresa" maxlength="100" />
-          <BaseInput id="cnaePrincipal" v-model="form.cnaePrincipal" label="CNAE principal" name="cnaePrincipal" inputmode="numeric" maxlength="7" :error="fieldError('cnaePrincipal')" />
+          <BaseInput id="cnaePrincipal" :model-value="form.cnaePrincipal" label="CNAE principal" name="cnaePrincipal" numeric-only inputmode="numeric" maxlength="7" :error="fieldError('cnaePrincipal')" @update:model-value="form.cnaePrincipal = somenteDigitos($event).slice(0, 7)" />
           <BaseInput id="dataAbertura" v-model="form.dataAbertura" label="Data de abertura" name="dataAbertura" type="date" />
           <BaseInput id="origem" v-model="form.origem" label="Origem" name="origem" maxlength="100" />
         </div>
@@ -366,10 +366,10 @@ async function submit(confirmado = false) {
       <section class="form-section" aria-labelledby="contact-heading">
         <div class="form-section-heading"><div><h3 id="contact-heading">Contato</h3></div></div>
         <div class="prospect-company-grid">
-          <BaseInput id="nomeContato" v-model="form.nomeContato" label="Nome do contato" name="nomeContato" maxlength="250" />
-          <BaseInput id="email" v-model="form.email" label="E-mail" name="email" type="email" autocomplete="email" maxlength="250" />
-          <BaseInput id="telefone" :model-value="form.telefone" label="Telefone" name="telefone" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" @update:model-value="form.telefone = formatarTelefone($event)" />
-          <BaseInput id="whatsapp" :model-value="form.whatsapp" label="WhatsApp" name="whatsapp" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" @update:model-value="form.whatsapp = formatarTelefone($event)" />
+          <BaseInput id="nomeContato" v-model="form.nomeContato" label="Nome do contato *" name="nomeContato" maxlength="250" required :error="fieldError('nomeContato')" />
+          <BaseInput id="email" v-model="form.email" label="E-mail *" name="email" type="email" autocomplete="email" maxlength="250" required :error="fieldError('email')" />
+          <BaseInput id="telefone" :model-value="form.telefone" label="Telefone *" name="telefone" numeric-only inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" required :error="fieldError('telefone')" @update:model-value="form.telefone = formatarTelefone($event)" />
+          <BaseInput id="whatsapp" :model-value="form.whatsapp" label="WhatsApp" name="whatsapp" numeric-only inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" maxlength="15" @update:model-value="form.whatsapp = formatarTelefone($event)" />
         </div>
       </section>
 
@@ -377,20 +377,22 @@ async function submit(confirmado = false) {
         <div class="form-section-heading"><div><h3 id="address-heading">Endereco</h3></div></div>
         <Message v-if="enderecoAviso" :severity="enderecoAvisoSeveridade" :closable="false" aria-live="polite">{{ enderecoAviso }}</Message>
         <div class="prospect-address-grid">
-          <BaseInput id="cep" :model-value="form.cep" label="CEP" name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9" :error="fieldError('cep')" class="address-cep" @update:model-value="form.cep = formatarCep($event)" />
-          <span v-if="cepLoading" class="address-loading" role="status">Consultando CEP...</span>
-          <BaseInput id="logradouro" v-model="form.logradouro" label="Logradouro" name="logradouro" maxlength="250" class="address-street" />
-          <BaseInput id="numero" v-model="form.numero" label="Numero" name="numero" maxlength="30" />
-          <BaseInput id="complemento" v-model="form.complemento" label="Complemento" name="complemento" maxlength="150" />
-          <BaseInput id="bairro" v-model="form.bairro" label="Bairro" name="bairro" maxlength="150" />
-          <div class="field">
-            <label for="uf">UF</label>
-            <Select input-id="uf" :model-value="form.uf || null" :options="estadoOptions" option-label="label" option-value="value" filter placeholder="Selecione" :loading="estadosLoading" :disabled="localidadeBloqueadaPeloCep" :invalid="!!fieldError('uf')" @update:model-value="alterarUf" />
+          <div class="address-cep-field">
+            <BaseInput id="cep" :model-value="form.cep" label="CEP *" name="cep" numeric-only inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9" required :error="fieldError('cep')" @update:model-value="form.cep = formatarCep($event)" />
+            <span v-if="cepLoading" class="address-loading" role="status">Consultando CEP...</span>
+          </div>
+          <BaseInput id="logradouro" v-model="form.logradouro" label="Logradouro *" name="logradouro" maxlength="250" required :error="fieldError('logradouro')" class="address-street" />
+          <BaseInput id="numero" :model-value="form.numero" label="Número *" name="numero" numeric-only inputmode="numeric" maxlength="30" required :error="fieldError('numero')" class="address-number" @update:model-value="form.numero = somenteDigitos($event).slice(0, 30)" />
+          <BaseInput id="complemento" v-model="form.complemento" label="Complemento" name="complemento" maxlength="150" class="address-complement" />
+          <BaseInput id="bairro" v-model="form.bairro" label="Bairro *" name="bairro" maxlength="150" required :error="fieldError('bairro')" class="address-neighborhood" />
+          <div class="field address-uf">
+            <label for="uf">UF *</label>
+            <Select input-id="uf" :model-value="form.uf || null" :options="estadoOptions" option-label="label" option-value="value" filter placeholder="Selecione" :loading="estadosLoading" :disabled="localidadeBloqueadaPeloCep" :invalid="!!fieldError('uf')" required @update:model-value="alterarUf" />
             <small v-if="fieldError('uf')" class="field-error">{{ fieldError('uf') }}</small>
           </div>
           <div class="field address-city">
-            <label for="municipioCodigoIbge">Municipio</label>
-            <Select input-id="municipioCodigoIbge" :model-value="form.municipioCodigoIbge || null" :options="municipioOptions" option-label="label" option-value="value" filter placeholder="Selecione" :loading="municipiosLoading" :disabled="!form.uf || municipiosLoading || localidadeBloqueadaPeloCep" :invalid="!!fieldError('municipioCodigoIbge')" @update:model-value="alterarMunicipio" />
+            <label for="municipioCodigoIbge">Município *</label>
+            <Select input-id="municipioCodigoIbge" :model-value="form.municipioCodigoIbge || null" :options="municipioOptions" option-label="label" option-value="value" filter placeholder="Selecione" :loading="municipiosLoading" :disabled="!form.uf || municipiosLoading || localidadeBloqueadaPeloCep" :invalid="!!fieldError('municipioCodigoIbge')" required @update:model-value="alterarMunicipio" />
             <small v-if="fieldError('municipioCodigoIbge')" class="field-error">{{ fieldError('municipioCodigoIbge') }}</small>
           </div>
         </div>
@@ -405,7 +407,7 @@ async function submit(confirmado = false) {
             <legend>Sócio {{ index + 1 }}</legend>
             <h4 class="partner-group-heading">Dados pessoais e societários</h4>
             <BaseInput :id="`socios-${index}-nome`" v-model="socio.nome" label="Nome" maxlength="250" :error="fieldError(`socios.${index}.nome`)" />
-            <BaseInput :id="`socios-${index}-cpf`" :model-value="socio.cpf" label="CPF" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" :error="fieldError(`socios.${index}.cpf`)" @update:model-value="socio.cpf = formatarCpf($event)" />
+            <BaseInput :id="`socios-${index}-cpf`" :model-value="socio.cpf" label="CPF" numeric-only inputmode="numeric" placeholder="000.000.000-00" maxlength="14" :error="fieldError(`socios.${index}.cpf`)" @update:model-value="socio.cpf = formatarCpf($event)" />
             <div class="field"><label :for="`socios-${index}-participacao`">Participação (%)</label><InputNumber :input-id="`socios-${index}-participacao`" v-model="socio.participacao" :min="0" :max="100" :max-fraction-digits="2" suffix="%" :invalid="!!fieldError(`socios.${index}.participacao`)" /><small v-if="fieldError(`socios.${index}.participacao`)" class="field-error">{{ fieldError(`socios.${index}.participacao`) }}</small></div>
             <div class="field"><label :for="`socios-${index}-tipo`">Tipo de relação</label><Select :input-id="`socios-${index}-tipo`" v-model="socio.tipoRelacaoId" :options="tiposRelacao" option-label="descricao" option-value="id" placeholder="Selecione" show-clear /></div>
             <BaseInput :id="`socios-${index}-profissao`" v-model="socio.profissao" label="Profissão" maxlength="250" />
@@ -434,11 +436,15 @@ async function submit(confirmado = false) {
 .company-name-field { grid-column: 1 / -1; }
 .form-section { display: grid; gap: 16px; padding-top: 20px; border-top: 1px solid var(--officio-border); }
 .form-section-heading h3 { margin: 0; font-size: 16px; }
-.prospect-address-grid { display: grid; grid-template-columns: minmax(140px, .7fr) minmax(180px, 1fr) minmax(180px, 1fr); gap: 16px; align-items: end; }
-.address-cep { max-width: 180px; }
-.address-loading { align-self: center; color: var(--officio-muted); font-size: 13px; }
-.address-street { grid-column: span 2; }
-.address-city { grid-column: span 2; }
+.prospect-address-grid { display: grid; grid-template-columns: minmax(140px, .7fr) minmax(180px, 1fr) minmax(180px, 1fr); gap: 16px; align-items: start; }
+.address-cep-field { grid-column: 1; grid-row: 1; min-width: 0; }
+.address-loading { display: block; margin-top: 4px; color: var(--officio-muted); font-size: 13px; }
+.address-street { grid-column: 2 / 4; grid-row: 1; }
+.address-number { grid-column: 1; grid-row: 2; }
+.address-complement { grid-column: 2; grid-row: 2; }
+.address-neighborhood { grid-column: 3; grid-row: 2; }
+.address-uf { grid-column: 1; grid-row: 3; }
+.address-city { grid-column: 2 / 4; grid-row: 3; }
 .field-error { color: var(--p-red-600); font-size: 12px; }
 .partners-section { display: grid; gap: 16px; padding-top: 20px; border-top: 1px solid var(--officio-border); }
 .partners-list { display: grid; gap: 12px; }
@@ -450,5 +456,5 @@ async function submit(confirmado = false) {
 .partner-address summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
 .remove-partner { width: 40px; justify-self: end; grid-column: 1 / -1; }
 .empty-partners { margin: 0; color: var(--officio-muted); font-size: 13px; }
-@media (max-width: 680px) { .prospect-company-grid, .prospect-address-grid, .partner-row { grid-template-columns: 1fr; } .company-name-field, .address-street { grid-column: auto; } .remove-partner { justify-self: end; } }
+@media (max-width: 680px) { .prospect-company-grid, .prospect-address-grid, .partner-row { grid-template-columns: 1fr; } .company-name-field, .address-cep-field, .address-street, .address-number, .address-complement, .address-neighborhood, .address-uf, .address-city { grid-column: 1; grid-row: auto; } .remove-partner { justify-self: end; } }
 </style>

@@ -65,6 +65,29 @@ public class GestaoAcessoRepositorio(ContextoAplicacao contexto) : IGestaoAcesso
             vinculo => vinculo.UsuarioId == usuarioId && vinculo.EmpresaId == empresaId,
             ct);
 
+    public Task<bool> EmpresaPertenceAoParceiroAsync(Guid empresaId, Guid tenantId, CancellationToken ct = default)
+        => contexto.Empresas.IgnoreQueryFilters()
+            .AnyAsync(empresa => empresa.Id == empresaId && empresa.TenantId == tenantId && empresa.Ativo, ct);
+
+    public Task<bool> UsuarioTemAcessoEmpresaAsync(Guid usuarioId, Guid empresaId, Guid tenantId, CancellationToken ct = default)
+        => contexto.UsuarioEmpresas.IgnoreQueryFilters().AnyAsync(vinculo =>
+            vinculo.UsuarioId == usuarioId && vinculo.EmpresaId == empresaId && vinculo.Ativo &&
+            vinculo.Usuario.TenantId == tenantId && vinculo.Usuario.Ativo &&
+            vinculo.Empresa.TenantId == tenantId && vinculo.Empresa.Ativo, ct);
+
+    public Task<List<Empresa>> ListarEmpresasUsuarioAsync(Guid usuarioId, Guid tenantId, CancellationToken ct = default)
+        => contexto.UsuarioEmpresas.IgnoreQueryFilters().AsNoTracking()
+            .Where(vinculo => vinculo.UsuarioId == usuarioId && vinculo.Ativo &&
+                vinculo.Usuario.TenantId == tenantId && vinculo.Usuario.Ativo &&
+                vinculo.Empresa.TenantId == tenantId && vinculo.Empresa.Ativo)
+            .Select(vinculo => vinculo.Empresa)
+            .Distinct()
+            .OrderBy(empresa => empresa.RazaoSocial)
+            .ToListAsync(ct);
+
+    public async Task AdicionarVinculoAsync(UsuarioEmpresa vinculo, CancellationToken ct = default)
+        => await contexto.UsuarioEmpresas.AddAsync(vinculo, ct);
+
     public Task<int> ContarAdministradoresAtivosAsync(Guid tenantId, CancellationToken ct = default)
         => contexto.Users.CountAsync(
             usuario => usuario.TenantId == tenantId && usuario.Ativo && usuario.Role == PerfisAcesso.Admin,

@@ -143,20 +143,21 @@ public class AdmissaoServico(
         var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
         if (admissao is null)
             return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
-        if (admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.AguardandoValidacao)
+        if (admissao.StatusAdmissao.Codigo is not (StatusAdmissaoCodigos.LiberadoParaRevisaoFinal or StatusAdmissaoCodigos.AguardandoValidacao))
             return Resultado<bool>.CriarFalha("A admissao nao esta aguardando revisao documental da contabilidade.");
         if (!admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
             return Resultado<bool>.CriarFalha("O admitido ainda nao concluiu o preenchimento da ficha.");
+        if (!admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
+            return Resultado<bool>.CriarFalha("O empregador ainda nao concluiu o preenchimento da ficha.");
 
         var erroDocumentos = AdmissaoDocumentoRegras.ValidarDocumentosParaConclusao(admissao.Documentos);
         if (erroDocumentos is not null)
             return Resultado<bool>.CriarFalha(erroDocumentos);
 
-        var empregadorConcluiu = admissao.PreenchimentoEmpresaConcluidoEm.HasValue;
         var status = await repositorio.ObterOuCriarStatusAsync(
-            empregadorConcluiu ? StatusAdmissaoCodigos.LiberadoParaRevisaoFinal : StatusAdmissaoCodigos.AguardandoEmpregador,
-            empregadorConcluiu ? "Liberado para revisão final" : "Aguardando empregador",
-            empregadorConcluiu ? 6 : 5,
+            StatusAdmissaoCodigos.DocumentosValidados,
+            "Documentos validados",
+            7,
             ct);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
@@ -175,7 +176,7 @@ public class AdmissaoServico(
         var funcionarioExistente = await repositorio.ObterFuncionarioPorAdmissaoAsync(admissao.Id, ct);
         if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.Concluida || funcionarioExistente is not null)
             return Resultado<bool>.CriarSucesso(true);
-        if (admissao.StatusAdmissao.Codigo is not (StatusAdmissaoCodigos.LiberadoParaRevisaoFinal or StatusAdmissaoCodigos.LiberadoPeloEmpregador) ||
+        if (admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.DocumentosValidados ||
             !admissao.PreenchimentoFuncionarioConcluidoEm.HasValue ||
             !admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
             return Resultado<bool>.CriarFalha("A admissao so pode ser concluida apos o preenchimento do admitido, a validacao documental e a liberacao pelo empregador.");
@@ -322,7 +323,7 @@ public class AdmissaoServico(
     private static AdmissaoDetalheDto MapearDetalhe(Admissao admissao)
         => new(
             admissao.Id, admissao.EmpresaId, admissao.Empresa.RazaoSocial,
-            admissao.NomeFuncionario, admissao.Cpf, admissao.Rg, admissao.DataNascimento,
+            admissao.NomeFuncionario, admissao.Cpf, admissao.Rg, admissao.Etnia, admissao.DataNascimento,
             admissao.Sexo, admissao.EstadoCivil, admissao.Escolaridade, admissao.Telefone,
             admissao.Email, admissao.Pis, admissao.Banco, admissao.Agencia, admissao.Conta,
             admissao.TipoConta, admissao.DataAdmissaoPrevista, admissao.Salario, admissao.Comissao,
@@ -331,5 +332,7 @@ public class AdmissaoServico(
             admissao.StatusAdmissao.Descricao, admissao.CriadoEm, admissao.AtualizadoEm,
             admissao.Dependentes.Select(item => new AdmissaoDependenteDto(
                 item.Id, item.Nome, item.Cpf, item.DataNascimento, item.Parentesco,
-                item.DependenteIr, item.SalarioFamilia)).ToList());
+                item.DependenteIr, item.SalarioFamilia)).ToList(),
+            admissao.PreenchimentoFuncionarioConcluidoEm.HasValue,
+            admissao.PreenchimentoEmpresaConcluidoEm.HasValue);
 }

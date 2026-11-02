@@ -17,6 +17,10 @@ public interface IGestaoAcessoRepositorio
     Task<List<Usuario>> ListarUsuariosAsync(CancellationToken ct = default);
     Task<Usuario?> ObterUsuarioAsync(Guid usuarioId, CancellationToken ct = default);
     Task<UsuarioEmpresa?> ObterVinculoAsync(Guid usuarioId, Guid empresaId, CancellationToken ct = default);
+    Task<bool> EmpresaPertenceAoParceiroAsync(Guid empresaId, Guid tenantId, CancellationToken ct = default);
+    Task<bool> UsuarioTemAcessoEmpresaAsync(Guid usuarioId, Guid empresaId, Guid tenantId, CancellationToken ct = default);
+    Task<List<Empresa>> ListarEmpresasUsuarioAsync(Guid usuarioId, Guid tenantId, CancellationToken ct = default);
+    Task AdicionarVinculoAsync(UsuarioEmpresa vinculo, CancellationToken ct = default);
     Task<int> ContarAdministradoresAtivosAsync(Guid tenantId, CancellationToken ct = default);
     Task<Usuario?> ObterUsuarioPorEmailAsync(string email, CancellationToken ct = default);
     Task<TokenRedefinicaoSenha?> ObterTokenRedefinicaoAsync(string tokenHash, CancellationToken ct = default);

@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limparPayload, montarFormularioProspecto, novoProspecto, validarProspecto } from './prospecto-form'
 
+function prospectoValido() {
+  return { ...novoProspecto(), razaoSocial: 'Empresa', nomeContato: 'Contato', email: 'contato@example.com',
+    telefone: '4733334444', cep: '89010000', logradouro: 'Rua das Flores', numero: '10', bairro: 'Centro',
+    cidade: 'Blumenau', uf: 'SC', municipioCodigoIbge: '4202404' }
+}
+
 describe('formulário de prospecto', () => {
   it('permite nenhum sócio, sócio vazio e endereço parcial', () => {
-    const payload = { ...novoProspecto(), razaoSocial: 'Empresa' }
+    const payload = prospectoValido()
     expect(validarProspecto(payload)).toEqual({})
     payload.socios = [{ nome: '', cpf: null, participacao: null, endereco: { logradouro: 'Rua inicial' } }]
     expect(validarProspecto(payload)).toEqual({})
@@ -25,8 +31,8 @@ describe('formulário de prospecto', () => {
   })
 
   it('valida CEP do sócio preenchido sem exigir município ou UF', () => {
-    const dados = { ...novoProspecto(), razaoSocial: 'Empresa', socios: [{ nome: '', cpf: null,
-      participacao: null, endereco: { cep: '123' } }] }
+    const dados = { ...prospectoValido(), socios: [{ nome: '', cpf: null,
+      participacao: null, endereco: { cep: '123', numero: '' } }] }
     expect(validarProspecto(dados)['socios.0.endereco']).toBeTruthy()
     dados.socios[0]!.endereco.cep = '89010000'
     expect(validarProspecto(dados)).toEqual({})
@@ -100,6 +106,25 @@ describe('formulário de prospecto', () => {
     expect(limparPayload(payload)).toMatchObject({
       cnpj: '12345678000190',
       socios: [{ nome: 'Ana', cpf: '12345678909', participacao: 100 }],
+    })
+  })
+
+  it('mantém apenas dígitos nos campos numéricos crus do prospecto e dos endereços', () => {
+    const payload = {
+      ...prospectoValido(),
+      inscricaoEstadual: '12A.34',
+      inscricaoMunicipal: 'IM-56B',
+      cnaePrincipal: '6201-5/01',
+      numero: '12A',
+      socios: [{ nome: 'Ana', cpf: '12345678909', participacao: null, endereco: { numero: '45B', cep: '89010000' } }],
+    }
+
+    expect(limparPayload(payload)).toMatchObject({
+      inscricaoEstadual: '1234',
+      inscricaoMunicipal: '56',
+      cnaePrincipal: '6201501',
+      numero: '12',
+      socios: [{ endereco: { numero: '45', cep: '89010000' } }],
     })
   })
 

@@ -26,7 +26,8 @@ export function hasRole(role: string): boolean {
 }
 
 export function defaultAuthenticatedRoute(): string {
-  return hasRole('PlatformAdmin') ? '/admin/parceiros' : '/dashboard'
+  if (hasRole('PlatformAdmin')) return '/admin/parceiros'
+  return hasRole('Cliente') ? '/portal-cliente' : '/dashboard'
 }
 
 export function setSession(value: Session) {

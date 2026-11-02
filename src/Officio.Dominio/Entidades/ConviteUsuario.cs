@@ -7,6 +7,7 @@ public class ConviteUsuario : EntidadeAuditavel
     public string Nome { get; private set; } = default!;
     public string Email { get; private set; } = default!;
     public string Perfil { get; private set; } = default!;
+    public Guid? EmpresaId { get; private set; }
     public string TokenHash { get; private set; } = default!;
     public DateTime ExpiraEm { get; private set; }
     public DateTime? AceitoEm { get; private set; }
@@ -20,7 +21,8 @@ public class ConviteUsuario : EntidadeAuditavel
         string email,
         string perfil,
         string tokenHash,
-        DateTime expiraEm)
+        DateTime expiraEm,
+        Guid? empresaId = null)
         => new()
         {
             TenantId = tenantId,
@@ -28,7 +30,8 @@ public class ConviteUsuario : EntidadeAuditavel
             Email = email,
             Perfil = perfil,
             TokenHash = tokenHash,
-            ExpiraEm = expiraEm
+            ExpiraEm = expiraEm,
+            EmpresaId = empresaId
         };
 
     public bool EstaPendente(DateTime agora)

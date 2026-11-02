@@ -4,7 +4,7 @@ using Officio.Dominio.Seguranca;
 
 namespace Officio.WebApi.TempoReal;
 
-[Authorize(Roles = PerfisAcesso.Admin + "," + PerfisAcesso.Comercial + "," + PerfisAcesso.Operacional + "," + PerfisAcesso.Financeiro + "," + PerfisAcesso.Consulta)]
+[Authorize(Roles = PerfisAcesso.PerfisLeituraTenantCsv)]
 public sealed class AtualizacoesHub : Hub
 {
     public override async Task OnConnectedAsync()

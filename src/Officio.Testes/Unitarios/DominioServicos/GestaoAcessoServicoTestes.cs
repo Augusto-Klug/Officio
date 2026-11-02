@@ -185,6 +185,90 @@ public class GestaoAcessoServicoTestes
         Assert.Single(await contexto.ConvitesUsuario.IgnoreQueryFilters().ToListAsync());
     }
 
+    [Fact]
+    public async Task AtivacaoCliente_CriaUsuarioEVinculoEmpresaComTokenDeUsoUnico()
+    {
+        var parceiroId = Guid.NewGuid();
+        await using var contexto = CriarContexto(Guid.Empty);
+        var parceiro = Parceiro.CriarDesenvolvimento(parceiroId, "11222333000144", "Parceiro Teste");
+        var empresa = Empresa.CriarConstituida(parceiroId, "99888777000166", "Cliente Teste Ltda");
+        contexto.Parceiros.Add(parceiro);
+        contexto.Empresas.Add(empresa);
+        await contexto.SaveChangesAsync();
+        var email = new EmailFake();
+        var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), email);
+
+        var conviteCriado = await servico.ConvidarClienteAsync(
+            parceiroId, empresa.Id, empresa.RazaoSocial, "representante@cliente.test");
+        var token = email.ObterTokenDoUltimoLink();
+        var aceite = await servico.AceitarConviteAsync(new(token, "senha-segura-123"));
+        var repeticao = await servico.AceitarConviteAsync(new(token, "outra-senha-123"));
+
+        Assert.True(conviteCriado.Sucesso, conviteCriado.Erro);
+        Assert.True(aceite.Sucesso, aceite.Erro);
+        Assert.False(repeticao.Sucesso);
+        var usuario = Assert.Single(await contexto.Users.IgnoreQueryFilters().ToListAsync());
+        Assert.Equal(parceiroId, usuario.TenantId);
+        Assert.Equal("Cliente", usuario.Role);
+        Assert.Equal("representante@cliente.test", usuario.Email);
+        var vinculo = Assert.Single(await contexto.UsuarioEmpresas.IgnoreQueryFilters().ToListAsync());
+        Assert.Equal(usuario.Id, vinculo.UsuarioId);
+        Assert.Equal(empresa.Id, vinculo.EmpresaId);
+    }
+
+    [Fact]
+    public async Task AtivacaoCliente_UsuarioExistenteVinculaNovaEmpresaSemEnviarOutroConvite()
+    {
+        var parceiroId = Guid.NewGuid();
+        var parceiro = Parceiro.CriarDesenvolvimento(parceiroId, "11222333000144", "Parceiro Teste");
+        var empresaInicial = Empresa.CriarConstituida(parceiroId, "99888777000166", "Cliente Inicial Ltda");
+        var novaEmpresa = Empresa.CriarConstituida(parceiroId, "22333444000155", "Novo Cliente Ltda");
+        var usuario = Usuario.Create(parceiroId, "Representante", "representante@cliente.test", "hash", "Cliente");
+        await using var contexto = CriarContexto(Guid.Empty);
+        contexto.Parceiros.Add(parceiro);
+        contexto.Empresas.AddRange(empresaInicial, novaEmpresa);
+        contexto.Users.Add(usuario);
+        contexto.UsuarioEmpresas.Add(UsuarioEmpresa.Criar(usuario.Id, empresaInicial.Id));
+        await contexto.SaveChangesAsync();
+        var email = new EmailFake();
+        var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), email);
+
+        var primeiroVinculo = await servico.ConvidarClienteAsync(
+            parceiroId, novaEmpresa.Id, novaEmpresa.RazaoSocial, " REPRESENTANTE@CLIENTE.TEST ");
+        var repeticao = await servico.ConvidarClienteAsync(
+            parceiroId, novaEmpresa.Id, novaEmpresa.RazaoSocial, usuario.Email);
+
+        Assert.True(primeiroVinculo.Sucesso, primeiroVinculo.Erro);
+        Assert.True(repeticao.Sucesso, repeticao.Erro);
+        Assert.Equal(Guid.Empty, primeiroVinculo.Valor!.Id);
+        Assert.Empty(email.Mensagens);
+        Assert.Single(await contexto.Users.IgnoreQueryFilters().ToListAsync());
+        var vinculos = await contexto.UsuarioEmpresas.IgnoreQueryFilters()
+            .Where(vinculo => vinculo.UsuarioId == usuario.Id)
+            .OrderBy(vinculo => vinculo.EmpresaId)
+            .ToListAsync();
+        Assert.Equal(2, vinculos.Count);
+        Assert.Equal(
+            new[] { empresaInicial.Id, novaEmpresa.Id }.Order().ToArray(),
+            vinculos.Select(vinculo => vinculo.EmpresaId).ToArray());
+    }
+
+    [Fact]
+    public async Task ConviteGenerico_NaoPermiteCriarPerfilClienteSemEmpresa()
+    {
+        var parceiroId = Guid.NewGuid();
+        var parceiro = Parceiro.CriarDesenvolvimento(parceiroId, "11222333000144", "Parceiro Teste");
+        await using var contexto = CriarContexto(Guid.Empty);
+        contexto.Parceiros.Add(parceiro);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, new ServicoEmpresaAtual(), new UsuarioAtualFake(Guid.Empty), new EmailFake());
+
+        var resultado = await servico.ConvidarUsuarioAsync(new("Usuario", "cliente@teste.test", "Cliente"));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Empty(await contexto.ConvitesUsuario.IgnoreQueryFilters().ToListAsync());
+    }
+
     private static GestaoAcessoServico CriarServico(
         ContextoAplicacao contexto,
         IEmpresaAtual empresaAtual,

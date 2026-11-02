@@ -16,26 +16,20 @@ import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCurrency, formatDate } from '../../../utils/format'
 import { formatarCpf } from '../../../utils/inputMasks'
-import { listarClientes } from '../../clientes/services/clientes.service'
-import type { Cliente } from '../../clientes/types/cliente'
 import AdmissaoDetalheDialog from '../components/AdmissaoDetalheDialog.vue'
 import AdmissaoDocumentosDialog from '../components/AdmissaoDocumentosDialog.vue'
 import AdmissaoFormDialog from '../components/AdmissaoFormDialog.vue'
-import { atualizarAdmissao, cancelarAdmissao, concluirAdmissao, concluirRevisaoDocumentalAdmissao, criarAdmissao, enviarLinkFichaAdmissaoPorEmail, gerarLinkFichaAdmissao, gerarLinkFichaEmpresaAdmissao, listarAdmissoes, obterAdmissao, revogarLinkFichaAdmissao, revogarLinkFichaEmpresaAdmissao } from '../services/admissoes.service'
+import { atualizarAdmissao, cancelarAdmissao, concluirAdmissao, concluirRevisaoDocumentalAdmissao, enviarLinkFichaAdmissaoPorEmail, gerarLinkFichaAdmissao, listarAdmissoes, obterAdmissao, revogarLinkFichaAdmissao } from '../services/admissoes.service'
 import { statusAdmissaoOptions, type AdmissaoDetalhe, type AdmissaoResumo, type DadosAdmissaoPayload } from '../types/admissao'
 import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
 const route = useRoute()
 const router = useRouter()
-const clientes = ref<Cliente[]>([])
-const clientesCarregados = ref(false)
 const admissoes = ref<AdmissaoResumo[]>([])
 const empresaId = computed(() => typeof route.params.empresaId === 'string' ? route.params.empresaId : '')
 const nomeEmpresa = computed(() => typeof route.query.empresaNome === 'string'
   ? route.query.empresaNome
   : admissoes.value[0]?.empresaNome || 'empresa selecionada')
-const clientesDaEmpresa = computed(() => clientes.value.filter((cliente) => cliente.empresaId === empresaId.value))
-const clienteId = computed(() => clientesDaEmpresa.value[0]?.id || '')
 const loading = ref(true)
 const error = ref('')
 const success = ref('')
@@ -59,18 +53,16 @@ const linkFicha = ref('')
 const linkToken = ref('')
 const linkExpiraEm = ref('')
 const linkAdmissaoId = ref('')
-const linkPapel = ref<'funcionario' | 'empresa'>('funcionario')
 const linkLoading = ref(false)
 const emailOpen = ref(false)
 const emailDestino = ref('')
 let controller: AbortController | undefined
-let clientesController: AbortController | undefined
 let generation = 0
 let documentsGeneration = 0
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 const terminal = (item: AdmissaoResumo) => item.status === 'CONCLUIDA' || item.status === 'CANCELADA'
-const statusSeverity = (codigo: string) => codigo === 'CONCLUIDA' ? 'success' : codigo === 'CANCELADA' ? 'danger' : ['DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PARA_REVISAO_FINAL', 'LIBERADO_PELO_EMPREGADOR'].includes(codigo) ? 'info' : 'warn'
+const statusSeverity = (codigo: string) => codigo === 'CONCLUIDA' || codigo === 'DOCUMENTOS_VALIDADOS' ? 'success' : codigo === 'CANCELADA' ? 'danger' : ['AGUARDANDO_EMPREGADOR', 'LIBERADO_PARA_REVISAO_FINAL'].includes(codigo) ? 'info' : 'warn'
 useRealtimePageRefresh('admissao', refreshRealtime, computed(() => loading.value || detailLoading.value || !!actionId.value || saving.value || linkLoading.value))
 
 async function load() {
@@ -93,27 +85,9 @@ async function load() {
   } finally { if (request === generation) loading.value = false }
 }
 
-async function carregarClientes() {
-  clientesController?.abort()
-  const currentController = new AbortController()
-  clientesController = currentController
-  try { clientes.value = await listarClientes({ ativo: true }, currentController.signal) }
-  catch (cause) {
-    if (!axios.isCancel(cause)) error.value = normalizeError(cause).message
-  } finally {
-    if (!currentController.signal.aborted) clientesCarregados.value = true
-  }
-}
-
 function agendarBusca() {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => void load(), 350)
-}
-
-function abrirCriacao() {
-  selected.value = null
-  formError.value = ''
-  formOpen.value = true
 }
 
 async function carregarDetalhe(item: AdmissaoResumo): Promise<AdmissaoDetalhe | null> {
@@ -155,18 +129,14 @@ async function abrirDocumentos(item: AdmissaoResumo) {
   }
 }
 
-async function gerarLink(admissaoId: string, papel: 'funcionario' | 'empresa') {
+async function gerarLink(admissaoId: string) {
   linkLoading.value = true
   error.value = ''
   try {
-    const resultado = papel === 'funcionario'
-      ? await gerarLinkFichaAdmissao(admissaoId)
-      : await gerarLinkFichaEmpresaAdmissao(admissaoId)
+    const resultado = await gerarLinkFichaAdmissao(admissaoId)
     linkAdmissaoId.value = admissaoId
-    linkPapel.value = papel
     linkToken.value = resultado.token
-    const rota = papel === 'funcionario' ? 'ficha-admissao' : 'ficha-admissao-empresa'
-    linkFicha.value = `${window.location.origin}/${rota}/${resultado.token}`
+    linkFicha.value = `${window.location.origin}/ficha-admissao/${resultado.token}`
     linkExpiraEm.value = resultado.expiraEm
     linkOpen.value = true
     await load()
@@ -183,7 +153,7 @@ async function enviarLinkEmail() {
   linkLoading.value = true
   error.value = ''
   try {
-    await enviarLinkFichaAdmissaoPorEmail(linkAdmissaoId.value, linkPapel.value, email, linkToken.value)
+    await enviarLinkFichaAdmissaoPorEmail(linkAdmissaoId.value, email, linkToken.value)
     emailOpen.value = false
     emailDestino.value = ''
     success.value = 'Link da ficha enviado por e-mail.'
@@ -215,8 +185,7 @@ async function revogarLink() {
   if (!linkAdmissaoId.value) return
   linkLoading.value = true
   try {
-    if (linkPapel.value === 'funcionario') await revogarLinkFichaAdmissao(linkAdmissaoId.value)
-    else await revogarLinkFichaEmpresaAdmissao(linkAdmissaoId.value)
+    await revogarLinkFichaAdmissao(linkAdmissaoId.value)
     linkOpen.value = false
     success.value = 'Link da ficha revogado.'
     await load()
@@ -232,13 +201,13 @@ async function abrirEdicao(item?: AdmissaoResumo) {
   formOpen.value = true
 }
 
-async function salvar(clienteSelecionadoId: string, dados: DadosAdmissaoPayload) {
+async function salvar(_clienteSelecionadoId: string, dados: DadosAdmissaoPayload) {
   saving.value = true
   formError.value = ''
   try {
     const editando = selected.value
-    if (editando) await atualizarAdmissao(editando.id, dados)
-    else await criarAdmissao({ clienteId: clienteSelecionadoId, dados })
+    if (!editando) return
+    await atualizarAdmissao(editando.id, dados)
     formOpen.value = false
     selected.value = null
     success.value = editando ? 'Admissão atualizada.' : 'Admissão manual criada.'
@@ -248,7 +217,7 @@ async function salvar(clienteSelecionadoId: string, dados: DadosAdmissaoPayload)
 }
 
 function confirmar(item: AdmissaoResumo | AdmissaoDetalhe, acao: 'concluir' | 'cancelar') {
-  if (acao === 'concluir' && !['LIBERADO_PARA_REVISAO_FINAL', 'LIBERADO_PELO_EMPREGADOR'].includes(item.status)) return
+  if (acao === 'concluir' && item.status !== 'DOCUMENTOS_VALIDADOS') return
   actionTarget.value = item
   confirmAction.value = acao
   confirmOpen.value = true
@@ -275,23 +244,19 @@ async function executarAcao() {
 watch(busca, agendarBusca)
 watch([empresaId, status], () => void load())
 void load()
-void carregarClientes()
 onBeforeUnmount(() => {
   if (searchTimer) clearTimeout(searchTimer)
   ++generation
   controller?.abort()
-  clientesController?.abort()
 })
 </script>
 
 <template>
   <PageHeader title="Admissões" :description="`Funcionários admitidos em ${nomeEmpresa}.`">
     <BaseButton label="Voltar para clientes com admissões" icon="pi pi-arrow-left" variant="text" @click="router.push({ name: 'admissoes' })" />
-    <BaseButton label="Nova admissão" icon="pi pi-plus" :disabled="!clienteId || !clientesCarregados" @click="abrirCriacao" />
   </PageHeader>
   <Message v-if="success" severity="success" :closable="true" class="page-message" @close="success = ''">{{ success }}</Message>
   <Message v-if="error" severity="error" :closable="true" class="page-message" @close="error = ''">{{ error }}</Message>
-  <Message v-if="clientesCarregados && !clienteId" severity="warn" :closable="false" class="page-message">Não há um cliente ativo vinculado a esta empresa para iniciar uma nova admissão.</Message>
 
   <BaseCard class="data-card">
     <form class="filters admission-filters" role="search" aria-label="Filtrar admissões" @submit.prevent="load">
@@ -308,19 +273,19 @@ onBeforeUnmount(() => {
         <BaseButton label="Documentos" icon="pi pi-upload" variant="text" @click="abrirDocumentos(data)" />
         <BaseButton label="Detalhes" icon="pi pi-eye" variant="text" @click="abrirDetalhe(data)" />
         <BaseButton v-if="!terminal(data)" label="Editar" icon="pi pi-pencil" variant="secondary" @click="abrirEdicao(data)" />
-        <BaseButton v-if="!terminal(data) && ['LIBERADO_PARA_REVISAO_FINAL', 'LIBERADO_PELO_EMPREGADOR'].includes(data.status)" label="Concluir admissão" icon="pi pi-check" :loading="actionId === data.id" @click="confirmar(data, 'concluir')" />
+        <BaseButton v-if="!terminal(data) && data.status === 'DOCUMENTOS_VALIDADOS'" label="Concluir admissão" icon="pi pi-check" :loading="actionId === data.id" @click="confirmar(data, 'concluir')" />
       </div></template></Column>
-      <template #empty><div class="empty-state"><i class="pi pi-id-card" /><h3>Nenhuma admissão encontrada</h3><p>Crie uma admissão manual para iniciar o cadastro do funcionário.</p><BaseButton label="Nova admissão" icon="pi pi-plus" @click="abrirCriacao" /></div></template>
+      <template #empty><div class="empty-state"><i class="pi pi-id-card" /><h3>Nenhuma admissão encontrada</h3><p>Não há admissões para este cliente com os filtros selecionados.</p></div></template>
     </DataTable>
   </BaseCard>
 
-  <AdmissaoFormDialog v-model:visible="formOpen" :clientes="clientesDaEmpresa" :admissao="selected" :cliente-inicial-id="clienteId" :saving="saving" :error="formError" @salvar="salvar" />
+  <AdmissaoFormDialog v-model:visible="formOpen" :clientes="[]" :admissao="selected" :saving="saving" :error="formError" @salvar="salvar" />
   <AdmissaoDetalheDialog v-model:visible="detailOpen" :admissao="selected" :loading="detailLoading" @editar="abrirEdicao()" @concluir="selected && confirmar(selected, 'concluir')" @cancelar="selected && confirmar(selected, 'cancelar')" />
   <AdmissaoDocumentosDialog v-if="documentsOpen" v-model:visible="documentsOpen" :admissao="documentsTarget" :loading="documentsLoading" :link-loading="!!actionId || linkLoading" @gerar-link="gerarLink" @concluir-revisao="concluirRevisaoDocumental" />
 
-  <Dialog v-model:visible="linkOpen" modal :header="linkPapel === 'funcionario' ? 'Ficha digital do admitido' : 'Ficha digital do empregador'" class="workflow-dialog" :style="{ width: 'min(620px, 94vw)' }">
+  <Dialog v-model:visible="linkOpen" modal header="Ficha digital do admitido" class="workflow-dialog" :style="{ width: 'min(620px, 94vw)' }">
     <div class="admission-link-dialog">
-      <p>{{ linkPapel === 'funcionario' ? 'Compartilhe este link somente com o admitido. Ele preencherá os dados pessoais e enviará os documentos.' : 'Compartilhe este link somente com o empregador. As fichas do admitido e do empregador podem ser preenchidas em paralelo.' }} Um novo link invalida o anterior.</p>
+      <p>Compartilhe este link somente com o admitido. Ele preencherá os dados pessoais e enviará os documentos. Um novo link invalida o anterior.</p>
       <div class="admission-link-value"><InputText :model-value="linkFicha" readonly /><BaseButton icon="pi pi-copy" title="Copiar link" aria-label="Copiar link" @click="copiarLink" /></div>
       <small>Expira em {{ formatDate(linkExpiraEm) }}</small>
     </div>
@@ -329,7 +294,7 @@ onBeforeUnmount(() => {
 
   <Dialog v-model:visible="emailOpen" modal header="Enviar link por e-mail" class="workflow-dialog" :style="{ width: 'min(480px, 94vw)' }">
     <form class="dialog-form" @submit.prevent="enviarLinkEmail">
-      <p>O endereço receberá o link ativo da ficha do {{ linkPapel === 'funcionario' ? 'admitido' : 'empregador' }}.</p>
+      <p>O endereço receberá o link ativo da ficha do admitido.</p>
       <div class="field"><label for="admission-link-email">E-mail do destinatário</label><InputText id="admission-link-email" v-model="emailDestino" type="email" autocomplete="email" required /></div>
     </form>
     <template #footer><BaseButton label="Cancelar" variant="text" :disabled="linkLoading" @click="emailOpen = false" /><BaseButton label="Enviar link" icon="pi pi-send" :loading="linkLoading" :disabled="!emailDestino.trim()" @click="enviarLinkEmail" /></template>

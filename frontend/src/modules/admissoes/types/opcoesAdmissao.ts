@@ -1,5 +1,7 @@
 export const sexosAdmissao = ['Masculino', 'Feminino']
 
+export const etniasAdmissao = ['Branca', 'Preta', 'Parda', 'Amarela', 'Indígena', 'Prefiro não informar']
+
 export const estadosCivisAdmissao = [
   'Solteiro(a)',
   'Casado(a)',
