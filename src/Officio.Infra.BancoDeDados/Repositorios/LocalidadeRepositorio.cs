@@ -16,7 +16,9 @@ internal sealed class LocalidadeRepositorio(ContextoAplicacao contexto) : ILocal
     public Task<Municipio?> ObterMunicipioPorCodigoIbgeAsync(
         string codigoIbge,
         CancellationToken cancellationToken = default)
-        => contexto.Municipios.FirstOrDefaultAsync(
+        => contexto.Municipios
+            .Include(municipio => municipio.Estado)
+            .FirstOrDefaultAsync(
             municipio => municipio.CodigoIbge == codigoIbge,
             cancellationToken);
 

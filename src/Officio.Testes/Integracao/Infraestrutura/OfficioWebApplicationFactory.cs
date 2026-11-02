@@ -65,6 +65,11 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
             services.AddDbContext<ContextoAplicacao>(options => options.UseInMemoryDatabase(banco));
             services.AddScoped<DbContext>(provider => provider.GetRequiredService<ContextoAplicacao>());
 
+            services.RemoveAll<IConsultaMunicipioIbge>();
+            services.AddSingleton<IConsultaMunicipioIbge, ConsultaMunicipioIbgeFake>();
+            services.RemoveAll<IConsultaCep>();
+            services.AddSingleton<IConsultaCep, ConsultaCepFake>();
+
             services.RemoveAll<IServicoEmail>();
             services.AddSingleton<IServicoEmail>(ServicoEmail);
             if (!UsarIntegracoesReais)
@@ -147,5 +152,36 @@ public sealed class OfficioWebApplicationFactory : WebApplicationFactory<Program
         await contexto.SaveChangesAsync();
 
         return parceiro.Id;
+    }
+
+    private sealed class ConsultaMunicipioIbgeFake : IConsultaMunicipioIbge
+    {
+        public Task<IReadOnlyCollection<EstadoIbge>> ListarEstadosAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyCollection<EstadoIbge>>(
+                [new EstadoIbge("42", "SC", "Santa Catarina")]);
+
+        public Task<IReadOnlyCollection<MunicipioIbge>> ListarMunicipiosPorUfAsync(
+            string uf,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyCollection<MunicipioIbge>>(
+                [new MunicipioIbge("4202404", "Blumenau", "SC")]);
+
+        public Task<MunicipioIbge?> ObterPorNomeUfAsync(
+            string nome,
+            string uf,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<MunicipioIbge?>(
+                nome.Equals("Blumenau", StringComparison.OrdinalIgnoreCase) &&
+                uf.Equals("SC", StringComparison.OrdinalIgnoreCase)
+                    ? new MunicipioIbge("4202404", "Blumenau", "SC")
+                    : null);
+    }
+
+    private sealed class ConsultaCepFake : IConsultaCep
+    {
+        public Task<EnderecoCep?> ConsultarAsync(string cep, CancellationToken cancellationToken = default)
+            => Task.FromResult<EnderecoCep?>(cep == "89010000"
+                ? new EnderecoCep("89010000", "Rua teste", null, "Centro", "Blumenau", "SC", "4202404")
+                : null);
     }
 }
