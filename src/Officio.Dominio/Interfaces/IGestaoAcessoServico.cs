@@ -13,6 +13,7 @@ public interface IGestaoAcessoServico
     Task<Resultado<List<UsuarioGestaoDto>>> ListarUsuariosAsync(CancellationToken ct = default);
     Task<Resultado<List<ConviteUsuarioDto>>> ListarConvitesAsync(CancellationToken ct = default);
     Task<Resultado<ConviteCriadoDto>> ConvidarUsuarioAsync(CriarConviteUsuarioRequisicao requisicao, CancellationToken ct = default);
+    Task<Resultado<ConviteCriadoDto>> ConvidarClienteAsync(Guid tenantId, Guid empresaId, string nome, string? email, CancellationToken ct = default);
     Task<Resultado<ConviteCriadoDto>> ReenviarConviteAsync(Guid conviteId, CancellationToken ct = default);
     Task<Resultado<bool>> CancelarConviteAsync(Guid conviteId, CancellationToken ct = default);
     Task<Resultado<bool>> AceitarConviteAsync(AceitarConviteRequisicao requisicao, CancellationToken ct = default);

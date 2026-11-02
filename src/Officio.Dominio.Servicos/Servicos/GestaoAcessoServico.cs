@@ -181,6 +181,8 @@ public class GestaoAcessoServico(
         var perfil = PerfisAcesso.NormalizarPerfilTenant(requisicao.Perfil);
         if (perfil is null)
             return Resultado<ConviteCriadoDto>.CriarFalha("Perfil invalido para usuario do tenant.");
+        if (perfil == PerfisAcesso.Cliente)
+            return Resultado<ConviteCriadoDto>.CriarFalha("O acesso de cliente deve ser criado a partir da ativacao da empresa.");
 
         var email = NormalizarEmail(requisicao.Email);
         if (await repositorio.UsuarioExistePorEmailAsync(email, ct))
@@ -197,6 +199,59 @@ public class GestaoAcessoServico(
             GerarHashToken(token),
             DateTime.UtcNow.AddHours(ObterHoras("Acesso:ConviteExpiracaoHoras", 48)));
 
+        await repositorio.AdicionarAsync(convite, ct);
+        await repositorio.SalvarAlteracoesAsync(ct);
+        await EnviarConviteAsync(convite, token, ct);
+        return Resultado<ConviteCriadoDto>.CriarSucesso(new(convite.Id, convite.Email, convite.ExpiraEm));
+    }
+
+    public async Task<Resultado<ConviteCriadoDto>> ConvidarClienteAsync(
+        Guid tenantId,
+        Guid empresaId,
+        string nome,
+        string? email,
+        CancellationToken ct = default)
+    {
+        if (tenantId == Guid.Empty || empresaId == Guid.Empty || string.IsNullOrWhiteSpace(email))
+            return Resultado<ConviteCriadoDto>.CriarFalha("Empresa ou e-mail de contato ausente para ativar o acesso do cliente.");
+        if (!await repositorio.EmpresaPertenceAoParceiroAsync(empresaId, tenantId, ct))
+            return Resultado<ConviteCriadoDto>.CriarFalha("Empresa nao pertence ao parceiro informado ou esta inativa.");
+
+        var emailNormalizado = NormalizarEmail(email);
+        var usuarioExistente = await repositorio.ObterUsuarioPorEmailAsync(emailNormalizado, ct);
+        if (usuarioExistente is not null)
+        {
+            if (usuarioExistente.TenantId != tenantId || usuarioExistente.Role != PerfisAcesso.Cliente)
+                return Resultado<ConviteCriadoDto>.CriarFalha("O e-mail ja pertence a outra conta e nao pode receber acesso automatico.");
+            if (!usuarioExistente.Ativo)
+                return Resultado<ConviteCriadoDto>.CriarFalha("A conta existente esta inativa e precisa ser reativada antes de vincular a empresa.");
+
+            if (await repositorio.ObterVinculoAsync(usuarioExistente.Id, empresaId, ct) is null)
+            {
+                await repositorio.AdicionarVinculoAsync(UsuarioEmpresa.Criar(usuarioExistente.Id, empresaId), ct);
+                await repositorio.SalvarAlteracoesAsync(ct);
+            }
+
+            return Resultado<ConviteCriadoDto>.CriarSucesso(new(Guid.Empty, emailNormalizado, DateTime.UtcNow));
+        }
+
+        var convitePendente = await repositorio.ObterConvitePendentePorEmailAsync(tenantId, emailNormalizado, ct);
+        if (convitePendente is not null)
+        {
+            if (convitePendente.EmpresaId == empresaId && convitePendente.Perfil == PerfisAcesso.Cliente)
+                return await ReenviarConviteAsync(convitePendente.Id, ct);
+            return Resultado<ConviteCriadoDto>.CriarFalha("Ja existe convite pendente para este e-mail neste parceiro.");
+        }
+
+        var token = GerarToken();
+        var convite = ConviteUsuario.Criar(
+            tenantId,
+            string.IsNullOrWhiteSpace(nome) ? emailNormalizado : nome.Trim(),
+            emailNormalizado,
+            PerfisAcesso.Cliente,
+            GerarHashToken(token),
+            DateTime.UtcNow.AddHours(ObterHoras("Acesso:ConviteExpiracaoHoras", 48)),
+            empresaId);
         await repositorio.AdicionarAsync(convite, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
         await EnviarConviteAsync(convite, token, ct);
@@ -243,12 +298,20 @@ public class GestaoAcessoServico(
             return Resultado<bool>.CriarFalha("Convite invalido ou expirado.");
         if (await repositorio.UsuarioExistePorEmailAsync(convite.Email, ct))
             return Resultado<bool>.CriarFalha("Este convite nao pode mais ser utilizado.");
+        if (convite.EmpresaId.HasValue && convite.Perfil != PerfisAcesso.Cliente)
+            return Resultado<bool>.CriarFalha("O convite da empresa nao possui um perfil valido.");
 
         var usuario = Usuario.Create(convite.TenantId, convite.Nome, convite.Email, string.Empty, convite.Perfil);
         usuario.UpdatePassword(servicoSenha.GerarHash(usuario, requisicao.Senha));
         convite.Aceitar(agora);
 
         await repositorio.AdicionarAsync(usuario, ct);
+        if (convite.EmpresaId is Guid empresaId)
+        {
+            if (!await repositorio.EmpresaPertenceAoParceiroAsync(empresaId, convite.TenantId, ct))
+                return Resultado<bool>.CriarFalha("A empresa vinculada ao convite nao esta mais ativa.");
+            await repositorio.AdicionarVinculoAsync(UsuarioEmpresa.Criar(usuario.Id, empresaId), ct);
+        }
         await repositorio.SalvarAlteracoesAsync(ct);
         return Resultado<bool>.CriarSucesso(true);
     }

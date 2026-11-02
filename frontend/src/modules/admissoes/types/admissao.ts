@@ -33,6 +33,7 @@ export interface AdmissaoDependente {
 
 export interface AdmissaoDetalhe extends AdmissaoResumo {
   rg: string | null
+  etnia: string | null
   dataNascimento: string | null
   sexo: string | null
   estadoCivil: string | null
@@ -120,6 +121,7 @@ export interface FichaFuncionarioPublica {
   nomeFuncionario: string
   cpf: string | null
   rg: string | null
+  etnia: string | null
   dataNascimento: string | null
   sexo: string | null
   estadoCivil: string | null
@@ -144,42 +146,21 @@ export interface FichaFuncionarioPublica {
   documentos: AdmissaoDocumento[]
 }
 
-export interface FichaEmpresaPublica {
-  id: string
-  empresaNome: string
-  nomeFuncionario: string
-  cpf: string | null
-  rg: string | null
-  dataNascimento: string | null
-  sexo: string | null
-  estadoCivil: string | null
-  escolaridade: string | null
-  telefone: string | null
-  email: string | null
-  banco: string | null
-  agencia: string | null
-  conta: string | null
-  tipoConta: string | null
-  pis: string | null
-  dataAdmissaoPrevista: string | null
-  salario: number | null
-  comissao: string | null
-  funcao: string | null
-  contratoExperienciaDias: number | null
-  utilizaValeTransporte: boolean | null
-  horarioTrabalho: string | null
-  preenchimentoConcluido: boolean
-  expiraEm: string
-}
-
 export interface AtualizarFichaFuncionarioPayload {
   nomeFuncionario: string
+  cpf?: string
+  rg?: string
+  etnia?: string
   dataNascimento?: string
   sexo?: string
   estadoCivil?: string
   escolaridade?: string
   telefone?: string
   email?: string
+  banco?: string
+  agencia?: string
+  conta?: string
+  tipoConta?: string
   dependentes: DependenteAdmissaoPayload[]
 }
 
@@ -192,10 +173,6 @@ export interface AtualizarFichaEmpresaPayload {
   contratoExperienciaDias?: number
   utilizaValeTransporte?: boolean
   horarioTrabalho?: string
-  banco?: string
-  agencia?: string
-  conta?: string
-  tipoConta?: string
 }
 
 export interface DependenteAdmissaoPayload {

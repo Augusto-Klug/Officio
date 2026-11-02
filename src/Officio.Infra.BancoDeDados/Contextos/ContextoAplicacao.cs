@@ -104,6 +104,10 @@ public class ContextoAplicacao(
             entity.Property(convite => convite.TokenHash).HasMaxLength(64).IsRequired();
             entity.HasIndex(convite => convite.TokenHash).IsUnique();
             entity.HasIndex(convite => new { convite.TenantId, convite.Email });
+            entity.HasOne<Empresa>()
+                .WithMany()
+                .HasForeignKey(convite => convite.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<Parceiro>()
                 .WithMany()
                 .HasForeignKey(convite => convite.TenantId)

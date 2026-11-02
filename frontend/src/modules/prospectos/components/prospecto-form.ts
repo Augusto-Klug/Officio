@@ -19,39 +19,48 @@ export function novoProspecto(): CriarProspectoPayload {
 export function montarFormularioProspecto(dados: CriarProspectoPayload = novoProspecto()) {
   return {
     razaoSocial: dados.razaoSocial, nomeFantasia: dados.nomeFantasia || '', cnpj: formatarCnpj(dados.cnpj || ''),
-    inscricaoEstadual: dados.inscricaoEstadual || '', inscricaoMunicipal: dados.inscricaoMunicipal || '',
+    inscricaoEstadual: somenteDigitos(dados.inscricaoEstadual), inscricaoMunicipal: somenteDigitos(dados.inscricaoMunicipal),
     tipoEmpresa: dados.tipoEmpresa || '', regimeTributario: dados.regimeTributario,
-    porteEmpresa: dados.porteEmpresa || '', cnaePrincipal: dados.cnaePrincipal || '',
+    porteEmpresa: dados.porteEmpresa || '', cnaePrincipal: somenteDigitos(dados.cnaePrincipal).slice(0, 7),
     dataAbertura: dados.dataAbertura?.slice(0, 10) || '', email: dados.email || '',
     telefone: formatarTelefone(dados.telefone), whatsapp: formatarTelefone(dados.whatsapp), nomeContato: dados.nomeContato || '',
-    cep: formatarCep(dados.cep || ''), logradouro: dados.logradouro || '', numero: dados.numero || '',
+    cep: formatarCep(dados.cep || ''), logradouro: dados.logradouro || '', numero: somenteDigitos(dados.numero),
     complemento: dados.complemento || '', bairro: dados.bairro || '', cidade: dados.cidade || '',
     uf: dados.uf || '', municipioCodigoIbge: dados.municipioCodigoIbge || '', origem: dados.origem || '',
     socios: dados.socios.map((socio, index) => ({ ...socio, chave: socio.id || `existente-${index}`, nome: socio.nome || '', cpf: formatarCpf(socio.cpf || ''), profissao: socio.profissao || '', tipoRelacaoId: socio.tipoRelacaoId || null, endereco: { ...novoEndereco(), ...Object.fromEntries(Object.entries(socio.endereco || {}).map(([k,v]) => [k,v || ''])) } })),
   }
 }
 
-function vazio(value: string | null): boolean {
+function vazio(value: string | null | undefined): boolean {
   return !value?.trim()
 }
 
 export function validarProspecto(payload: CriarProspectoPayload, cepInvalido = false): ProspectoFormErrors {
   const errors: ProspectoFormErrors = {}
+  if (vazio(payload.nomeContato)) errors.nomeContato = 'Informe o nome do contato.'
+  else if ((payload.nomeContato?.length || 0) > 250) errors.nomeContato = 'Use no máximo 250 caracteres.'
+  if (vazio(payload.email)) errors.email = 'Informe o e-mail do contato.'
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email!.trim())) errors.email = 'Informe um e-mail válido.'
+  if (vazio(payload.telefone)) errors.telefone = 'Informe o telefone com DDD.'
+  else if (![10, 11].includes(somenteDigitos(payload.telefone).length)) errors.telefone = 'Informe um telefone com DDD e 10 ou 11 dígitos.'
   if (vazio(payload.razaoSocial)) errors.razaoSocial = 'Informe a razão social.'
-  else if (payload.razaoSocial.trim().length > 300) errors.razaoSocial = 'Use no máximo 300 caracteres.'
+  if (vazio(payload.numero)) errors.numero = 'Informe o número do endereço.'
+  else if ((payload.numero?.length || 0) > 30) errors.numero = 'Use no máximo 30 caracteres.'
+  if (payload.razaoSocial.trim().length > 300) errors.razaoSocial = 'Use no máximo 300 caracteres.'
 
   if (payload.cnpj && somenteDigitos(payload.cnpj).length !== 14) errors.cnpj = 'Informe um CNPJ com 14 dígitos.'
 
   if (payload.cnaePrincipal && somenteDigitos(payload.cnaePrincipal).length !== 7) errors.cnaePrincipal = 'Informe um CNAE com 7 digitos.'
-  if (payload.cep && somenteDigitos(payload.cep).length !== 8) errors.cep = 'Informe um CEP com 8 digitos.'
-  else if (payload.cep && cepInvalido) errors.cep = 'CEP inválido. Informe um CEP válido para continuar o cadastro.'
-  if (payload.uf && payload.uf.trim().length !== 2) errors.uf = 'Informe a UF com 2 letras.'
-
-  const possuiEndereco = Boolean(
-    payload.cep || payload.logradouro || payload.numero || payload.complemento || payload.bairro || payload.uf || payload.municipioCodigoIbge,
-  )
-  if (possuiEndereco && !payload.uf) errors.uf = 'Selecione a UF.'
-  if (possuiEndereco && !payload.municipioCodigoIbge) errors.municipioCodigoIbge = 'Selecione o municipio.'
+  if (vazio(payload.cep)) errors.cep = 'Informe o CEP.'
+  else if (somenteDigitos(payload.cep).length !== 8) errors.cep = 'Informe um CEP com 8 dígitos.'
+  else if (cepInvalido) errors.cep = 'CEP inválido. Informe um CEP válido para continuar o cadastro.'
+  if (vazio(payload.logradouro)) errors.logradouro = 'Informe o logradouro.'
+  else if ((payload.logradouro?.length || 0) > 250) errors.logradouro = 'Use no máximo 250 caracteres.'
+  if (vazio(payload.bairro)) errors.bairro = 'Informe o bairro.'
+  else if ((payload.bairro?.length || 0) > 150) errors.bairro = 'Use no máximo 150 caracteres.'
+  if (vazio(payload.uf)) errors.uf = 'Selecione a UF.'
+  else if (payload.uf!.trim().length !== 2) errors.uf = 'Informe a UF com 2 letras.'
+  if (vazio(payload.cidade) || vazio(payload.municipioCodigoIbge)) errors.municipioCodigoIbge = 'Selecione o município.'
 
   let participacaoTotal = 0
   payload.socios.forEach((socio, index) => {
@@ -75,8 +84,8 @@ export function limparPayload(payload: CriarProspectoPayload): CriarProspectoPay
     razaoSocial: payload.razaoSocial.trim(),
     nomeFantasia: texto(payload.nomeFantasia),
     cnpj: documento(payload.cnpj),
-    inscricaoEstadual: texto(payload.inscricaoEstadual),
-    inscricaoMunicipal: texto(payload.inscricaoMunicipal),
+    inscricaoEstadual: documento(payload.inscricaoEstadual),
+    inscricaoMunicipal: documento(payload.inscricaoMunicipal),
     tipoEmpresa: texto(payload.tipoEmpresa),
     porteEmpresa: texto(payload.porteEmpresa),
     cnaePrincipal: documento(payload.cnaePrincipal),
@@ -87,7 +96,7 @@ export function limparPayload(payload: CriarProspectoPayload): CriarProspectoPay
     nomeContato: texto(payload.nomeContato),
     cep: documento(payload.cep),
     logradouro: texto(payload.logradouro),
-    numero: texto(payload.numero),
+    numero: documento(payload.numero),
     complemento: texto(payload.complemento),
     bairro: texto(payload.bairro),
     cidade: texto(payload.cidade),
@@ -95,7 +104,10 @@ export function limparPayload(payload: CriarProspectoPayload): CriarProspectoPay
     municipioCodigoIbge: texto(payload.municipioCodigoIbge),
     origem: texto(payload.origem),
     regimeTributario: payload.regimeTributario,
-    socios: payload.socios.map((socio) => ({ ...socio, nome: socio.nome.trim(), cpf: documento(socio.cpf), profissao: texto(socio.profissao), tipoRelacaoId: socio.tipoRelacaoId || null,
-      endereco: socio.endereco ? { ...socio.endereco, cep: somenteDigitos(socio.endereco.cep) } : null })),
+    socios: payload.socios.map((socio) => {
+      const enderecoInformado = socio.endereco && Object.values(socio.endereco).some(value => Boolean(value?.trim()))
+      return { ...socio, nome: socio.nome.trim(), cpf: documento(socio.cpf), profissao: texto(socio.profissao), tipoRelacaoId: socio.tipoRelacaoId || null,
+        endereco: enderecoInformado ? { ...socio.endereco!, cep: somenteDigitos(socio.endereco!.cep), numero: somenteDigitos(socio.endereco!.numero) } : null }
+    }),
   }
 }

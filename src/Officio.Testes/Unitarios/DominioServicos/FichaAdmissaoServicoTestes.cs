@@ -65,7 +65,8 @@ public class FichaAdmissaoServicoTestes
         var link = await cenario.Servico.GerarLinkAsync(cenario.AdmissaoId);
         var requisicao = new AtualizarFichaFuncionarioRequisicao(
             "Ana Atualizada", new DateOnly(1994, 3, 2), "Feminino",
-            "Solteira(a)", "Ensino superior completo", "47999999999", "ana@example.com", []);
+            "Solteira(a)", "Ensino superior completo", "47999999999", "ana@example.com",
+            null, null, null, null, [], "11202074952", "1234567", "Parda");
 
         var resultado = await cenario.Servico.AtualizarAsync(link.Valor!.Token, requisicao);
 
@@ -73,6 +74,9 @@ public class FichaAdmissaoServicoTestes
         contexto.ChangeTracker.Clear();
         var admissao = await contexto.Admissoes.IgnoreQueryFilters().SingleAsync();
         Assert.Equal("Ana Atualizada", admissao.NomeFuncionario);
+        Assert.Equal("11202074952", admissao.Cpf);
+        Assert.Equal("1234567", admissao.Rg);
+        Assert.Equal("Parda", admissao.Etnia);
         Assert.Equal(new DateOnly(1994, 3, 2), admissao.DataNascimento);
         Assert.Equal("Analista", admissao.Funcao);
         Assert.Equal(3500m, admissao.Salario);
@@ -132,7 +136,7 @@ public class FichaAdmissaoServicoTestes
     }
 
     [Fact]
-    public async Task ConcluirFicha_ComDadosEDocumentosObrigatorios_EnviaParaValidacao()
+    public async Task ConcluirFicha_ComDadosEDocumentosObrigatorios_LiberaEmpregadorSemRevisaoDocumental()
     {
         var cenario = await CriarCenarioAsync();
         await using var contexto = cenario.Contexto;
@@ -148,49 +152,34 @@ public class FichaAdmissaoServicoTestes
             .Include(item => item.StatusAdmissao)
             .SingleAsync();
         Assert.NotNull(admissao.PreenchimentoFuncionarioConcluidoEm);
-        Assert.Equal(StatusAdmissaoCodigos.AguardandoValidacao, admissao.StatusAdmissao.Codigo);
+        Assert.Equal(StatusAdmissaoCodigos.AguardandoEmpregador, admissao.StatusAdmissao.Codigo);
         Assert.Equal(0, cenario.DocumentoServico.Validacoes);
         Assert.Equal(2, cenario.Publicador.Eventos.Count);
         Assert.False((await cenario.Servico.AtualizarAsync(link.Valor.Token,
-            new("Funcionario Teste", new DateOnly(1995, 5, 10), "Feminino", "Solteiro(a)", null, null, null, []))).Sucesso);
+            new("Funcionario Teste", new DateOnly(1995, 5, 10), "Feminino", "Solteiro(a)", null, null, null,
+                null, null, null, null, []))).Sucesso);
     }
 
     [Fact]
-    public async Task FichasIndependentes_EmpregadorConcluiPrimeiro_AguardaValidacaoFinal()
+    public async Task FichaEmpregadorPortal_AguardaEnvioDoFuncionario()
     {
         var cenario = await CriarCenarioAsync();
         await using var contexto = cenario.Contexto;
         var linkFuncionario = await cenario.Servico.GerarLinkAsync(cenario.AdmissaoId);
-        var linkEmpresa = await cenario.Servico.GerarLinkEmpresaAsync(cenario.AdmissaoId);
-
-        Assert.True(linkFuncionario.Sucesso, linkFuncionario.Erro);
-        Assert.True(linkEmpresa.Sucesso, linkEmpresa.Erro);
-        Assert.True((await cenario.Servico.ObterEmpresaAsync(linkEmpresa.Valor!.Token)).Sucesso);
-
         var dadosEmpresa = new AtualizarFichaEmpresaRequisicao(
             "12345678901", new DateOnly(2026, 11, 2), 4200m, "5%", "Analista Senior", 90,
-            true, "08:00-18:00", "Banco Teste", "0001", "12345-6", "Corrente");
-        Assert.True((await cenario.Servico.AtualizarEmpresaAsync(linkEmpresa.Valor.Token, dadosEmpresa)).Sucesso);
-        Assert.True((await cenario.Servico.ConcluirEmpresaAsync(linkEmpresa.Valor.Token)).Sucesso);
-
-        var novoLinkFuncionario = await cenario.Servico.GerarLinkAsync(cenario.AdmissaoId);
-        Assert.True(novoLinkFuncionario.Sucesso, novoLinkFuncionario.Erro);
-        Assert.False((await cenario.Servico.ObterAsync(linkFuncionario.Valor!.Token)).Sucesso);
-        Assert.True((await cenario.Servico.ObterEmpresaAsync(linkEmpresa.Valor.Token)).Sucesso);
-
-        contexto.ChangeTracker.Clear();
-        var aposEnvioEmpresa = await contexto.Admissoes
-            .IgnoreQueryFilters()
-            .Include(item => item.StatusAdmissao)
-            .SingleAsync();
-        Assert.NotNull(aposEnvioEmpresa.PreenchimentoEmpresaConcluidoEm);
-        Assert.Equal(StatusAdmissaoCodigos.AguardandoAdmitido, aposEnvioEmpresa.StatusAdmissao.Codigo);
+            true, "08:00-18:00");
+        Assert.False((await cenario.Servico.AtualizarEmpresaPortalAsync(cenario.AdmissaoId, dadosEmpresa)).Sucesso);
+        Assert.False((await cenario.Servico.ConcluirEmpresaPortalAsync(cenario.AdmissaoId)).Sucesso);
 
         await PreencherDocumentosObrigatoriosAsync(contexto, cenario);
-        var conclusaoFuncionario = await cenario.Servico.ConcluirAsync(novoLinkFuncionario.Valor!.Token);
+        var conclusaoFuncionario = await cenario.Servico.ConcluirAsync(linkFuncionario.Valor!.Token);
         Assert.True(conclusaoFuncionario.Sucesso, conclusaoFuncionario.Erro);
-        Assert.False((await cenario.Servico.AtualizarAsync(novoLinkFuncionario.Valor.Token,
-            new("Funcionario Teste", new DateOnly(1995, 5, 10), "Feminino", null, null, null, null, []))).Sucesso);
+        Assert.True((await cenario.Servico.AtualizarEmpresaPortalAsync(cenario.AdmissaoId, dadosEmpresa)).Sucesso);
+        Assert.True((await cenario.Servico.ConcluirEmpresaPortalAsync(cenario.AdmissaoId)).Sucesso);
+        Assert.False((await cenario.Servico.AtualizarAsync(linkFuncionario.Valor.Token,
+            new("Funcionario Teste", new DateOnly(1995, 5, 10), "Feminino", null, null, null, null,
+                null, null, null, null, []))).Sucesso);
 
         var revisao = await cenario.AdmissaoServico.ConcluirRevisaoDocumentalAsync(cenario.AdmissaoId);
         Assert.True(revisao.Sucesso, revisao.Erro);
@@ -199,27 +188,25 @@ public class FichaAdmissaoServicoTestes
             .IgnoreQueryFilters()
             .Include(item => item.StatusAdmissao)
             .SingleAsync();
-        Assert.Equal(StatusAdmissaoCodigos.LiberadoParaRevisaoFinal, liberada.StatusAdmissao.Codigo);
+        Assert.Equal(StatusAdmissaoCodigos.DocumentosValidados, liberada.StatusAdmissao.Codigo);
 
         var concluida = await cenario.AdmissaoServico.ConcluirAsync(cenario.AdmissaoId);
         Assert.True(concluida.Sucesso, concluida.Erro);
     }
 
     [Fact]
-    public async Task FichasIndependentes_FuncionarioConcluiPrimeiro_ValidacaoPodeAntecederEmpregador()
+    public async Task FichaFuncionarioPrimeiro_LiberaEmpregadorERevisaoSoAposAmbasFichas()
     {
         var cenario = await CriarCenarioAsync();
         await using var contexto = cenario.Contexto;
         var linkFuncionario = await cenario.Servico.GerarLinkAsync(cenario.AdmissaoId);
-        var linkEmpresa = await cenario.Servico.GerarLinkEmpresaAsync(cenario.AdmissaoId);
         Assert.True(linkFuncionario.Sucesso, linkFuncionario.Erro);
-        Assert.True(linkEmpresa.Sucesso, linkEmpresa.Erro);
 
         await PreencherDocumentosObrigatoriosAsync(contexto, cenario);
         var conclusaoFuncionario = await cenario.Servico.ConcluirAsync(linkFuncionario.Valor!.Token);
         Assert.True(conclusaoFuncionario.Sucesso, conclusaoFuncionario.Erro);
         var validacaoAntesDoEmpregador = await cenario.AdmissaoServico.ConcluirRevisaoDocumentalAsync(cenario.AdmissaoId);
-        Assert.True(validacaoAntesDoEmpregador.Sucesso, validacaoAntesDoEmpregador.Erro);
+        Assert.False(validacaoAntesDoEmpregador.Sucesso);
 
         contexto.ChangeTracker.Clear();
         var aguardandoEmpresa = await contexto.Admissoes
@@ -227,20 +214,21 @@ public class FichaAdmissaoServicoTestes
             .Include(item => item.StatusAdmissao)
             .SingleAsync();
         Assert.Equal(StatusAdmissaoCodigos.AguardandoEmpregador, aguardandoEmpresa.StatusAdmissao.Codigo);
-        Assert.True((await cenario.Servico.ObterEmpresaAsync(linkEmpresa.Valor!.Token)).Sucesso);
-
         var dadosEmpresa = new AtualizarFichaEmpresaRequisicao(
             "12345678901", new DateOnly(2026, 11, 2), 4200m, "5%", "Analista Senior", 90,
-            true, "08:00-18:00", "Banco Teste", "0001", "12345-6", "Corrente");
-        Assert.True((await cenario.Servico.AtualizarEmpresaAsync(linkEmpresa.Valor.Token, dadosEmpresa)).Sucesso);
-        Assert.True((await cenario.Servico.ConcluirEmpresaAsync(linkEmpresa.Valor.Token)).Sucesso);
+            true, "08:00-18:00");
+        Assert.True((await cenario.Servico.AtualizarEmpresaPortalAsync(cenario.AdmissaoId, dadosEmpresa)).Sucesso);
+        Assert.True((await cenario.Servico.ConcluirEmpresaPortalAsync(cenario.AdmissaoId)).Sucesso);
+
+        var statusRevisao = await cenario.AdmissaoServico.ConcluirRevisaoDocumentalAsync(cenario.AdmissaoId);
+        Assert.True(statusRevisao.Sucesso, statusRevisao.Erro);
 
         contexto.ChangeTracker.Clear();
         var liberada = await contexto.Admissoes
             .IgnoreQueryFilters()
             .Include(item => item.StatusAdmissao)
             .SingleAsync();
-        Assert.Equal(StatusAdmissaoCodigos.LiberadoParaRevisaoFinal, liberada.StatusAdmissao.Codigo);
+        Assert.Equal(StatusAdmissaoCodigos.DocumentosValidados, liberada.StatusAdmissao.Codigo);
         Assert.Equal("Analista Senior", liberada.Funcao);
         Assert.Equal("12345678901", liberada.Pis);
         Assert.NotNull(liberada.PreenchimentoFuncionarioConcluidoEm);
@@ -253,10 +241,12 @@ public class FichaAdmissaoServicoTestes
         var cenario = await CriarCenarioAsync();
         await using var contexto = cenario.Contexto;
         var linkFuncionario = await cenario.Servico.GerarLinkAsync(cenario.AdmissaoId);
-        var linkEmpresa = await cenario.Servico.GerarLinkEmpresaAsync(cenario.AdmissaoId);
         await PreencherDocumentosObrigatoriosAsync(contexto, cenario);
         Assert.True((await cenario.Servico.ConcluirAsync(linkFuncionario.Valor!.Token)).Sucesso);
-        Assert.True((await cenario.Servico.ConcluirEmpresaAsync(linkEmpresa.Valor!.Token)).Sucesso);
+        Assert.True((await cenario.Servico.AtualizarEmpresaPortalAsync(cenario.AdmissaoId,
+            new("12345678901", new DateOnly(2026, 11, 2), 4200m, null, "Analista", 90,
+                false, null))).Sucesso);
+        Assert.True((await cenario.Servico.ConcluirEmpresaPortalAsync(cenario.AdmissaoId)).Sucesso);
         Assert.True((await cenario.AdmissaoServico.ConcluirRevisaoDocumentalAsync(cenario.AdmissaoId)).Sucesso);
 
         var admissao = await contexto.Admissoes
@@ -291,11 +281,11 @@ public class FichaAdmissaoServicoTestes
         Assert.Contains("revisado novamente", revisaoPendente.Erro);
         Assert.True((await cenario.Servico.ObterAsync(linkFuncionario.Valor.Token)).Sucesso);
         Assert.False((await cenario.Servico.AtualizarAsync(linkFuncionario.Valor.Token,
-            new("Funcionario Corrigido", new DateOnly(1995, 5, 10), "Feminino", null, null, null, null, []))).Sucesso);
-        Assert.True((await cenario.Servico.ObterEmpresaAsync(linkEmpresa.Valor.Token)).Sucesso);
-        Assert.False((await cenario.Servico.AtualizarEmpresaAsync(linkEmpresa.Valor.Token,
+            new("Funcionario Corrigido", new DateOnly(1995, 5, 10), "Feminino", null, null, null, null,
+                null, null, null, null, []))).Sucesso);
+        Assert.False((await cenario.Servico.AtualizarEmpresaPortalAsync(cenario.AdmissaoId,
             new("12345678901", new DateOnly(2026, 11, 2), 4200m, null, "Analista", 90,
-                false, null, null, null, null, null))).Sucesso);
+                false, null))).Sucesso);
         Assert.False((await cenario.AdmissaoServico.ConcluirAsync(cenario.AdmissaoId)).Sucesso);
     }
 
@@ -305,10 +295,12 @@ public class FichaAdmissaoServicoTestes
         var cenario = await CriarCenarioAsync();
         await using var contexto = cenario.Contexto;
         var linkFuncionario = await cenario.Servico.GerarLinkAsync(cenario.AdmissaoId);
-        var linkEmpresa = await cenario.Servico.GerarLinkEmpresaAsync(cenario.AdmissaoId);
         await PreencherDocumentosObrigatoriosAsync(contexto, cenario);
         Assert.True((await cenario.Servico.ConcluirAsync(linkFuncionario.Valor!.Token)).Sucesso);
-        Assert.True((await cenario.Servico.ConcluirEmpresaAsync(linkEmpresa.Valor!.Token)).Sucesso);
+        Assert.True((await cenario.Servico.AtualizarEmpresaPortalAsync(cenario.AdmissaoId,
+            new("12345678901", new DateOnly(2026, 11, 2), 4200m, null, "Analista", 90,
+                false, null))).Sucesso);
+        Assert.True((await cenario.Servico.ConcluirEmpresaPortalAsync(cenario.AdmissaoId)).Sucesso);
         Assert.True((await cenario.AdmissaoServico.ConcluirRevisaoDocumentalAsync(cenario.AdmissaoId)).Sucesso);
 
         var admissao = await contexto.Admissoes.SingleAsync(item => item.Id == cenario.AdmissaoId);
@@ -330,7 +322,7 @@ public class FichaAdmissaoServicoTestes
             .Include(item => item.StatusAdmissao)
             .Include(item => item.Documentos)
             .SingleAsync();
-        Assert.Equal(StatusAdmissaoCodigos.LiberadoParaRevisaoFinal, atualizado.StatusAdmissao.Codigo);
+        Assert.Equal(StatusAdmissaoCodigos.DocumentosValidados, atualizado.StatusAdmissao.Codigo);
         Assert.All(atualizado.Documentos, item => Assert.False(item.RevisaoPendente));
     }
 
@@ -342,13 +334,19 @@ public class FichaAdmissaoServicoTestes
         var options = new DbContextOptionsBuilder<ContextoAplicacao>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
         var contexto = new ContextoAplicacao(options, empresaAtual, new PublicadorEventosFake());
+        contexto.Parceiros.Add(Parceiro.CriarDesenvolvimento(tenantId, "11222333000144", "Parceiro Teste"));
         var empresa = Empresa.CriarConstituida(tenantId, "11222333000144", "Empresa Teste");
         var cliente = Cliente.CriarParaEmpresa(tenantId, empresa.Id);
+        var usuario = Usuario.Create(tenantId, "Usuario Cliente", "cliente@example.com", "hash", "Cliente");
         contexto.Empresas.Add(empresa);
         contexto.Clients.Add(cliente);
+        contexto.Users.Add(usuario);
+        contexto.UsuarioEmpresas.Add(UsuarioEmpresa.Criar(usuario.Id, empresa.Id));
         await contexto.SaveChangesAsync();
 
         var repositorio = new AdmissaoRepositorio(contexto);
+        var acessoRepositorio = new GestaoAcessoRepositorio(contexto);
+        var usuarioAtual = new UsuarioAtualFake(usuario.Id);
         var publicador = new PublicadorAtualizacaoFake();
         var admissaoServico = new AdmissaoServico(repositorio, new ClienteRepositorio(contexto), empresaAtual, publicador);
         var dados = new DadosAdmissaoRequisicao(
@@ -364,7 +362,9 @@ public class FichaAdmissaoServicoTestes
             })
             .Build();
         var email = new EmailFake();
-        var servico = new FichaAdmissaoServico(repositorio, documentoServico, empresaAtual, email, configuracao, publicador);
+        var servico = new FichaAdmissaoServico(
+            repositorio, documentoServico, empresaAtual, acessoRepositorio, usuarioAtual,
+            email, configuracao, publicador);
         publicador.Eventos.Clear();
         return new(contexto, servico, documentoServico, admissaoServico, empresaAtual, email, publicador, tenantId, criacao.Valor);
     }
@@ -400,6 +400,12 @@ public class FichaAdmissaoServicoTestes
         PublicadorAtualizacaoFake Publicador,
         Guid TenantId,
         Guid AdmissaoId);
+
+    private sealed class UsuarioAtualFake(Guid userId) : IUsuarioAtual
+    {
+        public Guid UserId => userId;
+        public string? Email => "cliente@example.com";
+    }
 
     private sealed class PublicadorAtualizacaoFake : IPublicadorAtualizacaoTempoReal
     {

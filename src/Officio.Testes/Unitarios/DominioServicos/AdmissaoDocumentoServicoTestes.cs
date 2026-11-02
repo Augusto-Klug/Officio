@@ -87,6 +87,7 @@ public class AdmissaoDocumentoServicoTestes
         await using var contexto = cenario.Contexto;
         var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
         await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        await PrepararParaRevisaoAsync(contexto, cenario.AdmissaoId);
 
         var resultado = await cenario.Servico.ValidarAsync(cenario.AdmissaoId, item.Id);
 
@@ -94,7 +95,7 @@ public class AdmissaoDocumentoServicoTestes
         Assert.Equal(2, cenario.Publicador.Eventos.Count);
         contexto.ChangeTracker.Clear();
         var admissao = await contexto.Admissoes.Include(registro => registro.StatusAdmissao).SingleAsync();
-        Assert.Equal(StatusAdmissaoCodigos.AguardandoValidacao, admissao.StatusAdmissao.Codigo);
+        Assert.Equal(StatusAdmissaoCodigos.LiberadoParaRevisaoFinal, admissao.StatusAdmissao.Codigo);
     }
 
     [Fact]
@@ -105,6 +106,7 @@ public class AdmissaoDocumentoServicoTestes
         await using var contexto = cenario.Contexto;
         var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
         await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        await PrepararParaRevisaoAsync(contexto, cenario.AdmissaoId);
         item.MarcarRevisaoPendente();
         await contexto.SaveChangesAsync();
 
@@ -123,6 +125,7 @@ public class AdmissaoDocumentoServicoTestes
         await using var contexto = cenario.Contexto;
         var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
         await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        await PrepararParaRevisaoAsync(contexto, cenario.AdmissaoId);
         item.MarcarRevisaoPendente();
         var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
         contexto.DocumentValidations.Add(ValidacaoDocumento.RequireManualReview(
@@ -150,6 +153,7 @@ public class AdmissaoDocumentoServicoTestes
         await using var contexto = cenario.Contexto;
         var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
         await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        await PrepararParaRevisaoAsync(contexto, cenario.AdmissaoId);
         var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
         contexto.DocumentValidations.Add(ValidacaoDocumento.RequireManualReview(
             cenario.TenantId, documentoId, observacao: "Baixa confianca", admissaoDocumentoId: item.Id));
@@ -169,6 +173,7 @@ public class AdmissaoDocumentoServicoTestes
         await using var contexto = cenario.Contexto;
         var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
         await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        await PrepararParaRevisaoAsync(contexto, cenario.AdmissaoId);
         var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
         contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
             cenario.TenantId, documentoId, [], [], true, 1m, item.Id));
@@ -190,6 +195,7 @@ public class AdmissaoDocumentoServicoTestes
             .Include(documento => documento.TipoDocumento)
             .SingleAsync(documento => documento.TipoDocumento.Codigo == "CNH");
         await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "conta.pdf"));
+        await PrepararParaRevisaoAsync(contexto, cenario.AdmissaoId);
         var documentoId = (await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id)).DocumentoId!.Value;
         contexto.DocumentValidations.Add(ValidacaoDocumento.Create(
             cenario.TenantId,
@@ -282,15 +288,29 @@ public class AdmissaoDocumentoServicoTestes
             90, false, null, null, []);
         var criacao = await admissaoServico.CriarManualAsync(new CriarAdmissaoManualRequisicao(cliente.Id, dados));
         var admissao = await contexto.Admissoes.SingleAsync(item => item.Id == criacao.Valor);
-        var aguardandoValidacao = await repositorio.ObterOuCriarStatusAsync(
-            StatusAdmissaoCodigos.AguardandoValidacao, "Aguardando validacao", 3);
-        admissao.AlterarStatus(aguardandoValidacao.Id);
+        var aguardandoAdmitido = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.AguardandoAdmitido, "Aguardando admitido", 2);
+        admissao.AlterarStatus(aguardandoAdmitido.Id);
         await contexto.SaveChangesAsync();
 
         var armazenamento = new ArmazenamentoFake();
         var publicador = new PublicadorAtualizacaoFake();
         var servico = CriarServicoDocumento(contexto, tenantId, armazenamento, resultadoValidacao, publicador);
         return new(contexto, servico, armazenamento, publicador, tenantId, RevisorId, criacao.Valor);
+    }
+
+    private static async Task PrepararParaRevisaoAsync(ContextoAplicacao contexto, Guid admissaoId)
+    {
+        var repositorio = new AdmissaoRepositorio(contexto);
+        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId);
+        var status = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.LiberadoParaRevisaoFinal,
+            "Liberado para revisao final",
+            6);
+        admissao!.MarcarPreenchimentoFuncionarioConcluido();
+        admissao.MarcarPreenchimentoEmpresaConcluido();
+        admissao.AlterarStatus(status.Id);
+        await repositorio.SalvarAlteracoesAsync();
     }
 
     private static AdmissaoDocumentoServico CriarServicoDocumento(

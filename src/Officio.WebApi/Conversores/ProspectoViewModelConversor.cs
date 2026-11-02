@@ -67,6 +67,7 @@ internal class ProspectoViewModelConversor : IProspectoViewModelConversor
             RegimeTributarioViewModel.LucroPresumido => RegimeTributario.LucroPresumido,
             RegimeTributarioViewModel.LucroReal => RegimeTributario.LucroReal,
             RegimeTributarioViewModel.MEI => RegimeTributario.MEI,
+            RegimeTributarioViewModel.SimplesNacionalHibrido => RegimeTributario.SimplesNacionalHibrido,
             _ => null
         };
 }

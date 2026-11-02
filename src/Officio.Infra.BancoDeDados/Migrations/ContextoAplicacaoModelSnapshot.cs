@@ -64,6 +64,10 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Etnia")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
@@ -127,13 +131,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
-                    b.Property<string>("TokenEmpresaAcessoHash")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<DateTime?>("TokenEmpresaExpiraEm")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("TokenExpiraEm")
                         .HasColumnType("datetime2");
 
@@ -153,10 +150,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.HasIndex("TokenAcessoHash")
                         .IsUnique()
                         .HasFilter("[TokenAcessoHash] IS NOT NULL");
-
-                    b.HasIndex("TokenEmpresaAcessoHash")
-                        .IsUnique()
-                        .HasFilter("[TokenEmpresaAcessoHash] IS NOT NULL");
 
                     b.ToTable("Admissoes", (string)null);
                 });
@@ -771,6 +764,9 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<Guid?>("EmpresaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("ExpiraEm")
                         .HasColumnType("datetime2");
 
@@ -793,6 +789,8 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .HasColumnType("nvarchar(64)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
@@ -3376,6 +3374,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
             modelBuilder.Entity("Officio.Dominio.Entidades.ConviteUsuario", b =>
                 {
+                    b.HasOne("Officio.Dominio.Entidades.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Officio.Dominio.Entidades.Parceiro", null)
                         .WithMany()
                         .HasForeignKey("TenantId")

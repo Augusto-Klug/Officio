@@ -17,6 +17,8 @@ public sealed class FichaAdmissaoServico(
     IAdmissaoRepositorio repositorio,
     IAdmissaoDocumentoServico documentoServico,
     IEmpresaAtual empresaAtual,
+    IGestaoAcessoRepositorio acessoRepositorio,
+    IUsuarioAtual usuarioAtual,
     IServicoEmail servicoEmail,
     IConfiguration configuracao,
     IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IFichaAdmissaoServico
@@ -47,49 +49,12 @@ public sealed class FichaAdmissaoServico(
         return Resultado<GerarLinkFichaAdmissaoDto>.CriarSucesso(new(token, expiraEm));
     }
 
-    public async Task<Resultado<GerarLinkFichaAdmissaoDto>> GerarLinkEmpresaAsync(
-        Guid admissaoId,
-        CancellationToken ct = default)
-    {
-        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
-        if (admissao is null)
-            return Resultado<GerarLinkFichaAdmissaoDto>.CriarFalha("Admissao nao encontrada.");
-        if (StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo))
-            return Resultado<GerarLinkFichaAdmissaoDto>.CriarFalha("Nao e possivel gerar link para uma admissao encerrada.");
-        if (admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
-            return Resultado<GerarLinkFichaAdmissaoDto>.CriarFalha("O empregador ja concluiu o preenchimento da ficha.");
-
-        var token = GerarToken();
-        var expiraEm = DateTime.UtcNow.Add(ValidadeLink);
-        admissao.GerarAcessoEmpresa(CalcularHash(token), expiraEm);
-        if (admissao.StatusAdmissao.Codigo == StatusAdmissaoCodigos.Rascunho)
-        {
-            var status = await repositorio.ObterOuCriarStatusAsync(
-                StatusAdmissaoCodigos.AguardandoAdmitido, "Aguardando admitido", 2, ct);
-            admissao.AlterarStatus(status.Id);
-        }
-        await repositorio.SalvarAlteracoesAsync(ct);
-        await PublicarAtualizacaoAsync(admissao, ct);
-        return Resultado<GerarLinkFichaAdmissaoDto>.CriarSucesso(new(token, expiraEm));
-    }
-
     public async Task<Resultado<bool>> RevogarLinkAsync(Guid admissaoId, CancellationToken ct = default)
     {
         var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
         if (admissao is null)
             return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
         admissao.RevogarAcessoTemporario();
-        await repositorio.SalvarAlteracoesAsync(ct);
-        await PublicarAtualizacaoAsync(admissao, ct);
-        return Resultado<bool>.CriarSucesso(true);
-    }
-
-    public async Task<Resultado<bool>> RevogarLinkEmpresaAsync(Guid admissaoId, CancellationToken ct = default)
-    {
-        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
-        if (admissao is null)
-            return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
-        admissao.RevogarAcessoEmpresa();
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
@@ -117,7 +82,9 @@ public sealed class FichaAdmissaoServico(
         {
             admissao.AtualizarDadosFuncionario(
                 requisicao.NomeFuncionario, requisicao.DataNascimento, requisicao.Sexo,
-                requisicao.EstadoCivil, requisicao.Escolaridade, requisicao.Telefone, requisicao.Email);
+                requisicao.EstadoCivil, requisicao.Escolaridade, requisicao.Telefone, requisicao.Email,
+                requisicao.Banco, requisicao.Agencia, requisicao.Conta, requisicao.TipoConta,
+                requisicao.Cpf, requisicao.Rg, requisicao.Etnia);
             admissao.SubstituirDependentes(requisicao.Dependentes.Select(item =>
                 AdmissaoDependente.Criar(admissao.Id, item.Nome, item.Cpf, item.DataNascimento,
                     item.Parentesco, item.DependenteIr, item.SalarioFamilia)));
@@ -152,7 +119,7 @@ public sealed class FichaAdmissaoServico(
             return Resultado<bool>.CriarFalha("Envie uma identidade (RG/CIN) ou CNH antes de finalizar.");
 
         var status = await repositorio.ObterOuCriarStatusAsync(
-            StatusAdmissaoCodigos.AguardandoValidacao, "Aguardando validacao", 3, ct);
+            StatusAdmissaoCodigos.AguardandoEmpregador, "Aguardando empregador", 5, ct);
         admissao.MarcarPreenchimentoFuncionarioConcluido();
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync(ct);
@@ -160,58 +127,51 @@ public sealed class FichaAdmissaoServico(
         return Resultado<bool>.CriarSucesso(true);
     }
 
-    public async Task<Resultado<FichaEmpresaPublicaDto>> ObterEmpresaAsync(string token, CancellationToken ct = default)
-    {
-        var resultado = await ObterEmpresaPorTokenAsync(token, rastreamento: false, exigirEditavel: false, ct);
-        return resultado.Sucesso
-            ? Resultado<FichaEmpresaPublicaDto>.CriarSucesso(MapearEmpresa(resultado.Valor!))
-            : Resultado<FichaEmpresaPublicaDto>.CriarFalha(resultado.Erro!);
-    }
-
-    public async Task<Resultado<bool>> AtualizarEmpresaAsync(
-        string token,
+    public async Task<Resultado<bool>> AtualizarEmpresaPortalAsync(
+        Guid admissaoId,
         AtualizarFichaEmpresaRequisicao requisicao,
         CancellationToken ct = default)
     {
-        var resultado = await ObterEmpresaPorTokenAsync(token, rastreamento: true, exigirEditavel: true, ct);
-        if (!resultado.Sucesso)
-            return Resultado<bool>.CriarFalha(resultado.Erro!);
-
+        var admissao = await ObterAdmissaoEmpresaPortalAsync(admissaoId, ct);
+        if (admissao is null)
+            return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
+        if (StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo) || admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
+            return Resultado<bool>.CriarFalha("Os dados desta admissao nao estao mais abertos para edicao pelo empregador.");
+        if (!admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
+            return Resultado<bool>.CriarFalha("A ficha do funcionario ainda nao foi enviada.");
         try
         {
-            resultado.Valor!.AtualizarDadosEmpresa(
+            admissao.AtualizarDadosEmpresa(
                 requisicao.Pis, requisicao.DataAdmissaoPrevista, requisicao.Salario,
                 requisicao.Comissao, requisicao.Funcao, requisicao.ContratoExperienciaDias,
                 requisicao.UtilizaValeTransporte, requisicao.HorarioTrabalho,
-                requisicao.Banco, requisicao.Agencia, requisicao.Conta, requisicao.TipoConta);
+                null, null, null, null);
         }
-        catch (ArgumentException exception)
+        catch (ArgumentException ex)
         {
-            return Resultado<bool>.CriarFalha(exception.Message);
+            return Resultado<bool>.CriarFalha(ex.Message);
         }
 
         await repositorio.SalvarAlteracoesAsync(ct);
-        await PublicarAtualizacaoAsync(resultado.Valor!, ct);
+        await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 
-    public async Task<Resultado<bool>> ConcluirEmpresaAsync(string token, CancellationToken ct = default)
+    public async Task<Resultado<bool>> ConcluirEmpresaPortalAsync(Guid admissaoId, CancellationToken ct = default)
     {
-        var resultado = await ObterEmpresaPorTokenAsync(token, rastreamento: true, exigirEditavel: false, ct);
-        if (!resultado.Sucesso)
-            return Resultado<bool>.CriarFalha(resultado.Erro!);
+        var admissao = await ObterAdmissaoEmpresaPortalAsync(admissaoId, ct);
+        if (admissao is null)
+            return Resultado<bool>.CriarFalha("Admissao nao encontrada.");
+        if (StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo))
+            return Resultado<bool>.CriarFalha("Admissao encerrada nao pode ser alterada.");
+        if (!admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
+            return Resultado<bool>.CriarFalha("A ficha do funcionario ainda nao foi enviada.");
+        if (admissao.DataAdmissaoPrevista is null || string.IsNullOrWhiteSpace(admissao.Funcao))
+            return Resultado<bool>.CriarFalha("Preencha data de admissao e funcao antes de concluir.");
+        if (!admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
+            admissao.MarcarPreenchimentoEmpresaConcluido();
 
-        var admissao = resultado.Valor!;
-        if (admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
-            return Resultado<bool>.CriarSucesso(true);
-        if (admissao.DataAdmissaoPrevista is null)
-            return Resultado<bool>.CriarFalha("Data de admissao e obrigatoria para concluir o preenchimento do empregador.");
-        if (string.IsNullOrWhiteSpace(admissao.Funcao))
-            return Resultado<bool>.CriarFalha("Funcao do funcionario e obrigatoria para concluir o preenchimento do empregador.");
-
-        admissao.MarcarPreenchimentoEmpresaConcluido();
-        if (admissao.PreenchimentoFuncionarioConcluidoEm.HasValue &&
-            admissao.StatusAdmissao.Codigo is StatusAdmissaoCodigos.AguardandoEmpregador or StatusAdmissaoCodigos.DocumentosValidados)
+        if (admissao.StatusAdmissao.Codigo is StatusAdmissaoCodigos.AguardandoEmpregador or StatusAdmissaoCodigos.DocumentosValidados or StatusAdmissaoCodigos.AguardandoValidacao)
         {
             var status = await ObterStatusFinalAsync(ct);
             admissao.AlterarStatus(status.Id);
@@ -219,6 +179,15 @@ public sealed class FichaAdmissaoServico(
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(admissao, ct);
         return Resultado<bool>.CriarSucesso(true);
+    }
+
+    private async Task<Admissao?> ObterAdmissaoEmpresaPortalAsync(Guid admissaoId, CancellationToken ct)
+    {
+        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId, ct);
+        if (admissao is null || !await acessoRepositorio.UsuarioTemAcessoEmpresaAsync(
+                usuarioAtual.UserId, admissao.EmpresaId, empresaAtual.TenantId, ct))
+            return null;
+        return admissao;
     }
 
     private Task PublicarAtualizacaoAsync(Admissao admissao, CancellationToken ct)
@@ -257,15 +226,11 @@ public sealed class FichaAdmissaoServico(
         }
 
         var funcionario = string.Equals(requisicao.Papel, "funcionario", StringComparison.OrdinalIgnoreCase);
-        var empresa = string.Equals(requisicao.Papel, "empresa", StringComparison.OrdinalIgnoreCase);
-        if (!funcionario && !empresa)
-            return Resultado<bool>.CriarFalha("Tipo de ficha invalido para envio por e-mail.");
-
+        if (!funcionario)
+            return Resultado<bool>.CriarFalha("O envio por e-mail esta disponivel somente para a ficha do admitido.");
         var hash = CalcularHash(requisicao.Token);
-        var admissao = funcionario
-            ? await repositorio.ObterPorTokenFuncionarioHashAsync(hash, false, ct)
-            : await repositorio.ObterPorTokenEmpresaHashAsync(hash, false, ct);
-        var expiraEm = funcionario ? admissao?.TokenExpiraEm : admissao?.TokenEmpresaExpiraEm;
+        var admissao = await repositorio.ObterPorTokenFuncionarioHashAsync(hash, false, ct);
+        var expiraEm = admissao?.TokenExpiraEm;
         if (admissao is null || admissao.Id != requisicao.AdmissaoId || admissao.TenantId != tenantId ||
             expiraEm is null || expiraEm <= DateTime.UtcNow ||
             StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo))
@@ -276,9 +241,8 @@ public sealed class FichaAdmissaoServico(
             baseUri.Scheme is not ("https" or "http"))
             return Resultado<bool>.CriarFalha("A URL do frontend nao esta configurada para envio de e-mails.");
 
-        var rota = funcionario ? "ficha-admissao" : "ficha-admissao-empresa";
-        var url = $"{frontend}/{rota}/{Uri.EscapeDataString(requisicao.Token)}";
-        var papel = funcionario ? "admitido" : "empregador";
+        var url = $"{frontend}/ficha-admissao/{Uri.EscapeDataString(requisicao.Token)}";
+        const string papel = "admitido";
         var expiraEmBrasil = new DateTimeOffset(expiraEm.Value, TimeSpan.Zero)
             .ToOffset(TimeSpan.FromHours(-3));
         var corpo = $"Ola,\n\nA ficha de {papel} para {admissao.NomeFuncionario} esta disponivel para preenchimento.\n\nAcesse: {url}\n\nEste link expira em {expiraEmBrasil:dd/MM/yyyy HH:mm} (horario de Brasilia).";
@@ -336,48 +300,15 @@ public sealed class FichaAdmissaoServico(
         return Resultado<Admissao>.CriarSucesso(admissao);
     }
 
-    private async Task<Resultado<Admissao>> ObterEmpresaPorTokenAsync(
-        string token,
-        bool rastreamento,
-        bool exigirEditavel,
-        CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-            return Resultado<Admissao>.CriarFalha("Link de admissao invalido ou expirado.");
-        var admissao = await repositorio.ObterPorTokenEmpresaHashAsync(CalcularHash(token), rastreamento, ct);
-        if (admissao is null || admissao.TokenEmpresaExpiraEm is null ||
-            admissao.TokenEmpresaExpiraEm <= DateTime.UtcNow)
-            return Resultado<Admissao>.CriarFalha("Link de admissao invalido ou expirado.");
-        if (StatusAdmissaoCodigos.Terminal(admissao.StatusAdmissao.Codigo))
-            return Resultado<Admissao>.CriarFalha("Esta admissao ja foi encerrada.");
-        if (exigirEditavel && admissao.PreenchimentoEmpresaConcluidoEm.HasValue)
-            return Resultado<Admissao>.CriarFalha("A ficha do empregador ja foi finalizada e nao pode mais ser alterada.");
-
-        empresaAtual.SetTenant(admissao.TenantId);
-        return Resultado<Admissao>.CriarSucesso(admissao);
-    }
-
     private static FichaFuncionarioPublicaDto MapearFuncionario(Admissao admissao)
         => new(
             admissao.Id, admissao.Empresa.RazaoSocial, admissao.NomeFuncionario, admissao.Cpf,
             admissao.Rg, admissao.DataNascimento, admissao.Sexo, admissao.EstadoCivil,
-            admissao.Escolaridade, admissao.Telefone, admissao.Email, admissao.Pis,
-            admissao.Banco, admissao.Agencia, admissao.Conta, admissao.TipoConta,
-            admissao.DataAdmissaoPrevista, admissao.Salario, admissao.Comissao, admissao.Funcao,
-            admissao.ContratoExperienciaDias, admissao.UtilizaValeTransporte, admissao.HorarioTrabalho,
+            admissao.Escolaridade, admissao.Telefone, admissao.Email,
+            admissao.Banco, admissao.Agencia, admissao.Conta, admissao.TipoConta, admissao.Etnia,
             admissao.PreenchimentoFuncionarioConcluidoEm.HasValue, admissao.TokenExpiraEm!.Value,
             admissao.Dependentes.Select(MapearDependente).ToList(),
             admissao.Documentos.OrderBy(item => item.Ordem).Select(MapearDocumento).ToList());
-
-    private static FichaEmpresaPublicaDto MapearEmpresa(Admissao admissao)
-        => new(
-            admissao.Id, admissao.Empresa.RazaoSocial, admissao.NomeFuncionario, admissao.Cpf,
-            admissao.Rg, admissao.DataNascimento, admissao.Sexo, admissao.EstadoCivil,
-            admissao.Escolaridade, admissao.Telefone, admissao.Email, admissao.Banco,
-            admissao.Agencia, admissao.Conta, admissao.TipoConta, admissao.Pis,
-            admissao.DataAdmissaoPrevista, admissao.Salario, admissao.Comissao, admissao.Funcao,
-            admissao.ContratoExperienciaDias, admissao.UtilizaValeTransporte, admissao.HorarioTrabalho,
-            admissao.PreenchimentoEmpresaConcluidoEm.HasValue, admissao.TokenEmpresaExpiraEm!.Value);
 
     private static AdmissaoDependenteDto MapearDependente(AdmissaoDependente item)
         => new(item.Id, item.Nome, item.Cpf, item.DataNascimento, item.Parentesco,

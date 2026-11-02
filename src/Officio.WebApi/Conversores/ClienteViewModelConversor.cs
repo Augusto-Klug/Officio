@@ -38,6 +38,7 @@ internal static class ClienteViewModelConversor
             RegimeTributarioViewModel.LucroPresumido => RegimeTributario.LucroPresumido,
             RegimeTributarioViewModel.LucroReal => RegimeTributario.LucroReal,
             RegimeTributarioViewModel.MEI => RegimeTributario.MEI,
+            RegimeTributarioViewModel.SimplesNacionalHibrido => RegimeTributario.SimplesNacionalHibrido,
             _ => throw new ArgumentOutOfRangeException(nameof(regime), regime, null)
         };
 }

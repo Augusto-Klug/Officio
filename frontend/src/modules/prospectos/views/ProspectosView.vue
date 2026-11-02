@@ -124,7 +124,13 @@ async function abrirVisualizacao(prospecto: Prospecto) {
   }
 }
 function regimeDescricao(value: number | null | undefined) {
-  return ({ 0: 'Simples Nacional', 1: 'Lucro Presumido', 2: 'Lucro Real', 3: 'MEI' } as Record<number, string>)[value ?? -1] || 'Não informado'
+  return ({
+    0: 'Simples Nacional puro (IBS/CBS no DAS)',
+    1: 'Lucro Presumido',
+    2: 'Lucro Real',
+    3: 'MEI',
+    4: 'Simples Nacional híbrido (IBS/CBS no regime regular)',
+  } as Record<number, string>)[value ?? -1] || 'Não informado'
 }
 function texto(value: string | number | null | undefined) {
   return value === null || value === undefined || value === '' ? 'Não informado' : String(value)

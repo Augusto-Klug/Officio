@@ -127,12 +127,15 @@ public class AdmissaoServicoTestes
         await PreencherDocumentosObrigatoriosAsync(contexto, tenantId, empresa.Id, criacao.Valor);
         await PrepararParaConclusaoAsync(contexto, criacao.Valor);
 
+        var revisao = await servico.ConcluirRevisaoDocumentalAsync(criacao.Valor);
+        Assert.True(revisao.Sucesso, revisao.Erro);
+
         var primeiraConclusao = await servico.ConcluirAsync(criacao.Valor);
         var segundaConclusao = await servico.ConcluirAsync(criacao.Valor);
 
         Assert.True(primeiraConclusao.Sucesso);
         Assert.True(segundaConclusao.Sucesso);
-        Assert.Equal(2, publicador.Eventos.Count);
+        Assert.Equal(3, publicador.Eventos.Count);
         contexto.ChangeTracker.Clear();
         var funcionario = await contexto.EmpresaFuncionarios.SingleAsync();
         var empresaAtualizada = await contexto.Empresas.SingleAsync(item => item.Id == empresa.Id);
@@ -154,7 +157,7 @@ public class AdmissaoServicoTestes
             CriarDados(dataAdmissao: new DateOnly(2026, 9, 21))));
         await PrepararParaConclusaoAsync(contexto, criacao.Valor);
 
-        var resultado = await servico.ConcluirAsync(criacao.Valor);
+        var resultado = await servico.ConcluirRevisaoDocumentalAsync(criacao.Valor);
 
         Assert.False(resultado.Sucesso);
         Assert.Contains("documentos obrigatorios", resultado.Erro);
@@ -176,7 +179,7 @@ public class AdmissaoServicoTestes
             contexto, tenantId, empresa.Id, criacao.Valor, aprovar: false, aprovarIdentificacao: true);
         await PrepararParaConclusaoAsync(contexto, criacao.Valor);
 
-        var resultado = await servico.ConcluirAsync(criacao.Valor);
+        var resultado = await servico.ConcluirRevisaoDocumentalAsync(criacao.Valor);
 
         Assert.False(resultado.Sucesso);
         Assert.Contains("ainda nao foi aprovado", resultado.Erro);
@@ -382,7 +385,7 @@ public class AdmissaoServicoTestes
         var repositorio = new AdmissaoRepositorio(contexto);
         var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId);
         var status = await repositorio.ObterOuCriarStatusAsync(
-            StatusAdmissaoCodigos.LiberadoPeloEmpregador, "Liberado pelo empregador", 6);
+            StatusAdmissaoCodigos.LiberadoParaRevisaoFinal, "Liberado para revisao final", 6);
         admissao!.MarcarPreenchimentoFuncionarioConcluido();
         admissao.MarcarPreenchimentoEmpresaConcluido();
         admissao.AlterarStatus(status.Id);

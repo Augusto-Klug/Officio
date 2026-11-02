@@ -181,7 +181,7 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         var login = await cliente.PostAsJsonAsync("/api/v1/autenticacao/Login", new { email = "admin@integracao.test", senha = "Tenant@123" });
         var token = (await login.Content.ReadFromJsonAsync<JsonObject>())!["token"]!.GetValue<string>();
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var id = await CriarAsync(cliente);
+        var id = await CriarAsync(cliente, api: api);
         var dados = await ObterDadosAsync(cliente, id);
         Guid contratoId;
         using (var scope = api.Services.CreateScope())
@@ -319,13 +319,25 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
     public async Task CadastroComercial_PermiteSemSociosOuSocioTotalmenteIncompleto(bool adicionarSocio)
     {
         await factory.PrepararTenantAsync();
+        await GarantirMunicipioBlumenauAsync();
         using var cliente = await ClienteAutenticadoAsync();
         var resposta = await cliente.PostAsJsonAsync("/api/v1/prospectos/Criar", new
         {
             razaoSocial = "Cadastro opcional",
+            nomeContato = "Contato inicial",
+            email = "contato@empresa.test",
+            telefone = "47999998888",
+            cep = "89010000",
+            logradouro = "Rua inicial",
+            numero = "10",
+            bairro = "Centro",
+            cidade = "Blumenau",
+            uf = "SC",
+            municipioCodigoIbge = "4202404",
             socios = adicionarSocio ? new[] { new Dictionary<string, object?>() } : []
         });
-        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        Assert.True(resposta.StatusCode == HttpStatusCode.Created,
+            $"Criação de prospecto retornou {(int)resposta.StatusCode}: {await resposta.Content.ReadAsStringAsync()}");
         var id = (await resposta.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.GetValue<Guid>();
         var dados = await ObterDadosAsync(cliente, id);
         Assert.Equal(adicionarSocio ? 1 : 0, dados["socios"]!.AsArray().Count);
@@ -363,6 +375,16 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         var resposta = await cliente.PostAsJsonAsync("/api/v1/prospectos/Criar", new
         {
             razaoSocial = "Cadastro societario", cnpj = "99093538000155",
+            nomeContato = "Contato societario",
+            email = "contato@societario.test",
+            telefone = "47999998888",
+            cep = "89010000",
+            logradouro = "Rua da Empresa",
+            numero = "10",
+            bairro = "Centro",
+            cidade = "Blumenau",
+            uf = "SC",
+            municipioCodigoIbge = "4202404",
             socios = new[] { new { nome = "Ana", cpf = "117.892.999-00", profissao = "Engenheira",
                 participacao = 40, tipoRelacaoId = tipo.Id, endereco = new { logradouro = "Rua inicial" } } }
         });
@@ -399,7 +421,7 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         Assert.Equal("Sala 2", socioCliente.Pessoa.Endereco.Complemento);
         Assert.Null(socioCliente.Participacao);
         Assert.Single(await contexto.Set<Pessoa>().ToListAsync());
-        Assert.Single(await contexto.Set<Endereco>().ToListAsync());
+        Assert.Equal(2, await contexto.Set<Endereco>().CountAsync());
     }
 
     [Fact]
@@ -423,15 +445,14 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         var tenantId = await factory.PrepararTenantAsync(); using var cliente = await ClienteAutenticadoAsync();
         var id = await CriarAsync(cliente);
         Guid orcamentoId;
-        var estado = Estado.Criar("42", "SC", "Santa Catarina");
-        var municipio = Municipio.Criar(estado.Id, "4202404", "Blumenau");
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var municipio = await db.Municipios.IgnoreQueryFilters().SingleAsync(m => m.CodigoIbge == "4202404");
             var p = await db.Prospects.IgnoreQueryFilters().SingleAsync(p => p.Id == id);
             p.UpdateStatus(StatusProspecto.PropostaEnviada);
             p.VincularMunicipio(municipio.Id, "Blumenau", "SC");
-            p.AtualizarDadosCadastrais(null, null, null, null, null, null, null, null, null,
+            p.AtualizarDadosCadastrais(null, null, null, null, null, "contato@empresa.test", "47999998888", null, "Contato inicial",
                 "89010000", "Rua da CONTRATANTE", "10", null, "Centro", "Blumenau", "SC", null, null, null, null, null);
             var orcamento = Orcamento.Criar(p.TenantId, p.Id, "Aceito", 10, null);
             orcamento.AdicionarItem(ItemOrcamento.CriarSnapshot(p.TenantId, orcamento.Id, null, "Honorário mensal",
@@ -442,7 +463,7 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
                 NaturezaCobrancaItemOrcamento.PorFolha));
             orcamento.Aceitar();
             db.Budgets.Add(orcamento); orcamentoId = orcamento.Id;
-            db.Estados.Add(estado); db.Municipios.Add(municipio); await db.SaveChangesAsync();
+            await db.SaveChangesAsync();
 
             var parceiro = await db.Parceiros.IgnoreQueryFilters().SingleAsync(parceiro => parceiro.Id == tenantId);
             parceiro.AtualizarDadosContabilidade(parceiro.Cnpj, parceiro.RazaoSocial, null, null, null, "CRC-SC-12345");
@@ -470,11 +491,15 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         dados["socios"]![0]!["profissao"] = "Arquiteta";
         dados["socios"]![0]!["endereco"] = new JsonObject { ["logradouro"] = "Rua", ["numero"] = "10",
             ["bairro"] = "Centro", ["uf"] = "SC", ["municipioCodigoIbge"] = "4202404" };
-        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
+        var atualizacaoSocios = await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados);
+        Assert.True(atualizacaoSocios.StatusCode == HttpStatusCode.NoContent,
+            $"Atualização de sócios retornou {(int)atualizacaoSocios.StatusCode}: {await atualizacaoSocios.Content.ReadAsStringAsync()}");
         Assert.Equal("Empresa inicial", (await ObterDadosAsync(cliente, id))["razaoSocial"]!.GetValue<string>());
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+            var estado = await db.Estados.IgnoreQueryFilters().SingleAsync(e => e.Sigla == "SC");
+            var municipio = await db.Municipios.IgnoreQueryFilters().SingleAsync(m => m.CodigoIbge == "4202404");
             var s = await db.Socios.IgnoreQueryFilters().Include(s => s.Pessoa).ThenInclude(p => p.Endereco).SingleAsync(s => s.Id == socioId);
             var tipo = new TipoRelacao("SOCIO", "Sócio", "SOCIETARIO"); db.TiposRelacao.Add(tipo);
             s.AtualizarVinculo(null, tipo);
@@ -495,8 +520,9 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         dados["razaoSocial"] = "Empresa revisada apos cancelamento";
         dados["confirmarCancelamentoContratos"] = true;
         dados["contratosConfirmados"] = new JsonArray(JsonValue.Create(contratoId));
-        Assert.Equal(HttpStatusCode.NoContent,
-            (await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados)).StatusCode);
+        var atualizacaoComContrato = await cliente.PutAsJsonAsync($"/api/v1/prospectos/Atualizar/{id}", dados);
+        Assert.True(atualizacaoComContrato.StatusCode == HttpStatusCode.NoContent,
+            $"Atualização com contrato retornou {(int)atualizacaoComContrato.StatusCode}: {await atualizacaoComContrato.Content.ReadAsStringAsync()}");
         using (var validacaoCancelamento = factory.Services.CreateScope())
         {
             var db = validacaoCancelamento.ServiceProvider.GetRequiredService<ContextoAplicacao>();
@@ -548,15 +574,43 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         Assert.Single(await contexto.Set<Pessoa>().ToListAsync());
     }
 
-    private static async Task<Guid> CriarAsync(HttpClient cliente, string cnpj = "99093538000155")
+    private async Task<Guid> CriarAsync(
+        HttpClient cliente,
+        string cnpj = "99093538000155",
+        OfficioWebApplicationFactory? api = null)
     {
+        await GarantirMunicipioBlumenauAsync(api);
         var resposta = await cliente.PostAsJsonAsync("/api/v1/prospectos/Criar", new
         {
             razaoSocial = "Empresa inicial", cnpj, regimeTributario = 0,
+            nomeContato = "Contato inicial",
+            email = "contato@empresa.test",
+            telefone = "47999998888",
+            cep = "89010000",
+            logradouro = "Rua inicial",
+            numero = "10",
+            bairro = "Centro",
+            cidade = "Blumenau",
+            uf = "SC",
+            municipioCodigoIbge = "4202404",
             socios = new[] { new { nome = "Socio inicial", cpf = "11789299900", participacao = 100 } }
         });
-        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        Assert.True(resposta.StatusCode == HttpStatusCode.Created,
+            $"Criação de prospecto retornou {(int)resposta.StatusCode}: {await resposta.Content.ReadAsStringAsync()}");
         return (await resposta.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.GetValue<Guid>();
+    }
+
+    private async Task GarantirMunicipioBlumenauAsync(OfficioWebApplicationFactory? api = null)
+    {
+        using var scope = (api ?? factory).Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+        if (await db.Municipios.IgnoreQueryFilters().AnyAsync(m => m.CodigoIbge == "4202404"))
+            return;
+
+        var estado = Estado.Criar("42", "SC", "Santa Catarina");
+        db.Estados.Add(estado);
+        db.Municipios.Add(Municipio.Criar(estado.Id, "4202404", "Blumenau"));
+        await db.SaveChangesAsync();
     }
 
     private static async Task<JsonObject> ObterDadosAsync(HttpClient cliente, Guid id)

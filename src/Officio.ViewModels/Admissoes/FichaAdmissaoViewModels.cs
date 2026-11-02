@@ -8,7 +8,14 @@ public record AtualizarFichaFuncionarioViewModel(
     string? Escolaridade,
     string? Telefone,
     string? Email,
-    IReadOnlyCollection<AdmissaoDependenteViewModel>? Dependentes);
+    string? Banco,
+    string? Agencia,
+    string? Conta,
+    string? TipoConta,
+    IReadOnlyCollection<AdmissaoDependenteViewModel>? Dependentes,
+    string? Cpf = null,
+    string? Rg = null,
+    string? Etnia = null);
 
 public record EnviarLinkFichaAdmissaoEmailViewModel(
     string Papel,
@@ -23,8 +30,4 @@ public record AtualizarFichaEmpresaViewModel(
     string? Funcao,
     int? ContratoExperienciaDias,
     bool? UtilizaValeTransporte,
-    string? HorarioTrabalho,
-    string? Banco,
-    string? Agencia,
-    string? Conta,
-    string? TipoConta);
+    string? HorarioTrabalho);

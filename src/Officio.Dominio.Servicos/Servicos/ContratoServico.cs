@@ -24,6 +24,7 @@ public class ContratoServico(
     IServicoAssinatura servicoAssinatura,
     IServicoArmazenamento servicoArmazenamento,
     IEmpresaAtual empresaAtual,
+    IGestaoAcessoServico gestaoAcessoServico,
     IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal,
     ILogger<ContratoServico> logger,
     TimeProvider timeProvider) : IContratoServico
@@ -536,6 +537,28 @@ public class ContratoServico(
         return Resultado<bool>.CriarSucesso(true);
     }
 
+    private async Task CriarAcessoClienteAsync(Contrato contrato, CancellationToken ct)
+    {
+        if (!contrato.ClientId.HasValue || contrato.EmpresaId == Guid.Empty)
+            return;
+
+        var prospecto = await prospectoRepositorio.ObterComSociosAsync(contrato.ProspectId, ct);
+        if (prospecto is null)
+        {
+            logger.LogWarning("Convite do portal do cliente não criado: prospecto ausente. ContratoId={ContratoId}", contrato.Id);
+            return;
+        }
+
+        var resultado = await gestaoAcessoServico.ConvidarClienteAsync(
+            contrato.TenantId,
+            contrato.EmpresaId,
+            prospecto.RazaoSocial,
+            prospecto.Email,
+            ct);
+        if (!resultado.Sucesso)
+            logger.LogWarning("Acesso do cliente pendente de configuração. ContratoId={ContratoId} Motivo={Motivo}", contrato.Id, resultado.Erro);
+    }
+
     public async Task<Resultado<ResumoReconciliacaoAssinaturas>> ReconciliarAssinaturasAutentiqueAsync(
         CancellationToken ct = default)
     {
@@ -676,6 +699,7 @@ public class ContratoServico(
         solicitacao.Contrato.MarkAsSigned(dataConclusao);
 
         await contratoRepositorio.SalvarAlteracoesAsync(ct);
+        await CriarAcessoClienteAsync(solicitacao.Contrato, ct);
         await publicadorAtualizacaoTempoReal.PublicarAsync(
             new EventoAtualizacaoTempoReal(solicitacao.TenantId, EntidadesAtualizacaoTempoReal.Contrato, solicitacao.ContratoId),
             ct);

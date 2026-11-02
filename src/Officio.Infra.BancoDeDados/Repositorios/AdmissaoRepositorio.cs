@@ -107,13 +107,6 @@ internal class AdmissaoRepositorio(ContextoAplicacao contexto)
         => ConsultarPorToken(rastreamento)
             .FirstOrDefaultAsync(admissao => admissao.TokenAcessoHash == tokenHash, cancellationToken);
 
-    public Task<Admissao?> ObterPorTokenEmpresaHashAsync(
-        string tokenHash,
-        bool rastreamento,
-        CancellationToken cancellationToken = default)
-        => ConsultarPorToken(rastreamento)
-            .FirstOrDefaultAsync(admissao => admissao.TokenEmpresaAcessoHash == tokenHash, cancellationToken);
-
     private IQueryable<Admissao> ConsultarPorToken(bool rastreamento)
     {
         IQueryable<Admissao> consulta = Contexto.Admissoes

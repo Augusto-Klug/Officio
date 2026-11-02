@@ -25,6 +25,7 @@ public static class InstalarDependenciasServicos
         servicos.TryAddScoped<INotificacaoServico, NotificacaoServico>();
         servicos.TryAddScoped<IGestaoAcessoServico, GestaoAcessoServico>();
         servicos.TryAddScoped<IAdmissaoServico, AdmissaoServico>();
+        servicos.TryAddScoped<IPortalClienteServico, PortalClienteServico>();
         servicos.TryAddScoped<IAdmissaoDocumentoServico, AdmissaoDocumentoServico>();
         servicos.TryAddScoped<IFichaAdmissaoServico, FichaAdmissaoServico>();
         servicos.TryAddScoped<IEstimadorQualidadeDocumento, EstimadorQualidadeDocumento>();
