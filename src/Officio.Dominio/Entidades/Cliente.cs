@@ -79,6 +79,8 @@ public class Cliente : EntidadeAuditavel
 
     public void AddSocio(Socio socio) => Socios.Add(socio);
 
+    public void EncerrarSocio(Socio socio) => socio.EncerrarVigencia();
+
     public void AtualizarDados(
         string razaoSocial,
         string? nomeFantasia,

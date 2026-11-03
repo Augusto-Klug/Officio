@@ -64,7 +64,7 @@ internal class ProspectoRepositorio(
     public Task<bool> SociosPossuemContratosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
         => Contexto.Contracts.AnyAsync(c => c.RepresentanteSocioId.HasValue && ids.Contains(c.RepresentanteSocioId.Value), ct);
     public Task<List<Socio>> ObterSociosClienteAsync(Guid clienteId, CancellationToken ct = default)
-        => Contexto.Socios.Where(s => s.ClientId == clienteId).Include(s => s.TipoRelacao)
+        => Contexto.Socios.Where(s => s.ClientId == clienteId && s.Ativo).Include(s => s.TipoRelacao)
             .Include(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Municipio).ThenInclude(m => m.Estado)
             .Include(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Estado).ToListAsync(ct);
     public Task<List<TipoRelacao>> ListarTiposRelacaoSocietariaAsync(CancellationToken ct = default)

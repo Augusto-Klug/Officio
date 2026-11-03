@@ -1,4 +1,5 @@
 using Officio.ViewModels.Enumeradores;
+using Officio.ViewModels.Prospectos;
 
 namespace Officio.ViewModels.Clientes;
 
@@ -17,4 +18,12 @@ public record AtualizarClienteViewModel(
     string? Bairro,
     string? Cidade,
     string? Uf,
-    string? Observacoes);
+    string? Observacoes,
+    string? InscricaoEstadual = null,
+    string? InscricaoMunicipal = null,
+    string? TipoEmpresa = null,
+    string? MunicipioCodigoIbge = null,
+    List<CriarSocioViewModel>? Socios = null,
+    bool ConfirmarCancelamentoContratos = false,
+    List<Guid>? ContratosConfirmados = null,
+    string? Complemento = null);

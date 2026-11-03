@@ -9,6 +9,8 @@ internal class SocioMap : IEntityTypeConfiguration<Socio>
         builder.Ignore(s => s.Nome);
         builder.Ignore(s => s.Cpf);
         builder.Property(s => s.Participacao).HasPrecision(5, 2);
+        builder.Property(s => s.Ativo).HasDefaultValue(true);
+        builder.Property(s => s.VigenteDesde).HasDefaultValueSql("GETUTCDATE()");
         builder.HasOne(s => s.Pessoa).WithMany().HasForeignKey(s => s.PessoaId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(s => s.TipoRelacao).WithMany().HasForeignKey(s => s.TipoRelacaoId).OnDelete(DeleteBehavior.Restrict);
     }

@@ -1,6 +1,7 @@
 using MediatR;
 using Officio.Dominio.Enumeradores;
 using Officio.Dominio.Contratos.Response;
+using Officio.Dominio.Contratos;
 
 namespace Officio.Dominio.Mediador.Funcionalidades.Clientes.Comandos.AtualizarCliente;
 
@@ -20,4 +21,12 @@ public record AtualizarClienteComando(
     string? Bairro,
     string? Cidade,
     string? Uf,
-    string? Observacoes) : IRequest<Resultado<Guid>>;
+    string? Observacoes,
+    string? InscricaoEstadual = null,
+    string? InscricaoMunicipal = null,
+    string? TipoEmpresa = null,
+    string? MunicipioCodigoIbge = null,
+    IReadOnlyCollection<CriarSocioRequisicao>? Socios = null,
+    bool ConfirmarCancelamentoContratos = false,
+    IReadOnlyCollection<Guid>? ContratosConfirmados = null,
+    string? Complemento = null) : IRequest<Resultado<Guid>>;

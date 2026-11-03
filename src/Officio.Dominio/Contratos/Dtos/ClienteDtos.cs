@@ -49,13 +49,32 @@ public record ClienteDetalheDto(
     DateTime? InicioRelacionamentoEm,
     IReadOnlyCollection<ClienteSocioDto> Socios,
     IReadOnlyCollection<ClienteContratoDto> Contratos,
-    IReadOnlyCollection<ClienteDocumentoDto> Documentos);
+    IReadOnlyCollection<ClienteDocumentoDto> Documentos,
+    string? InscricaoEstadual = null,
+    string? InscricaoMunicipal = null,
+    string? TipoEmpresa = null,
+    string? Complemento = null,
+    string? MunicipioCodigoIbge = null);
 
 public record ClienteSocioDto(
     Guid Id,
     string Nome,
     string? Cpf,
-    decimal Participacao);
+    decimal Participacao,
+    bool Ativo,
+    DateTime VigenteDesde,
+    DateTime? VigenteAte,
+    string? Profissao,
+    Guid? TipoRelacaoId,
+    string? TipoRelacao,
+    string? Cep,
+    string? Logradouro,
+    string? Numero,
+    string? Complemento,
+    string? Bairro,
+    string? Cidade,
+    string? Uf,
+    string? MunicipioCodigoIbge);
 
 public record ClienteContratoDto(
     Guid Id,

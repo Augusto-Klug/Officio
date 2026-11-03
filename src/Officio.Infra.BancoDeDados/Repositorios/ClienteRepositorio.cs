@@ -52,7 +52,25 @@ internal class ClienteRepositorio(ContextoAplicacao contexto)
     public Task<Cliente?> ObterPorIdAsync(Guid clienteId, CancellationToken cancellationToken = default)
         => Contexto.Clients
             .Include(cliente => cliente.Empresa)
+                .ThenInclude(empresa => empresa.Endereco)
+                    .ThenInclude(endereco => endereco!.Municipio)
+                        .ThenInclude(municipio => municipio.Estado)
+            .Include(cliente => cliente.Empresa)
+                .ThenInclude(empresa => empresa.Endereco)
+                    .ThenInclude(endereco => endereco!.Estado)
+            .Include(cliente => cliente.Socios).ThenInclude(s => s.TipoRelacao)
+            .Include(cliente => cliente.Socios).ThenInclude(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Municipio).ThenInclude(m => m.Estado)
+            .Include(cliente => cliente.Socios).ThenInclude(s => s.Pessoa).ThenInclude(p => p.Endereco).ThenInclude(e => e!.Estado)
             .FirstOrDefaultAsync(cliente => cliente.Id == clienteId, cancellationToken);
+
+    public Task AdicionarSocioAsync(Socio socio, CancellationToken cancellationToken = default)
+        => Contexto.Socios.AddAsync(socio, cancellationToken).AsTask();
+
+    public Task AdicionarPessoaAsync(Pessoa pessoa, CancellationToken cancellationToken = default)
+        => Contexto.Pessoas.AddAsync(pessoa, cancellationToken).AsTask();
+
+    public Task AdicionarEnderecoAsync(Endereco endereco, CancellationToken cancellationToken = default)
+        => Contexto.AddAsync(endereco, cancellationToken).AsTask();
 
     public Task<Cliente?> ObterDetalheAsync(Guid clienteId, CancellationToken cancellationToken = default)
         => Contexto.Clients

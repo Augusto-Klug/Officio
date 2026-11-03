@@ -64,10 +64,6 @@ namespace Officio.Infra.BancoDeDados.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Etnia")
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uniqueidentifier");
 
@@ -79,6 +75,10 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<string>("EstadoCivil")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Etnia")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<string>("Funcao")
                         .HasColumnType("nvarchar(max)");
@@ -2451,6 +2451,11 @@ namespace Officio.Infra.BancoDeDados.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Ativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<DateTime>("AtualizadoEm")
                         .HasColumnType("datetime2");
 
@@ -2478,6 +2483,14 @@ namespace Officio.Infra.BancoDeDados.Migrations
 
                     b.Property<Guid?>("TipoRelacaoId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("VigenteAte")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("VigenteDesde")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.HasKey("Id");
 
