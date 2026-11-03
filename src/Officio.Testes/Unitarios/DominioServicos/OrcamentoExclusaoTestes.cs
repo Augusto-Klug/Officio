@@ -19,11 +19,14 @@ public class OrcamentoExclusaoTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
-        var catalogo = ItemCatalogoOrcamento.Criar(
+        var catalogoHonorario = ItemCatalogoOrcamento.Criar(
             tenantId, "Honorarios", SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario,
-            500m, NaturezaCobrancaItemOrcamento.NaoRecorrente);
+            500m, NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        var catalogoFolha = ItemCatalogoOrcamento.Criar(
+            tenantId, "Folha", SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario,
+            12m, NaturezaCobrancaItemOrcamento.PorFolha);
         contexto.Prospects.Add(prospecto);
-        contexto.BudgetCatalogItems.Add(catalogo);
+        contexto.BudgetCatalogItems.AddRange(catalogoHonorario, catalogoFolha);
         await contexto.SaveChangesAsync();
         var publicador = new PublicadorAtualizacaoFake();
         var servico = CriarServico(contexto, tenantId, publicador);
@@ -33,8 +36,12 @@ public class OrcamentoExclusaoTestes
             "Proposta",
             10,
             null,
-            [new Officio.Dominio.Contratos.ItemOrcamentoRequisicao(
-                catalogo.Id, null, null, null, 1, 500m, 1)]));
+            [
+                new Officio.Dominio.Contratos.ItemOrcamentoRequisicao(
+                    catalogoHonorario.Id, null, null, null, 1, 500m, 1),
+                new Officio.Dominio.Contratos.ItemOrcamentoRequisicao(
+                    catalogoFolha.Id, null, null, null, 1, 12m, 2)
+            ]));
 
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.Equal(
@@ -49,10 +56,14 @@ public class OrcamentoExclusaoTestes
         await using var contexto = CriarContexto(tenantId);
         var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Original", 10, null);
-        var item = ItemOrcamento.CriarSnapshot(
+        var itemHonorario = ItemOrcamento.CriarSnapshot(
             tenantId, orcamento.Id, null, "Honorarios", SecaoItemOrcamento.Honorarios,
-            TipoItemOrcamento.ItemMonetario, 1, 500m, 1);
-        orcamento.AdicionarItem(item);
+            TipoItemOrcamento.ItemMonetario, 1, 500m, 1, NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        var itemFolha = ItemOrcamento.CriarSnapshot(
+            tenantId, orcamento.Id, null, "Folha", SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario, 1, 12m, 2, NaturezaCobrancaItemOrcamento.PorFolha);
+        orcamento.AdicionarItem(itemHonorario);
+        orcamento.AdicionarItem(itemFolha);
         contexto.Prospects.Add(prospecto);
         contexto.Budgets.Add(orcamento);
         await contexto.SaveChangesAsync();
@@ -65,13 +76,96 @@ public class OrcamentoExclusaoTestes
             "Atualizado",
             15,
             null,
-            [new Officio.Dominio.Contratos.ItemOrcamentoRequisicao(
-                null, null, null, null, 2, 500m, 1, ItemOrcamentoId: item.Id)]));
+            [
+                new Officio.Dominio.Contratos.ItemOrcamentoRequisicao(
+                    null, null, null, null, 2, 500m, 1, ItemOrcamentoId: itemHonorario.Id),
+                new Officio.Dominio.Contratos.ItemOrcamentoRequisicao(
+                    null, null, null, null, 1, 12m, 2, ItemOrcamentoId: itemFolha.Id)
+            ]));
 
         Assert.True(resultado.Sucesso, resultado.Erro);
         Assert.Equal(
             [new EventoAtualizacaoTempoReal(tenantId, EntidadesAtualizacaoTempoReal.Orcamento, orcamento.Id)],
             publicador.Eventos);
+    }
+
+    [Theory]
+    [InlineData(false, false, "Honorario mensal e preco por folha")]
+    [InlineData(false, true, "Honorario mensal")]
+    [InlineData(true, false, "preco por folha")]
+    public async Task CriarAsync_SemNaturezasObrigatorias_NaoPersisteOrcamento(
+        bool incluirHonorario,
+        bool incluirFolha,
+        string textoEsperado)
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var catalogoHonorario = ItemCatalogoOrcamento.Criar(
+            tenantId, "Honorarios", SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario,
+            500m, NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        var catalogoFolha = ItemCatalogoOrcamento.Criar(
+            tenantId, "Folha", SecaoItemOrcamento.Honorarios, TipoItemOrcamento.ItemMonetario,
+            12m, NaturezaCobrancaItemOrcamento.PorFolha);
+        var catalogoNaoRecorrente = ItemCatalogoOrcamento.Criar(
+            tenantId, "Servico adicional", SecaoItemOrcamento.ServicosSeparados,
+            TipoItemOrcamento.ItemMonetario, 100m, NaturezaCobrancaItemOrcamento.NaoRecorrente);
+        contexto.Prospects.Add(prospecto);
+        contexto.BudgetCatalogItems.AddRange(catalogoHonorario, catalogoFolha, catalogoNaoRecorrente);
+        await contexto.SaveChangesAsync();
+        var publicador = new PublicadorAtualizacaoFake();
+        var itens = new List<Officio.Dominio.Contratos.ItemOrcamentoRequisicao>();
+        if (incluirHonorario)
+            itens.Add(new(catalogoHonorario.Id, null, null, null, 1, 500m, 1));
+        if (incluirFolha)
+            itens.Add(new(catalogoFolha.Id, null, null, null, 1, 12m, itens.Count + 1));
+        if (itens.Count == 0)
+            itens.Add(new(catalogoNaoRecorrente.Id, null, null, null, 1, 100m, 1));
+
+        var resultado = await CriarServico(contexto, tenantId, publicador).CriarAsync(
+            new Officio.Dominio.Contratos.CriarOrcamentoRequisicao(
+                prospecto.Id, "Proposta", 10, null, itens));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains(textoEsperado, resultado.Erro, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await contexto.Budgets.ToListAsync());
+        Assert.Empty(publicador.Eventos);
+    }
+
+    [Fact]
+    public async Task AtualizarAsync_AoRemoverItemObrigatorio_NaoAlteraOrcamento()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Original", 10, null);
+        var honorario = ItemOrcamento.CriarSnapshot(
+            tenantId, orcamento.Id, null, "Honorarios", SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario, 1, 500m, 1, NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        var folha = ItemOrcamento.CriarSnapshot(
+            tenantId, orcamento.Id, null, "Folha", SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario, 1, 12m, 2, NaturezaCobrancaItemOrcamento.PorFolha);
+        orcamento.SubstituirItens([honorario, folha]);
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.Add(orcamento);
+        await contexto.SaveChangesAsync();
+        contexto.ChangeTracker.Clear();
+        var publicador = new PublicadorAtualizacaoFake();
+
+        var resultado = await CriarServico(contexto, tenantId, publicador).AtualizarAsync(
+            new Officio.Dominio.Contratos.AtualizarOrcamentoRequisicao(
+                orcamento.Id,
+                "Alterado",
+                15,
+                null,
+                [new(null, null, null, null, 1, 500m, 1, ItemOrcamentoId: honorario.Id)]));
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("preco por folha", resultado.Erro, StringComparison.OrdinalIgnoreCase);
+        var salvo = await contexto.Budgets.Include(item => item.Itens).SingleAsync();
+        Assert.Equal("Original", salvo.Titulo);
+        Assert.Equal(2, salvo.Itens.Count);
+        Assert.Empty(publicador.Eventos);
     }
 
     [Fact]

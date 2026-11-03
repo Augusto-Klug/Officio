@@ -112,6 +112,24 @@ public class AcessoEmpresasFluxoTestes(OfficioWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Created, criacaoItemPorFolha.StatusCode);
         var itemPorFolhaId = await criacaoItemPorFolha.Content.ReadFromJsonAsync<Guid>();
 
+        var orcamentoSemPrecoPorFolha = await cliente.PostAsJsonAsync("/api/v1/orcamentos/Criar", new
+        {
+            prospectoId,
+            titulo = "Proposta incompleta",
+            diaVencimento = 10,
+            itens = new[]
+            {
+                new
+                {
+                    itemCatalogoOrcamentoId = itemCatalogoId,
+                    quantidade = 1,
+                    valorUnitario = 500m,
+                    ordem = 1
+                }
+            }
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, orcamentoSemPrecoPorFolha.StatusCode);
+
         var criacaoOrcamento = await cliente.PostAsJsonAsync("/api/v1/orcamentos/Criar", new
         {
             prospectoId,

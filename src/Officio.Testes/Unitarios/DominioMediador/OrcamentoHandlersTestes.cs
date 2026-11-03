@@ -21,14 +21,22 @@ public class OrcamentoHandlersTestes
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
         var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
-        var itemCatalogo = ItemCatalogoOrcamento.Criar(
+        var itemHonorario = ItemCatalogoOrcamento.Criar(
             tenantId,
-            "Escrituracao contabil",
+            "Honorarios contabeis",
             SecaoItemOrcamento.Honorarios,
             TipoItemOrcamento.ItemMonetario,
-            500m);
+            500m,
+            NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        var itemFolha = ItemCatalogoOrcamento.Criar(
+            tenantId,
+            "Processamento de folha",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            12m,
+            NaturezaCobrancaItemOrcamento.PorFolha);
         contexto.Prospects.Add(prospecto);
-        contexto.BudgetCatalogItems.Add(itemCatalogo);
+        contexto.BudgetCatalogItems.AddRange(itemHonorario, itemFolha);
         await contexto.SaveChangesAsync();
         var handler = CriarHandler(contexto, tenantId);
 
@@ -37,16 +45,21 @@ public class OrcamentoHandlersTestes
             "Proposta mensal",
             10,
             "Observacao",
-            [new CriarItemOrcamentoDto(itemCatalogo.Id, null, null, null, 2, 999m, 1)]), CancellationToken.None);
+            [
+                new CriarItemOrcamentoDto(itemHonorario.Id, null, null, null, 2, 999m, 1),
+                new CriarItemOrcamentoDto(itemFolha.Id, null, null, null, 1, 12m, 2)
+            ]), CancellationToken.None);
 
         Assert.True(resultado.Sucesso);
-        var item = await contexto.BudgetItems.SingleAsync();
-        Assert.Equal(itemCatalogo.Id, item.ItemCatalogoOrcamentoId);
-        Assert.Equal(itemCatalogo.Descricao, item.Descricao);
-        Assert.Equal(itemCatalogo.Secao, item.Secao);
-        Assert.Equal(itemCatalogo.Tipo, item.Tipo);
-        Assert.Equal(999m, item.ValorUnitario);
-        Assert.Equal(1998m, item.ValorTotal);
+        var itens = await contexto.BudgetItems.OrderBy(item => item.Ordem).ToListAsync();
+        Assert.Equal(2, itens.Count);
+        Assert.Equal(itemHonorario.Id, itens[0].ItemCatalogoOrcamentoId);
+        Assert.Equal(itemHonorario.Descricao, itens[0].Descricao);
+        Assert.Equal(itemHonorario.Secao, itens[0].Secao);
+        Assert.Equal(itemHonorario.Tipo, itens[0].Tipo);
+        Assert.Equal(999m, itens[0].ValorUnitario);
+        Assert.Equal(1998m, itens[0].ValorTotal);
+        Assert.Equal(itemFolha.Id, itens[1].ItemCatalogoOrcamentoId);
     }
 
     [Fact]
@@ -143,7 +156,15 @@ public class OrcamentoHandlersTestes
             "Descricao atual do catalogo",
             SecaoItemOrcamento.Honorarios,
             TipoItemOrcamento.ItemMonetario,
-            500m);
+            500m,
+            NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        var itemCatalogoFolha = ItemCatalogoOrcamento.Criar(
+            tenantId,
+            "Preco por folha",
+            SecaoItemOrcamento.Honorarios,
+            TipoItemOrcamento.ItemMonetario,
+            12m,
+            NaturezaCobrancaItemOrcamento.PorFolha);
         var orcamento = Orcamento.Criar(tenantId, prospecto.Id, "Proposta mensal", 10, null);
         var itemHistorico = ItemOrcamento.CriarSnapshot(
             tenantId,
@@ -154,11 +175,24 @@ public class OrcamentoHandlersTestes
             TipoItemOrcamento.ItemMonetario,
             1,
             500m,
-            1);
+            1,
+            NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        var itemHistoricoFolha = ItemOrcamento.CriarSnapshot(
+            tenantId,
+            orcamento.Id,
+            itemCatalogoFolha.Id,
+            itemCatalogoFolha.Descricao,
+            itemCatalogoFolha.Secao,
+            itemCatalogoFolha.Tipo,
+            1,
+            12m,
+            2,
+            NaturezaCobrancaItemOrcamento.PorFolha);
         orcamento.AdicionarItem(itemHistorico);
+        orcamento.AdicionarItem(itemHistoricoFolha);
         itemCatalogo.Desativar();
         contexto.Prospects.Add(prospecto);
-        contexto.BudgetCatalogItems.Add(itemCatalogo);
+        contexto.BudgetCatalogItems.AddRange(itemCatalogo, itemCatalogoFolha);
         contexto.Budgets.Add(orcamento);
         await contexto.SaveChangesAsync();
         contexto.ChangeTracker.Clear();
@@ -169,20 +203,34 @@ public class OrcamentoHandlersTestes
             "Proposta atualizada",
             15,
             null,
-            [new CriarItemOrcamentoDto(
-                itemCatalogo.Id,
-                "Descricao ajustada",
-                SecaoItemOrcamento.ServicosSeparados,
-                TipoItemOrcamento.ItemMonetario,
-                2,
-                750m,
-                1,
-                NaturezaCobrancaItemOrcamento.HonorarioMensal,
-                itemHistorico.Id)]), CancellationToken.None);
+            [
+                new CriarItemOrcamentoDto(
+                    itemCatalogo.Id,
+                    "Descricao ajustada",
+                    SecaoItemOrcamento.ServicosSeparados,
+                    TipoItemOrcamento.ItemMonetario,
+                    2,
+                    750m,
+                    1,
+                    NaturezaCobrancaItemOrcamento.HonorarioMensal,
+                    itemHistorico.Id),
+                new CriarItemOrcamentoDto(
+                    itemCatalogoFolha.Id,
+                    null,
+                    null,
+                    null,
+                    1,
+                    12m,
+                    2,
+                    NaturezaCobrancaItemOrcamento.PorFolha,
+                    itemHistoricoFolha.Id)
+            ]), CancellationToken.None);
 
         Assert.True(resultado.Sucesso);
         contexto.ChangeTracker.Clear();
-        var itemAtualizado = await contexto.BudgetItems.SingleAsync();
+        var itemAtualizado = await contexto.BudgetItems.SingleAsync(
+            item => item.NaturezaCobranca == NaturezaCobrancaItemOrcamento.HonorarioMensal);
+        Assert.Equal(2, await contexto.BudgetItems.CountAsync());
         Assert.Equal("Descricao historica", itemAtualizado.Descricao);
         Assert.Equal(SecaoItemOrcamento.ServicosInclusos, itemAtualizado.Secao);
         Assert.Equal(TipoItemOrcamento.ItemMonetario, itemAtualizado.Tipo);

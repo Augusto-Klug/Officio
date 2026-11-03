@@ -22,6 +22,7 @@ import ProspectoCadastroDialog from '../../prospectos/components/ProspectoCadast
 import { useRepresentantesContrato } from '../components/useRepresentantesContrato'
 import { normalizeError } from '../../../api/errors'
 import { deveAbrirConfirmacaoSubstituicao } from '../services/aceite-orcamento'
+import { obterItensObrigatoriosAusentes } from '../services/validacao-itens-orcamento'
 import { formatCurrency, formatDate } from '../../../utils/format'
 import { aceitarOrcamento, atualizarOrcamento, converterOrcamento, criarOrcamento, excluirOrcamento, listarCatalogoOrcamento, listarContratosAtivosParaConversao, listarOrcamentos, obterOrcamento } from '../services/orcamentos.service'
 import { naturezaCobrancaOptions, naturezaCobrancaPorNome, rotuloStatusOrcamento, secaoOptions, secaoPorNome, tipoOptions, tipoPorNome, type ContratoAtivoResumo, type CriarOrcamentoPayload, type ItemCatalogoOrcamento, type NovoItemOrcamento, type Orcamento } from '../types/orcamento'
@@ -56,6 +57,7 @@ const catalogo = ref<ItemCatalogoOrcamento[]>([])
 const catalogLoading = ref(false)
 const catalogError = ref('')
 const catalogoAtivoCount = computed(() => catalogo.value.filter((item) => item.ativo).length)
+const itensObrigatoriosAusentes = computed(() => obterItensObrigatoriosAusentes(form.value.itens))
 const conversion = ref(novaConversao())
 const competenciaEditada = ref(false)
 const { dados: representantes, selecionadoId: representanteId, carregando: representantesLoading,
@@ -238,6 +240,10 @@ async function salvar() {
   const catalogIds = form.value.itens.map((item) => item.itemCatalogoOrcamentoId).filter((id): id is string => !!id)
   if (new Set(catalogIds).size !== catalogIds.length) {
     formError.value = 'Cada serviço pode ser adicionado uma vez. Ajuste a quantidade para incluir mais unidades.'
+    return
+  }
+  if (itensObrigatoriosAusentes.value.length > 0) {
+    formError.value = `Inclua no orçamento os itens obrigatórios: ${itensObrigatoriosAusentes.value.join(' e ')}.`
     return
   }
   for (const natureza of [naturezaCobrancaPorNome.HonorarioMensal, naturezaCobrancaPorNome.PorFolha]) {
@@ -476,6 +482,9 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
       <div class="form-grid two-columns"><div class="field"><label for="budget-title">Título</label><InputText id="budget-title" v-model="form.titulo" /></div><div class="field"><label for="budget-due">Dia de vencimento</label><InputNumber input-id="budget-due" v-model="form.diaVencimento" :min="1" :max="31" /></div></div>
       <div class="field"><label for="budget-notes">Observações</label><Textarea id="budget-notes" v-model="form.observacoes" rows="2" auto-resize /></div>
       <div class="form-section-heading"><div><h3>Itens</h3><p>Serviços e valores que compõem a proposta.</p></div><Button label="Adicionar item" icon="pi pi-plus" text type="button" :disabled="catalogLoading || catalogoAtivoCount === 0" @click="adicionarItem" /></div>
+      <Message v-if="itensObrigatoriosAusentes.length" severity="warn" :closable="false">
+        Para salvar o orçamento, inclua: {{ itensObrigatoriosAusentes.join(' e ') }}.
+      </Message>
       <Message v-if="catalogError" severity="error" :closable="false">{{ catalogError }}</Message>
       <Message v-else-if="!catalogLoading && catalogoAtivoCount === 0" severity="info" :closable="false">
         O catálogo não tem serviços ativos. <RouterLink :to="{ name: 'catalogo-orcamento' }">Cadastrar serviços</RouterLink>
