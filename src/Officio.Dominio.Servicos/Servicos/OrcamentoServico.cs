@@ -35,6 +35,10 @@ public class OrcamentoServico(
         if (!itens.Sucesso)
             return Resultado<Guid>.CriarFalha(itens.Erro!);
 
+        var erroItensObrigatorios = ValidarItensObrigatorios(itens.Valor!);
+        if (erroItensObrigatorios is not null)
+            return Resultado<Guid>.CriarFalha(erroItensObrigatorios);
+
         try
         {
             orcamento.SubstituirItens(itens.Valor!);
@@ -67,6 +71,10 @@ public class OrcamentoServico(
         var itens = await CriarItensParaAtualizacaoAsync(requisicao.Itens, orcamento, ct);
         if (!itens.Sucesso)
             return Resultado<Guid>.CriarFalha(itens.Erro!);
+
+        var erroItensObrigatorios = ValidarItensObrigatorios(itens.Valor!);
+        if (erroItensObrigatorios is not null)
+            return Resultado<Guid>.CriarFalha(erroItensObrigatorios);
 
         orcamento.Atualizar(requisicao.Titulo, requisicao.DiaVencimento, requisicao.Observacoes);
         try
@@ -568,6 +576,21 @@ public class OrcamentoServico(
 
     private static bool DiaVencimentoValido(int diaVencimento)
         => diaVencimento is >= 1 and <= 31;
+
+    private static string? ValidarItensObrigatorios(IEnumerable<ItemOrcamento> itens)
+    {
+        var naturezas = itens.Select(item => item.NaturezaCobranca).ToHashSet();
+        var faltantes = new List<string>();
+
+        if (!naturezas.Contains(NaturezaCobrancaItemOrcamento.HonorarioMensal))
+            faltantes.Add("Honorario mensal");
+        if (!naturezas.Contains(NaturezaCobrancaItemOrcamento.PorFolha))
+            faltantes.Add("preco por folha");
+
+        return faltantes.Count == 0
+            ? null
+            : $"Inclua no orcamento os itens obrigatorios: {string.Join(" e ", faltantes)}.";
+    }
 
     private static bool NaturezaCobrancaValida(
         TipoItemOrcamento tipo,
