@@ -15,7 +15,7 @@ import { normalizeError } from '../../../api/errors'
 import { session } from '../../../stores/session'
 import { formatDate } from '../../../utils/format'
 import { alterarPerfil, alterarStatus, cancelarConvite, convidarUsuario, listarUsuarios, reenviarConvite } from '../services/usuarios.service'
-import type { PerfilUsuario, UsuarioAcesso } from '../types/usuario'
+import type { PerfilGerenciavelUsuario, UsuarioAcesso } from '../types/usuario'
 
 const usuarios = ref<UsuarioAcesso[]>([])
 const loading = ref(true)
@@ -30,12 +30,17 @@ const inviteSaving = ref(false)
 const dialogError = ref('')
 const nome = ref('')
 const email = ref('')
-const perfil = ref<PerfilUsuario>('Comercial')
+const perfil = ref<PerfilGerenciavelUsuario>('Operacional')
 let controller: AbortController | undefined
 
-const perfis = ['Admin', 'Comercial', 'Operacional', 'Financeiro', 'Consulta'].map((value) => ({ label: value, value }))
+const perfis: { label: string; value: PerfilGerenciavelUsuario }[] = [
+  { label: 'Admin', value: 'Admin' },
+  { label: 'Operacional', value: 'Operacional' },
+  { label: 'Consulta', value: 'Consulta' },
+]
 const totalAtivos = computed(() => usuarios.value.filter((item) => item.situacao === 'ATIVO').length)
 const totalPendentes = computed(() => usuarios.value.filter((item) => item.situacao.startsWith('CONVITE_')).length)
+const temUsuariosCliente = computed(() => usuarios.value.some((item) => item.perfil === 'Cliente'))
 
 function statusLabel(item: UsuarioAcesso) {
   return { ATIVO: 'Ativo', INATIVO: 'Inativo', CONVITE_PENDENTE: 'Convite pendente', CONVITE_EXPIRADO: 'Convite expirado' }[item.situacao]
@@ -46,6 +51,23 @@ function statusSeverity(item: UsuarioAcesso): 'success' | 'secondary' | 'warn' {
   return 'secondary'
 }
 function isCurrent(item: UsuarioAcesso) { return item.id === session.value?.usuario.id }
+function confirmationCopy() {
+  if (!selected.value) return ''
+  if (action.value === 'cancelar') return `O convite enviado para ${selected.value.email} deixará de ser válido.`
+  if (selected.value.ativo && selected.value.perfil === 'Cliente')
+    return `${selected.value.nome} perderá o acesso a todas as empresas vinculadas até ser reativado.`
+  return selected.value.ativo
+    ? `${selected.value.nome} perderá o acesso ao Officio até ser reativado.`
+    : `${selected.value.nome} poderá voltar a acessar o Officio.`
+}
+function opcoesPerfil(item: UsuarioAcesso) {
+  if (perfis.some((opcao) => opcao.value === item.perfil)) return perfis
+  const label = item.perfil === 'Cliente' ? 'Cliente' : `${item.perfil} (legado)`
+  return [{ label, value: item.perfil }, ...perfis]
+}
+function nomesEmpresas(item: UsuarioAcesso) {
+  return item.empresas.map((empresa) => empresa.razaoSocial).join(', ')
+}
 
 async function load() {
   controller?.abort()
@@ -58,7 +80,7 @@ async function load() {
 }
 
 function openInvite() {
-  nome.value = ''; email.value = ''; perfil.value = 'Comercial'; dialogError.value = ''; inviteOpen.value = true
+  nome.value = ''; email.value = ''; perfil.value = 'Operacional'; dialogError.value = ''; inviteOpen.value = true
 }
 async function submitInvite() {
   if (inviteSaving.value) return
@@ -74,7 +96,7 @@ async function submitInvite() {
   finally { inviteSaving.value = false }
 }
 
-async function changeRole(item: UsuarioAcesso, value: PerfilUsuario) {
+async function changeRole(item: UsuarioAcesso, value: PerfilGerenciavelUsuario) {
   if (savingId.value || value === item.perfil) return
   savingId.value = item.id
   error.value = ''
@@ -117,7 +139,7 @@ onBeforeUnmount(() => controller?.abort())
 </script>
 
 <template>
-  <PageHeader title="Usuários e acessos" description="Convide pessoas e controle os acessos da sua empresa.">
+  <PageHeader title="Usuários e acessos" description="Gerencie acessos internos e consulte os usuários vinculados às empresas clientes.">
     <BaseButton label="Convidar usuário" icon="pi pi-user-plus" @click="openInvite" />
   </PageHeader>
   <Message v-if="success" severity="success" closable class="page-message" @close="success = ''">{{ success }}</Message>
@@ -130,12 +152,23 @@ onBeforeUnmount(() => controller?.abort())
   </div>
 
   <BaseCard class="data-card">
-    <div class="list-heading"><div><h2>Equipe da empresa</h2><span>Perfis determinam quais áreas cada pessoa pode acessar.</span></div></div>
+    <div class="list-heading"><div><h2>Usuários vinculados ao parceiro</h2><span>Perfis determinam quais áreas cada pessoa pode acessar.</span></div></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando usuários...</p></div>
     <div v-else-if="error" class="list-state"><BaseButton label="Tentar novamente" icon="pi pi-refresh" variant="secondary" @click="load" /></div>
-    <DataTable v-else :value="usuarios" data-key="id" class="work-table access-table" :table-props="{ 'aria-label': 'Usuários da empresa' }">
+    <DataTable v-else :value="usuarios" data-key="id" class="work-table access-table" :table-props="{ 'aria-label': 'Usuários vinculados ao parceiro' }">
       <Column field="nome" header="Usuário"><template #body="{ data }"><div class="company-cell"><strong>{{ data.nome }} <small v-if="isCurrent(data)">(você)</small></strong><span>{{ data.email }}</span></div></template></Column>
-      <Column field="perfil" header="Perfil"><template #body="{ data }"><Select :model-value="data.perfil" :options="perfis" option-label="label" option-value="value" :disabled="savingId === data.id || isCurrent(data)" :aria-label="`Perfil de ${data.nome}`" @update:model-value="changeRole(data, $event)" /></template></Column>
+      <Column field="perfil" header="Perfil"><template #body="{ data }">
+        <Select :model-value="data.perfil" :options="opcoesPerfil(data)" option-label="label" option-value="value" :disabled="data.perfil === 'Cliente' || savingId === data.id || isCurrent(data) || data.situacao.startsWith('CONVITE_')" :aria-label="`Perfil de ${data.nome}`" @update:model-value="changeRole(data, $event)" />
+      </template></Column>
+      <Column v-if="temUsuariosCliente" header="Empresas vinculadas"><template #body="{ data }">
+        <div v-if="data.perfil === 'Cliente' && data.empresas.length" class="company-cell" :aria-label="nomesEmpresas(data)">
+          <span v-for="empresa in data.empresas" :key="empresa.id">
+            {{ empresa.razaoSocial }}<small v-if="!empresa.empresaAtiva || !empresa.vinculoAtivo"> ({{ !empresa.empresaAtiva ? 'inativa' : 'vínculo inativo' }})</small>
+          </span>
+        </div>
+        <span v-else-if="data.perfil === 'Cliente'" class="muted">Sem empresa vinculada</span>
+        <span v-else class="muted">—</span>
+      </template></Column>
       <Column field="situacao" header="Situação"><template #body="{ data }"><StatusBadge :label="statusLabel(data)" :severity="statusSeverity(data)" /></template></Column>
       <Column header="Última atividade"><template #body="{ data }"><span class="muted">{{ data.ultimoAcessoEm ? formatDate(data.ultimoAcessoEm) : data.convidadoEm ? `Convidado em ${formatDate(data.convidadoEm)}` : 'Sem acesso registrado' }}</span></template></Column>
       <Column header="Ações"><template #body="{ data }"><div class="row-actions">
@@ -159,7 +192,7 @@ onBeforeUnmount(() => controller?.abort())
 
   <Dialog v-model:visible="confirmOpen" modal :header="action === 'cancelar' ? 'Cancelar convite' : selected?.ativo ? 'Desativar acesso' : 'Reativar acesso'" class="workflow-dialog" :style="{ width: 'min(460px, 94vw)' }">
     <Message v-if="dialogError" severity="error" :closable="false">{{ dialogError }}</Message>
-    <p v-if="selected" class="confirmation-copy">{{ action === 'cancelar' ? `O convite enviado para ${selected.email} deixará de ser válido.` : selected.ativo ? `${selected.nome} perderá o acesso ao Officio até ser reativado.` : `${selected.nome} poderá voltar a acessar o Officio.` }}</p>
+    <p v-if="selected" class="confirmation-copy">{{ confirmationCopy() }}</p>
     <template #footer><BaseButton label="Voltar" variant="text" :disabled="!!savingId" @click="confirmOpen = false" /><BaseButton :label="action === 'cancelar' ? 'Cancelar convite' : selected?.ativo ? 'Desativar' : 'Reativar'" :icon="action === 'cancelar' ? 'pi pi-times' : 'pi pi-check'" :loading="!!savingId" @click="confirmAction" /></template>
   </Dialog>
 </template>

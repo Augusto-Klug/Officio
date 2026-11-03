@@ -28,7 +28,20 @@ public record ParceiroPlataformaDto(
     int QuantidadeUsuarios,
     string? AdministradorEmail);
 
-public record UsuarioGestaoDto(Guid Id, string Nome, string Email, string Perfil, bool Ativo, DateTime CriadoEm);
+public record EmpresaVinculadaUsuarioDto(
+    Guid Id,
+    string RazaoSocial,
+    bool EmpresaAtiva,
+    bool VinculoAtivo);
+
+public record UsuarioGestaoDto(
+    Guid Id,
+    string Nome,
+    string Email,
+    string Perfil,
+    bool Ativo,
+    DateTime CriadoEm,
+    IReadOnlyCollection<EmpresaVinculadaUsuarioDto> Empresas);
 
 public record ConviteUsuarioDto(
     Guid Id,
@@ -37,6 +50,8 @@ public record ConviteUsuarioDto(
     string Perfil,
     DateTime ExpiraEm,
     string Status,
-    DateTime CriadoEm);
+    DateTime CriadoEm,
+    Guid? EmpresaId = null,
+    string? EmpresaNome = null);
 
 public record ConviteCriadoDto(Guid Id, string Email, DateTime ExpiraEm);

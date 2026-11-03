@@ -15,6 +15,14 @@ public interface IGestaoAcessoRepositorio
     Task<ConviteUsuario?> ObterConvitePorTokenAsync(string tokenHash, CancellationToken ct = default);
     Task<List<ConviteUsuario>> ListarConvitesAsync(CancellationToken ct = default);
     Task<List<Usuario>> ListarUsuariosAsync(CancellationToken ct = default);
+    Task<List<UsuarioEmpresa>> ListarVinculosUsuariosAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> usuarioIds,
+        CancellationToken ct = default);
+    Task<List<Empresa>> ListarEmpresasAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> empresaIds,
+        CancellationToken ct = default);
     Task<Usuario?> ObterUsuarioAsync(Guid usuarioId, CancellationToken ct = default);
     Task<UsuarioEmpresa?> ObterVinculoAsync(Guid usuarioId, Guid empresaId, CancellationToken ct = default);
     Task<bool> EmpresaPertenceAoParceiroAsync(Guid empresaId, Guid tenantId, CancellationToken ct = default);

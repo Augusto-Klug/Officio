@@ -69,6 +69,73 @@ public class GestaoAcessoServicoTestes
     }
 
     [Fact]
+    public async Task ListarUsuarios_IncluiEmpresasVinculadasAClienteESemVinculosParaPerfisInternos()
+    {
+        var tenantId = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenantId);
+        await using var contexto = CriarContexto(tenantId);
+        var cliente = Usuario.Create(tenantId, "Cliente", "cliente@test.local", "hash", "Cliente");
+        var admin = Usuario.Create(tenantId, "Admin", "admin@test.local", "hash", "Admin");
+        var empresaA = Empresa.Create(tenantId, "Empresa A", "11111111000111");
+        var empresaB = Empresa.Create(tenantId, "Empresa B", "22222222000122");
+        contexto.Users.AddRange(cliente, admin);
+        contexto.Empresas.AddRange(empresaA, empresaB);
+        contexto.UsuarioEmpresas.AddRange(
+            UsuarioEmpresa.Criar(cliente.Id, empresaA.Id),
+            UsuarioEmpresa.Criar(cliente.Id, empresaB.Id));
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, empresaAtual, new UsuarioAtualFake(Guid.NewGuid()), new EmailFake());
+
+        var resultado = await servico.ListarUsuariosAsync();
+
+        Assert.True(resultado.Sucesso);
+        var usuarioCliente = resultado.Valor!.Single(usuario => usuario.Id == cliente.Id);
+        Assert.Equal(new[] { "Empresa A", "Empresa B" }, usuarioCliente.Empresas.Select(empresa => empresa.RazaoSocial).Order().ToArray());
+        Assert.All(usuarioCliente.Empresas, empresa => Assert.True(empresa.VinculoAtivo));
+        Assert.Empty(resultado.Valor!.Single(usuario => usuario.Id == admin.Id).Empresas);
+    }
+
+    [Fact]
+    public async Task AlterarPerfil_NaoPermiteAlterarPerfilClienteGerenciadoPorEmpresa()
+    {
+        var tenantId = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenantId);
+        await using var contexto = CriarContexto(tenantId);
+        var cliente = Usuario.Create(tenantId, "Cliente", "cliente@test.local", "hash", "Cliente");
+        contexto.Users.Add(cliente);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, empresaAtual, new UsuarioAtualFake(Guid.NewGuid()), new EmailFake());
+
+        var resultado = await servico.AlterarPerfilAsync(cliente.Id, "Admin");
+
+        Assert.False(resultado.Sucesso);
+        Assert.Equal("Cliente", cliente.Role);
+    }
+
+    [Fact]
+    public async Task ListarConvites_IncluiEmpresaAssociadaAoConviteCliente()
+    {
+        var tenantId = Guid.NewGuid();
+        var empresaAtual = new ServicoEmpresaAtual();
+        empresaAtual.SetTenant(tenantId);
+        await using var contexto = CriarContexto(tenantId);
+        var empresa = Empresa.Create(tenantId, "Empresa do convite", "12345678000190");
+        contexto.Empresas.Add(empresa);
+        await contexto.SaveChangesAsync();
+        var servico = CriarServico(contexto, empresaAtual, new UsuarioAtualFake(Guid.NewGuid()), new EmailFake());
+
+        var convite = await servico.ConvidarClienteAsync(tenantId, empresa.Id, "Contato", "contato@empresa.test");
+        var listagem = await servico.ListarConvitesAsync();
+
+        Assert.True(convite.Sucesso, convite.Erro);
+        var conviteListado = Assert.Single(listagem.Valor!);
+        Assert.Equal(empresa.Id, conviteListado.EmpresaId);
+        Assert.Equal("Empresa do convite", conviteListado.EmpresaNome);
+    }
+
+    [Fact]
     public async Task UltimoAdmin_NaoPodeSerDesativadoNemRebaixado()
     {
         var tenantId = Guid.NewGuid();
