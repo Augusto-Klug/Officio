@@ -26,7 +26,15 @@ public class AtualizarClienteHandler(IClienteServico clienteServico)
             request.Bairro,
             request.Cidade,
             request.Uf,
-            request.Observacoes);
+            request.Observacoes,
+            request.InscricaoEstadual,
+            request.InscricaoMunicipal,
+            request.TipoEmpresa,
+            request.MunicipioCodigoIbge,
+            request.Socios,
+            request.ConfirmarCancelamentoContratos,
+            request.ContratosConfirmados,
+            request.Complemento);
 
         return await clienteServico.AtualizarAsync(requisicao, ct);
     }

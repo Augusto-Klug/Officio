@@ -150,6 +150,25 @@ public class Empresa : EntidadeAuditavel
         TipoEmpresa = prospecto.TipoEmpresa;
     }
 
+    public void AtualizarDadosCliente(string razaoSocial, string? nomeFantasia, string? email,
+        string? telefone, string? whatsapp, string? regimeTributario, string? inscricaoEstadual,
+        string? inscricaoMunicipal, string? tipoEmpresa)
+    {
+        if (string.IsNullOrWhiteSpace(razaoSocial))
+            throw new ArgumentException("Razao social e obrigatoria.", nameof(razaoSocial));
+        RazaoSocial = razaoSocial.Trim();
+        Nome = RazaoSocial;
+        NomeFantasia = Normalizar(nomeFantasia);
+        Email = Normalizar(email);
+        Telefone = Normalizar(telefone);
+        Whatsapp = Normalizar(whatsapp);
+        RegimeTributario = Normalizar(regimeTributario);
+        InscricaoEstadual = Normalizar(inscricaoEstadual);
+        InscricaoMunicipal = Normalizar(inscricaoMunicipal);
+        TipoEmpresa = Normalizar(tipoEmpresa);
+        AtualizadoEm = DateTime.UtcNow;
+    }
+
     private static string? Normalizar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 }

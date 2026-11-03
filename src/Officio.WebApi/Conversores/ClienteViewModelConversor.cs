@@ -3,6 +3,7 @@ using Officio.Dominio.Mediador.Funcionalidades.Clientes.Comandos.AtualizarClient
 using Officio.Dominio.Mediador.Funcionalidades.Clientes.Comandos.VincularCodigoSci;
 using Officio.ViewModels.Clientes;
 using Officio.ViewModels.Enumeradores;
+using Officio.Dominio.Contratos;
 
 namespace Officio.WebApi.Conversores;
 
@@ -25,7 +26,19 @@ internal static class ClienteViewModelConversor
             viewModel.Bairro,
             viewModel.Cidade,
             viewModel.Uf,
-            viewModel.Observacoes);
+            viewModel.Observacoes,
+            viewModel.InscricaoEstadual,
+            viewModel.InscricaoMunicipal,
+            viewModel.TipoEmpresa,
+            viewModel.MunicipioCodigoIbge,
+            viewModel.Socios?.Select(s => new CriarSocioRequisicao(
+                s.Nome, s.Cpf, s.Participacao, s.Id, s.Profissao, s.TipoRelacaoId,
+                s.Endereco is null ? null : new EnderecoSocioRequisicao(
+                    s.Endereco.Cep, s.Endereco.Logradouro, s.Endereco.Numero, s.Endereco.Complemento,
+                    s.Endereco.Bairro, s.Endereco.Cidade, s.Endereco.Uf, s.Endereco.MunicipioCodigoIbge))).ToArray(),
+            viewModel.ConfirmarCancelamentoContratos,
+            viewModel.ContratosConfirmados,
+            viewModel.Complemento);
 
     public static VincularCodigoSciComando ParaComando(this VincularCodigoSciViewModel viewModel, Guid id)
         => new(id, viewModel.SciCodigo);

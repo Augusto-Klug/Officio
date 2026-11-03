@@ -34,6 +34,28 @@ public class Pessoa : EntidadeBase
         AtualizadoEm = DateTime.UtcNow;
     }
 
+    public Pessoa CriarCopia(Endereco? endereco)
+        => new()
+        {
+            EnderecoId = endereco?.Id,
+            Endereco = endereco,
+            Nome = Nome,
+            Cpf = Cpf,
+            Rg = Rg,
+            DataNascimento = DataNascimento,
+            Sexo = Sexo,
+            EstadoCivil = EstadoCivil,
+            Profissao = Profissao,
+            Naturalidade = Naturalidade,
+            Telefone = Telefone,
+            Email = Email,
+            TituloEleitor = TituloEleitor,
+            ReciboUltimaIrpf = ReciboUltimaIrpf,
+            CartorioAssinatura = CartorioAssinatura,
+            CriadoEm = DateTime.UtcNow,
+            AtualizadoEm = DateTime.UtcNow
+        };
+
     public static Pessoa Criar(string nome, string? cpf = null, string? telefone = null, string? email = null)
         => new() { Nome = nome, Cpf = cpf, Telefone = telefone, Email = email };
 }

@@ -122,6 +122,18 @@ internal class ProspectoServico(
         if (ids.Distinct().Count() != ids.Length || ids.Any(socioId => existentes.All(s => s.Id != socioId)))
             return Resultado<bool>.CriarFalha("Socio invalido para este prospecto.");
 
+        if (somenteSocios)
+        {
+            var sociosCliente = existentes.Where(s => s.ClientId.HasValue).ToArray();
+            var alterouSocioCliente = sociosCliente.Any(atual =>
+            {
+                var recebido = socios?.SingleOrDefault(s => s.Id == atual.Id);
+                return recebido is null || !SocioClienteSemAlteracao(atual, recebido);
+            });
+            if (alterouSocioCliente)
+                return Resultado<bool>.CriarFalha("Socios vinculados a um cliente devem ser editados no cadastro do cliente para preservar o historico societario.");
+        }
+
         var sociosValidados = await ValidarSociosAsync(socios, ct);
         if (!sociosValidados.Sucesso) return sociosValidados;
 
@@ -267,6 +279,24 @@ internal class ProspectoServico(
     private static EnderecoSocioRequisicao? MapearEndereco(Endereco? e) => e is null ? null : new(
         e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro, e.Municipio?.Nome,
         e.Municipio?.Estado.Sigla ?? e.Estado?.Sigla, e.Municipio?.CodigoIbge);
+
+    private static bool SocioClienteSemAlteracao(Socio atual, CriarSocioRequisicao recebido)
+    {
+        var endereco = atual.Pessoa.Endereco is { } e
+            ? new EnderecoSocioRequisicao(e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro,
+                e.Municipio?.Nome, e.Municipio?.Estado.Sigla ?? e.Estado?.Sigla, e.Municipio?.CodigoIbge)
+            : null;
+        return string.Equals(atual.Nome, recebido.Nome, StringComparison.Ordinal) &&
+            DocumentoFiscal.SomenteDigitos(atual.Cpf) == DocumentoFiscal.SomenteDigitos(recebido.Cpf) &&
+            atual.Participacao == recebido.Participacao && atual.Pessoa.Profissao == recebido.Profissao &&
+            atual.TipoRelacaoId == recebido.TipoRelacaoId &&
+            string.Equals(endereco?.Cep, recebido.Endereco?.Cep, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(endereco?.Logradouro, recebido.Endereco?.Logradouro, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(endereco?.Numero, recebido.Endereco?.Numero, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(endereco?.Complemento, recebido.Endereco?.Complemento, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(endereco?.Bairro, recebido.Endereco?.Bairro, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(endereco?.MunicipioCodigoIbge, recebido.Endereco?.MunicipioCodigoIbge, StringComparison.OrdinalIgnoreCase);
+    }
 
     private async Task<List<Socio>> ObterSociosParaCadastroAsync(Prospecto prospecto, CancellationToken ct)
     {

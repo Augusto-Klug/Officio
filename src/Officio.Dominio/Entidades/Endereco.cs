@@ -50,4 +50,16 @@ public class Endereco : EntidadeBase
             Bairro = bairro,
             Complemento = complemento
         };
+
+    public Endereco CriarCopia()
+        => new()
+        {
+            MunicipioId = MunicipioId,
+            EstadoId = EstadoId,
+            Cep = Cep,
+            Logradouro = Logradouro,
+            Numero = Numero,
+            Complemento = Complemento,
+            Bairro = Bairro
+        };
 }

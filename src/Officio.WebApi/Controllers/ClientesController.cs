@@ -41,6 +41,7 @@ public class ClientesController(IMediator mediator) : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
+    [ProducesResponseType(409)]
     public async Task<IActionResult> Atualizar(
         Guid id,
         [FromBody] AtualizarClienteViewModel viewModel,
@@ -51,7 +52,15 @@ public class ClientesController(IMediator mediator) : ControllerBase
 
         var resultado = await mediator.Send(comando!, cancellationToken);
 
-        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+        if (resultado.Sucesso) return Ok(resultado.Valor);
+        const string prefixoConfirmacao = "CONFIRMACAO_CANCELAMENTO_CONTRATOS:";
+        if (resultado.Erro?.StartsWith(prefixoConfirmacao, StringComparison.Ordinal) == true)
+            return Conflict(new
+            {
+                code = "CLIENTE_CONTRATOS_PENDENTES",
+                error = resultado.Erro[prefixoConfirmacao.Length..].Trim()
+            });
+        return ResultadoErro(resultado.Erro);
     }
 
     [HttpPatch("{id:guid}")]

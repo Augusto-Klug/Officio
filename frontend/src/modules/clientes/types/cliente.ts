@@ -22,6 +22,20 @@ export interface ClienteSocio {
   nome: string
   cpf: string | null
   participacao: number
+  ativo: boolean
+  vigenteDesde: string
+  vigenteAte: string | null
+  profissao: string | null
+  tipoRelacaoId: string | null
+  tipoRelacao: string | null
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cidade: string | null
+  uf: string | null
+  municipioCodigoIbge: string | null
 }
 
 export interface ClienteContrato {
@@ -50,6 +64,11 @@ export interface ClienteDetalhe extends Omit<Cliente, 'quantidadeSocios' | 'quan
   observacoes: string | null
   prospectOrigemId: string | null
   inicioRelacionamentoEm: string | null
+  inscricaoEstadual: string | null
+  inscricaoMunicipal: string | null
+  tipoEmpresa: string | null
+  complemento: string | null
+  municipioCodigoIbge: string | null
   socios: ClienteSocio[]
   contratos: ClienteContrato[]
   documentos: ClienteDocumento[]

@@ -97,12 +97,12 @@ public class ClienteHandlersTestes
             "contato@cliente.test",
             "4733334444",
             "47999998888",
-            "89000000",
-            "Rua A",
-            "123",
-            "Centro",
-            "Blumenau",
-            "sc",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             "Observacao"), CancellationToken.None);
 
         Assert.True(resultado.Sucesso);
@@ -149,7 +149,9 @@ public class ClienteHandlersTestes
         => new(
             new ClienteRepositorio(contexto),
             new ServicoEnderecoComercialFake(),
-            new PublicadorAtualizacaoTempoRealNulo());
+            new PublicadorAtualizacaoTempoRealNulo(),
+            new ProspectoRepositorio(contexto),
+            new ServicoAssinaturaFake());
 
     private static ServicoEmpresaAtual CriarEmpresaAtual(Guid tenantId)
     {
@@ -171,5 +173,17 @@ public class ClienteHandlersTestes
             Prospecto prospecto,
             CancellationToken cancellationToken = default)
             => Task.FromResult(Resultado<Endereco?>.CriarSucesso(null!));
+    }
+
+    private sealed class ServicoAssinaturaFake : IServicoAssinatura
+    {
+        public Task<ResultadoBloqueioAssinatura> BloquearDocumentoAsync(string documentoId, CancellationToken ct = default)
+            => Task.FromResult(new ResultadoBloqueioAssinatura(true));
+        public Task<ResultadoAssinatura> EnviarParaAssinaturaAsync(SolicitacaoAssinatura request, CancellationToken ct = default)
+            => Task.FromResult(ResultadoAssinatura.CriarFalha("Nao usado."));
+        public Task<ResultadoEstadoAssinatura> ConsultarEstadoDocumentoAsync(string documentoId, CancellationToken ct = default)
+            => Task.FromResult(ResultadoEstadoAssinatura.CriarSucesso(false));
+        public Task<ResultadoDocumentoAssinado> BaixarDocumentoAssinadoAsync(string documentoId, CancellationToken ct = default)
+            => Task.FromResult(ResultadoDocumentoAssinado.CriarFalha("Nao usado."));
     }
 }

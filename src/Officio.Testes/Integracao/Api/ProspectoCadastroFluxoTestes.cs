@@ -549,7 +549,7 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
     }
 
     [Fact]
-    public async Task CadastroSocios_PermiteCompletarVinculoExistenteSomenteNoClienteCorrespondente()
+    public async Task CadastroSocios_BloqueiaEdicaoDoVinculoDoClientePeloProspecto()
     {
         await factory.PrepararTenantAsync(); using var cliente = await ClienteAutenticadoAsync();
         var id = await CriarAsync(cliente);
@@ -566,11 +566,11 @@ public class ProspectoCadastroFluxoTestes(OfficioWebApplicationFactory factory)
         var dados = resposta!["dados"]!.AsObject();
         Assert.Equal(socioClienteId, dados["socios"]![0]!["id"]!.GetValue<Guid>());
         dados["socios"]![0]!["profissao"] = "Arquiteta";
-        Assert.Equal(HttpStatusCode.NoContent, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await cliente.PutAsJsonAsync($"/api/v1/prospectos/AtualizarSocios/{id}", dados)).StatusCode);
         using var verificacao = factory.Services.CreateScope();
         var contexto = verificacao.ServiceProvider.GetRequiredService<ContextoAplicacao>();
         var socio = await contexto.Socios.IgnoreQueryFilters().Include(s => s.Pessoa).SingleAsync(s => s.Id == socioClienteId);
-        Assert.Equal("Arquiteta", socio.Pessoa.Profissao);
+        Assert.Null(socio.Pessoa.Profissao);
         Assert.Single(await contexto.Set<Pessoa>().ToListAsync());
     }
 

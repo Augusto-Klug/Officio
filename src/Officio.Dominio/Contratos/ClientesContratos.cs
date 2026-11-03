@@ -18,7 +18,15 @@ public record AtualizarClienteRequisicao(
     string? Bairro,
     string? Cidade,
     string? Uf,
-    string? Observacoes);
+    string? Observacoes,
+    string? InscricaoEstadual = null,
+    string? InscricaoMunicipal = null,
+    string? TipoEmpresa = null,
+    string? MunicipioCodigoIbge = null,
+    IReadOnlyCollection<CriarSocioRequisicao>? Socios = null,
+    bool ConfirmarCancelamentoContratos = false,
+    IReadOnlyCollection<Guid>? ContratosConfirmados = null,
+    string? Complemento = null);
 
 public record VincularCodigoSciRequisicao(Guid ClienteId, string SciCodigo);
 
@@ -71,7 +79,11 @@ public record ClienteDetalheResultado(
     IReadOnlyCollection<ClienteContratoResultado> Contratos,
     IReadOnlyCollection<ClienteDocumentoResultado> Documentos);
 
-public record ClienteSocioResultado(Guid Id, string Nome, string? Cpf, decimal Participacao);
+public record ClienteSocioResultado(
+    Guid Id, string Nome, string? Cpf, decimal Participacao, bool Ativo,
+    DateTime VigenteDesde, DateTime? VigenteAte, string? Profissao, Guid? TipoRelacaoId,
+    string? TipoRelacao, string? Cep, string? Logradouro, string? Numero, string? Complemento,
+    string? Bairro, string? Cidade, string? Uf, string? MunicipioCodigoIbge);
 
 public record ClienteContratoResultado(
     Guid Id,
