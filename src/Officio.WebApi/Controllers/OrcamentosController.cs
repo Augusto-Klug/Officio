@@ -145,9 +145,6 @@ public class OrcamentosController(IMediator mediator) : ControllerBase
             OrcamentoErros.AceiteConcorrente => Conflict(new ErroOrcamentoViewModel(
                 OrcamentoCodigosErro.AceiteConcorrente,
                 resultado.Erro)),
-            OrcamentoErros.SubstituicaoBloqueadaContrato => BadRequest(new ErroOrcamentoViewModel(
-                OrcamentoCodigosErro.SubstituicaoBloqueadaContrato,
-                resultado.Erro)),
             _ => ResultadoErro(resultado.Erro)
         };
     }

@@ -42,14 +42,11 @@ export function formatarPis(value: string | null | undefined): string {
 }
 
 export function formatarCrc(value: string | null | undefined): string {
-  const digits = somenteDigitos(value).slice(0, 8)
-  const uf = (value?.toUpperCase().match(/[A-Z]/g) ?? []).slice(0, 2).join('')
-  const sequencial = digits.slice(1, 7)
-  let resultado = digits.slice(0, 1) + uf + sequencial
-
-  if (sequencial.length === 6) resultado += '/S-'
-  if (digits.length === 8) resultado += digits[7]
-
+  const digits = somenteDigitos(value).slice(0, 11)
+  let resultado = digits.slice(0, 9)
+  if (digits.length >= 9) resultado += '/'
+  if (digits.length > 9) resultado += digits[9]
+  if (digits.length > 10) resultado += `-${digits[10]}`
   return resultado
 }
 

@@ -625,6 +625,8 @@ public class ContratoServicoTestes
                 Assert.Equal("contratada", item.Tipo);
                 Assert.Equal("Responsável Técnico", item.Nome);
                 Assert.Equal("12345678901", item.Cpf);
+                Assert.Equal("contato@officio.test", item.Email);
+                Assert.Equal("contato@officio.test", item.Email);
             });
 
         var resultado = await servico.EnviarParaAssinaturaAsync(new EnviarAssinaturaRequisicao(
@@ -1342,7 +1344,7 @@ public class ContratoServicoTestes
     {
         var parceiro = Parceiro.CriarDesenvolvimento(tenantId, "12345678000195", "Officio Contabilidade");
         parceiro.AtualizarDadosContabilidade(
-            "12345678000195", "Officio Contabilidade", null, null, null,
+            "12345678000195", "Officio Contabilidade", null, "contato@officio.test", null,
             crcContratadaInformado ? "CRC-SC-12345" : null);
         parceiro.VincularEndereco(CriarEnderecoCompleto(contexto, "Rua da Contabilidade").Id);
 

@@ -19,6 +19,14 @@ internal class ContratoRepositorio(
         => Contexto.Contracts
             .FirstOrDefaultAsync(contrato => contrato.BudgetId == orcamentoId && contrato.Status != StatusContrato.Cancelado, cancellationToken);
 
+    public Task<Contrato?> ObterPorOrcamentoComAssinaturasAsync(
+        Guid orcamentoId,
+        CancellationToken cancellationToken = default)
+        => Contexto.Contracts
+            .Include(contrato => contrato.SolicitacoesAssinatura)
+                .ThenInclude(solicitacao => solicitacao.Signatarios)
+            .FirstOrDefaultAsync(contrato => contrato.BudgetId == orcamentoId, cancellationToken);
+
     public Task<List<Contrato>> ListarAsync(
         Guid? empresaId = null,
         StatusContrato? status = null,
