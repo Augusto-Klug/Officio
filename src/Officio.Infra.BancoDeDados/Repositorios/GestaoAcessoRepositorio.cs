@@ -54,6 +54,26 @@ public class GestaoAcessoRepositorio(ContextoAplicacao contexto) : IGestaoAcesso
     public Task<List<Usuario>> ListarUsuariosAsync(CancellationToken ct = default)
         => contexto.Users.AsNoTracking().ToListAsync(ct);
 
+    public Task<List<UsuarioEmpresa>> ListarVinculosUsuariosAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> usuarioIds,
+        CancellationToken ct = default)
+        => contexto.UsuarioEmpresas.IgnoreQueryFilters().AsNoTracking()
+            .Include(vinculo => vinculo.Empresa)
+            .Where(vinculo => usuarioIds.Contains(vinculo.UsuarioId) &&
+                vinculo.Usuario.TenantId == tenantId &&
+                vinculo.Empresa.TenantId == tenantId)
+            .OrderBy(vinculo => vinculo.Empresa.RazaoSocial)
+            .ToListAsync(ct);
+
+    public Task<List<Empresa>> ListarEmpresasAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> empresaIds,
+        CancellationToken ct = default)
+        => contexto.Empresas.IgnoreQueryFilters().AsNoTracking()
+            .Where(empresa => empresaIds.Contains(empresa.Id) && empresa.TenantId == tenantId)
+            .ToListAsync(ct);
+
     public Task<Usuario?> ObterUsuarioAsync(Guid usuarioId, CancellationToken ct = default)
         => contexto.Users.FirstOrDefaultAsync(usuario => usuario.Id == usuarioId, ct);
 

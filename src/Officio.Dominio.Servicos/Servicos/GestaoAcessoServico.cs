@@ -55,6 +55,25 @@ public class GestaoAcessoServico(
     public async Task<Resultado<List<UsuarioGestaoDto>>> ListarUsuariosAsync(CancellationToken ct = default)
     {
         var usuarios = await repositorio.ListarUsuariosAsync(ct);
+        var usuariosCliente = usuarios
+            .Where(usuario => usuario.Role == PerfisAcesso.Cliente)
+            .Select(usuario => usuario.Id)
+            .ToArray();
+        var vinculos = usuariosCliente.Length == 0
+            ? new List<UsuarioEmpresa>()
+            : await repositorio.ListarVinculosUsuariosAsync(empresaAtual.TenantId, usuariosCliente, ct);
+        var empresasPorUsuario = vinculos
+            .GroupBy(vinculo => vinculo.UsuarioId)
+            .ToDictionary(
+                grupo => grupo.Key,
+                grupo => (IReadOnlyCollection<EmpresaVinculadaUsuarioDto>)grupo.Select(vinculo =>
+                    new EmpresaVinculadaUsuarioDto(
+                        vinculo.EmpresaId,
+                        vinculo.Empresa.RazaoSocial,
+                        vinculo.Empresa.Ativo,
+                        vinculo.Ativo))
+                    .ToArray());
+
         return Resultado<List<UsuarioGestaoDto>>.CriarSucesso(usuarios
             .OrderBy(usuario => usuario.Nome)
             .Select(usuario => new UsuarioGestaoDto(
@@ -63,7 +82,8 @@ public class GestaoAcessoServico(
                 usuario.Email,
                 usuario.Role,
                 usuario.Ativo,
-                usuario.CriadoEm))
+                usuario.CriadoEm,
+                empresasPorUsuario.GetValueOrDefault(usuario.Id, Array.Empty<EmpresaVinculadaUsuarioDto>())))
             .ToList());
     }
 
@@ -161,6 +181,15 @@ public class GestaoAcessoServico(
     {
         var agora = DateTime.UtcNow;
         var convites = await repositorio.ListarConvitesAsync(ct);
+        var empresaIds = convites
+            .Where(convite => convite.Perfil == PerfisAcesso.Cliente && convite.EmpresaId.HasValue)
+            .Select(convite => convite.EmpresaId!.Value)
+            .Distinct()
+            .ToArray();
+        var empresas = empresaIds.Length == 0
+            ? new List<Empresa>()
+            : await repositorio.ListarEmpresasAsync(empresaAtual.TenantId, empresaIds, ct);
+        var nomesEmpresas = empresas.ToDictionary(empresa => empresa.Id, empresa => empresa.RazaoSocial);
         return Resultado<List<ConviteUsuarioDto>>.CriarSucesso(convites
             .OrderByDescending(convite => convite.CriadoEm)
             .Select(convite => new ConviteUsuarioDto(
@@ -170,7 +199,11 @@ public class GestaoAcessoServico(
                 convite.Perfil,
                 convite.ExpiraEm,
                 ObterStatus(convite, agora),
-                convite.CriadoEm))
+                convite.CriadoEm,
+                convite.EmpresaId,
+                convite.EmpresaId is Guid empresaId && nomesEmpresas.TryGetValue(empresaId, out var nomeEmpresa)
+                    ? nomeEmpresa
+                    : null))
             .ToList());
     }
 
@@ -324,6 +357,8 @@ public class GestaoAcessoServico(
         var usuario = await repositorio.ObterUsuarioAsync(usuarioId, ct);
         if (usuario is null)
             return Resultado<bool>.CriarFalha("Usuario nao encontrado.");
+        if (usuario.Role == PerfisAcesso.Cliente || perfilNormalizado == PerfisAcesso.Cliente)
+            return Resultado<bool>.CriarFalha("O perfil Cliente e gerenciado pela ativacao e vinculacao das empresas.");
         if (usuario.Role == PerfisAcesso.Admin && perfilNormalizado != PerfisAcesso.Admin &&
             await repositorio.ContarAdministradoresAtivosAsync(empresaAtual.TenantId, ct) <= 1)
             return Resultado<bool>.CriarFalha("A empresa deve manter ao menos um administrador ativo.");
