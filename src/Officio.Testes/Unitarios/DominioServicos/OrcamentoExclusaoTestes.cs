@@ -7,6 +7,7 @@ using Officio.Dominio.Servicos.Servicos;
 using Officio.Infra.BancoDeDados.Contextos;
 using Officio.Infra.BancoDeDados.Repositorios;
 using Officio.Infraestrutura.Identidade;
+using Officio.Testes.Unitarios.DominioMediador;
 
 namespace Officio.Testes.Unitarios.DominioServicos;
 
@@ -259,6 +260,8 @@ public class OrcamentoExclusaoTestes
         IPublicadorAtualizacaoTempoReal? publicador = null)
         => new OrcamentoServico(
             new OrcamentoRepositorio(contexto),
+            new ContratoRepositorio(contexto),
+            new ServicoAssinaturaOrcamentoFake(),
             new ProspectoRepositorio(contexto),
             CriarEmpresaAtual(tenantId),
             publicador ?? new PublicadorAtualizacaoFake());

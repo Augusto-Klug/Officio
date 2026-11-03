@@ -55,7 +55,7 @@ public sealed class OrcamentoAceiteApiTestes(OfficioWebApplicationFactory factor
     }
 
     [Fact]
-    public async Task Aceitar_RevalidaContratoVinculadoDepoisDaSolicitacaoDeConfirmacao()
+    public async Task Aceitar_ContratoGeradoDepoisDoAvisoCancelaContratoEConcluiSubstituicao()
     {
         var tenantId = await factory.PrepararTenantAsync();
         using var cliente = await ClienteAutenticadoAsync();
@@ -70,16 +70,15 @@ public sealed class OrcamentoAceiteApiTestes(OfficioWebApplicationFactory factor
 
         var confirmacao = await AceitarAsync(cliente, cenario.NovoId, confirmarSubstituicao: true);
 
-        Assert.Equal(HttpStatusCode.BadRequest, confirmacao.StatusCode);
-        var erroConfirmacao = await confirmacao.Content.ReadFromJsonAsync<JsonObject>();
-        Assert.Equal(OrcamentoCodigosErro.SubstituicaoBloqueadaContrato, erroConfirmacao!["code"]!.GetValue<string>());
+        Assert.Equal(HttpStatusCode.OK, confirmacao.StatusCode);
         var status = await ObterStatusAsync(cenario.AnteriorId, cenario.NovoId);
-        Assert.Equal(StatusOrcamento.Aceito, status[cenario.AnteriorId]);
-        Assert.Equal(StatusOrcamento.Rascunho, status[cenario.NovoId]);
+        Assert.Equal(StatusOrcamento.Substituido, status[cenario.AnteriorId]);
+        Assert.Equal(StatusOrcamento.Aceito, status[cenario.NovoId]);
+        Assert.Equal(StatusContrato.Cancelado, await ObterStatusContratoAsync(cenario.AnteriorId));
     }
 
     [Fact]
-    public async Task Aceitar_OrcamentoAnteriorComContratoBloqueiaSemSolicitarConfirmacao()
+    public async Task Aceitar_OrcamentoAnteriorComContratoPendentePedeConfirmacaoECancelaContrato()
     {
         var tenantId = await factory.PrepararTenantAsync();
         using var cliente = await ClienteAutenticadoAsync();
@@ -88,12 +87,17 @@ public sealed class OrcamentoAceiteApiTestes(OfficioWebApplicationFactory factor
 
         var resposta = await AceitarAsync(cliente, cenario.NovoId, confirmarSubstituicao: false);
 
-        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
         var erro = await resposta.Content.ReadFromJsonAsync<JsonObject>();
-        Assert.Equal(OrcamentoCodigosErro.SubstituicaoBloqueadaContrato, erro!["code"]!.GetValue<string>());
+        Assert.Equal(OrcamentoCodigosErro.AceiteRequerConfirmacao, erro!["code"]!.GetValue<string>());
         var status = await ObterStatusAsync(cenario.AnteriorId, cenario.NovoId);
         Assert.Equal(StatusOrcamento.Aceito, status[cenario.AnteriorId]);
         Assert.Equal(StatusOrcamento.Rascunho, status[cenario.NovoId]);
+
+        var confirmacao = await AceitarAsync(cliente, cenario.NovoId, confirmarSubstituicao: true);
+
+        Assert.Equal(HttpStatusCode.OK, confirmacao.StatusCode);
+        Assert.Equal(StatusContrato.Cancelado, await ObterStatusContratoAsync(cenario.AnteriorId));
     }
 
     private async Task<(Guid ProspectoId, Guid AnteriorId, Guid NovoId)> CriarOrcamentosAsync(
@@ -131,6 +135,16 @@ public sealed class OrcamentoAceiteApiTestes(OfficioWebApplicationFactory factor
         return await contexto.Budgets.IgnoreQueryFilters()
             .Where(item => item.Id == anteriorId || item.Id == novoId)
             .ToDictionaryAsync(item => item.Id, item => item.Status);
+    }
+
+    private async Task<StatusContrato> ObterStatusContratoAsync(Guid orcamentoId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var contexto = scope.ServiceProvider.GetRequiredService<ContextoAplicacao>();
+        return await contexto.Contracts.IgnoreQueryFilters()
+            .Where(item => item.BudgetId == orcamentoId)
+            .Select(item => item.Status)
+            .SingleAsync();
     }
 
     private static Task<HttpResponseMessage> AceitarAsync(HttpClient cliente, Guid id, bool confirmarSubstituicao)

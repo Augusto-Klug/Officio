@@ -10,6 +10,8 @@ namespace Officio.Dominio.Servicos.Servicos;
 
 public class OrcamentoServico(
     IOrcamentoRepositorio repositorio,
+    IContratoRepositorio contratoRepositorio,
+    IServicoAssinatura servicoAssinatura,
     IProspectoRepositorio prospectoRepositorio,
     IEmpresaAtual empresaAtual,
     IPublicadorAtualizacaoTempoReal publicadorAtualizacaoTempoReal) : IOrcamentoServico
@@ -251,8 +253,9 @@ public class OrcamentoServico(
         CancellationToken ct = default)
     {
         Guid? orcamentoAnteriorSubstituidoNaTentativa = null;
+        Guid? contratoAnteriorCanceladoNaTentativa = null;
         var tentativaDePersistenciaIniciada = false;
-        (Resultado<bool> resultado, Guid? orcamentoAnteriorSubstituidoId) operacao;
+        (Resultado<bool> resultado, Guid? orcamentoAnteriorSubstituidoId, Guid? contratoAnteriorCanceladoId) operacao;
         try
         {
             operacao = await repositorio.ExecutarAceiteAtomicoAsync(
@@ -261,15 +264,15 @@ public class OrcamentoServico(
                     var orcamento = await repositorio.ObterPorIdComItensAsync(orcamentoId, cancellationToken);
                     if (orcamento is null)
                     {
-                        return (Resultado<bool>.CriarFalha("Orcamento nao encontrado."), (Guid?)null);
+                        return (Resultado<bool>.CriarFalha("Orcamento nao encontrado."), (Guid?)null, (Guid?)null);
                     }
 
                     // If commit acknowledgement was lost, a retry can observe the already committed result.
                     if (orcamento.Status == StatusOrcamento.Aceito)
                     {
                         return tentativaDePersistenciaIniciada
-                            ? (Resultado<bool>.CriarSucesso(true), orcamentoAnteriorSubstituidoNaTentativa)
-                            : (Resultado<bool>.CriarFalha("Orcamento ja esta aceito."), (Guid?)null);
+                            ? (Resultado<bool>.CriarSucesso(true), orcamentoAnteriorSubstituidoNaTentativa, contratoAnteriorCanceladoNaTentativa)
+                            : (Resultado<bool>.CriarFalha("Orcamento ja esta aceito."), (Guid?)null, (Guid?)null);
                     }
 
                     var aceitoAnterior = await repositorio.ObterAceitoPorProspectoAsync(
@@ -277,16 +280,25 @@ public class OrcamentoServico(
                         orcamento.Id,
                         cancellationToken);
 
-                    // A linked contract blocks the commercial replacement, even before asking for confirmation.
-                    if (aceitoAnterior is not null
-                        && await repositorio.PossuiContratoAssociadoAsync(aceitoAnterior.Id, cancellationToken))
-                    {
-                        return (Resultado<bool>.CriarFalha(OrcamentoErros.SubstituicaoBloqueadaContrato), (Guid?)null);
-                    }
-
                     if (aceitoAnterior is not null && !confirmarSubstituicao)
                     {
-                        return (Resultado<bool>.CriarFalha(OrcamentoErros.AceiteRequerConfirmacao), (Guid?)null);
+                        return (Resultado<bool>.CriarFalha(OrcamentoErros.AceiteRequerConfirmacao), (Guid?)null, (Guid?)null);
+                    }
+
+                    if (aceitoAnterior is not null)
+                    {
+                        var contratoAnterior = await contratoRepositorio.ObterPorOrcamentoComAssinaturasAsync(
+                            aceitoAnterior.Id,
+                            cancellationToken);
+                        if (contratoAnterior?.Status is StatusContrato.Rascunho or StatusContrato.AguardandoAssinatura)
+                        {
+                            var cancelamento = await CancelarContratoPendenteAsync(contratoAnterior, cancellationToken);
+                            if (!cancelamento.Sucesso)
+                                return (cancelamento, (Guid?)null, (Guid?)null);
+
+                            contratoAnterior.Cancelar();
+                            contratoAnteriorCanceladoNaTentativa = contratoAnterior.Id;
+                        }
                     }
 
                     try
@@ -296,14 +308,14 @@ public class OrcamentoServico(
                     }
                     catch (InvalidOperationException exception)
                     {
-                        return (Resultado<bool>.CriarFalha(exception.Message), (Guid?)null);
+                        return (Resultado<bool>.CriarFalha(exception.Message), (Guid?)null, (Guid?)null);
                     }
 
                     orcamentoAnteriorSubstituidoNaTentativa = aceitoAnterior?.Id;
                     tentativaDePersistenciaIniciada = true;
                     await repositorio.SalvarAlteracoesAsync(cancellationToken);
 
-                    return (Resultado<bool>.CriarSucesso(true), aceitoAnterior?.Id);
+                    return (Resultado<bool>.CriarSucesso(true), aceitoAnterior?.Id, contratoAnteriorCanceladoNaTentativa);
                 },
                 ct);
         }
@@ -312,7 +324,7 @@ public class OrcamentoServico(
             return Resultado<bool>.CriarFalha(exception.Message);
         }
 
-        var (resultado, orcamentoAnteriorSubstituidoId) = operacao;
+        var (resultado, orcamentoAnteriorSubstituidoId, contratoAnteriorCanceladoId) = operacao;
 
         if (!resultado.Sucesso)
             return resultado;
@@ -320,8 +332,65 @@ public class OrcamentoServico(
         if (orcamentoAnteriorSubstituidoId.HasValue)
             await PublicarAtualizacaoAsync(orcamentoAnteriorSubstituidoId.Value, ct);
         await PublicarAtualizacaoAsync(orcamentoId, ct);
+        if (contratoAnteriorCanceladoId.HasValue)
+            await publicadorAtualizacaoTempoReal.PublicarAsync(
+                new EventoAtualizacaoTempoReal(
+                    empresaAtual.TenantId,
+                    EntidadesAtualizacaoTempoReal.Contrato,
+                    contratoAnteriorCanceladoId.Value),
+                ct);
 
         return resultado;
+    }
+
+    private async Task<Resultado<bool>> CancelarContratoPendenteAsync(
+        Contrato contrato,
+        CancellationToken ct)
+    {
+        if (contrato.Status != StatusContrato.AguardandoAssinatura)
+            return Resultado<bool>.CriarSucesso(true);
+
+        var solicitacoes = contrato.SolicitacoesAssinatura
+            .Where(solicitacao => !string.IsNullOrWhiteSpace(solicitacao.IdExterno))
+            .ToArray();
+        if (solicitacoes.Length == 0)
+            return Resultado<bool>.CriarFalha("Nao foi encontrada solicitacao para bloquear o contrato na Autentique.");
+
+        var documentos = new List<(string Id, HashSet<string> Emails)>();
+        foreach (var solicitacao in solicitacoes)
+        {
+            if (!string.Equals(solicitacao.Provedor, "autentique", StringComparison.OrdinalIgnoreCase))
+                return Resultado<bool>.CriarFalha("O provedor da assinatura nao permite cancelamento automatico.");
+
+            var emails = solicitacao.Signatarios
+                .Select(signatario => signatario.Email.Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (emails.Count == 0 || emails.Count != solicitacao.Signatarios.Count)
+                return Resultado<bool>.CriarFalha("Os signatarios registrados nao permitem confirmar o estado da assinatura.");
+
+            var estado = await servicoAssinatura.ConsultarEstadoDocumentoAsync(solicitacao.IdExterno!, ct);
+            if (!estado.Sucesso || estado.Concluido)
+                return Resultado<bool>.CriarFalha(estado.Concluido
+                    ? "O documento ja foi assinado; atualize os dados antes de continuar."
+                    : "Nao foi possivel consultar a assinatura na Autentique.");
+            if (!emails.SetEquals(estado.EmailsSignatarios))
+                return Resultado<bool>.CriarFalha("Os signatarios da Autentique divergem dos registrados no contrato.");
+
+            documentos.Add((solicitacao.IdExterno!, emails));
+        }
+
+        foreach (var documento in documentos)
+        {
+            var bloqueio = await servicoAssinatura.BloquearDocumentoAsync(documento.Id, ct);
+            if (!bloqueio.Sucesso)
+                return Resultado<bool>.CriarFalha("Nao foi possivel cancelar o documento de assinatura anterior.");
+
+            var estado = await servicoAssinatura.ConsultarEstadoDocumentoAsync(documento.Id, ct);
+            if (!estado.Sucesso || estado.Concluido || !documento.Emails.SetEquals(estado.EmailsSignatarios))
+                return Resultado<bool>.CriarFalha("Nao foi possivel confirmar o cancelamento do documento anterior na Autentique.");
+        }
+
+        return Resultado<bool>.CriarSucesso(true);
     }
 
     public async Task<Resultado<bool>> RecusarAsync(

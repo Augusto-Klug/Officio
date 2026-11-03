@@ -384,6 +384,8 @@ public class OrcamentoHandlersTestes
     private static IOrcamentoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
         => new OrcamentoServico(
             new OrcamentoRepositorio(contexto),
+            new ContratoRepositorio(contexto),
+            new ServicoAssinaturaOrcamentoFake(),
             new ProspectoRepositorio(contexto),
             CriarEmpresaAtual(tenantId),
             new PublicadorAtualizacaoTempoRealNulo());

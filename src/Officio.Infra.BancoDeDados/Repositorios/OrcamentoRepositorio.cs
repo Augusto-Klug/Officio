@@ -29,9 +29,6 @@ internal class OrcamentoRepositorio(ContextoAplicacao contexto)
                 orcamento.Status == StatusOrcamento.Aceito,
                 cancellationToken);
 
-    public Task<bool> PossuiContratoAssociadoAsync(Guid orcamentoId, CancellationToken cancellationToken = default)
-        => Contexto.Contracts.AnyAsync(contrato => contrato.BudgetId == orcamentoId, cancellationToken);
-
     public async Task<T> ExecutarAceiteAtomicoAsync<T>(
         Func<CancellationToken, Task<T>> operacao,
         CancellationToken cancellationToken = default)

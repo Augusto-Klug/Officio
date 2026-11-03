@@ -72,8 +72,8 @@ onBeforeUnmount(() => controller?.abort())
           <BaseInput id="contabilidade-razao" v-model="form.razaoSocial" label="Razão social" maxlength="300" required />
           <BaseInput id="contabilidade-fantasia" v-model="form.nomeFantasia" label="Nome fantasia" maxlength="300" />
           <BaseInput id="contabilidade-cnpj" :model-value="form.cnpj" label="CNPJ" inputmode="numeric" maxlength="18" required @update:model-value="form.cnpj = formatarCnpj($event)" />
-          <BaseInput id="contabilidade-crc" :model-value="form.crc" label="CRC da contabilidade" inputmode="text"
-            maxlength="13" placeholder="1UF123456/S-7" hint="Formato: 1UF123456/S-7 (8 digitos)."
+          <BaseInput id="contabilidade-crc" :model-value="form.crc" label="CRC da contabilidade" inputmode="numeric"
+            maxlength="13" placeholder="123456789/0-1" hint="Formato: 123456789/0-1."
             @update:model-value="form.crc = formatarCrc($event)" />
           <BaseInput id="contabilidade-email" v-model="form.email" label="E-mail" type="email" maxlength="250" autocomplete="email" />
           <BaseInput id="contabilidade-telefone" :model-value="form.telefone" label="Telefone" inputmode="tel" maxlength="15" autocomplete="tel" @update:model-value="form.telefone = formatarTelefone($event)" />
@@ -86,8 +86,8 @@ onBeforeUnmount(() => controller?.abort())
           <BaseInput id="tecnico-nome" v-model="tecnico.nome" label="Nome" maxlength="250" autocomplete="name" />
           <BaseInput id="tecnico-cpf" :model-value="tecnico.cpf" label="CPF" inputmode="numeric" maxlength="14" @update:model-value="tecnico.cpf = formatarCpf($event)" />
           <BaseInput id="tecnico-profissao" v-model="tecnico.profissao" label="Profissão" maxlength="150" />
-          <BaseInput id="tecnico-crc" :model-value="tecnico.crc" label="CRC do responsável técnico" inputmode="text"
-            maxlength="13" placeholder="1UF123456/S-7" hint="Formato: 1UF123456/S-7 (8 digitos)."
+          <BaseInput id="tecnico-crc" :model-value="tecnico.crc" label="CRC do responsável técnico" inputmode="numeric"
+            maxlength="13" placeholder="123456789/0-1" hint="Formato: 123456789/0-1."
             @update:model-value="tecnico.crc = formatarCrc($event)" />
         </div>
         <h3>Endereço do responsável técnico</h3><EnderecoCadastro ref="enderecoTecnicoComponente" v-model="enderecoTecnico" prefix="tecnico" :disabled="saving" />

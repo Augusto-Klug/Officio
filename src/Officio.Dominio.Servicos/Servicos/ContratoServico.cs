@@ -937,7 +937,7 @@ public class ContratoServico(
         return Resultado<List<SignatarioContratoDto>>.CriarSucesso(
         [
             new("contratante", representante.Nome, cpfRepresentante, representante.Pessoa.Email),
-            new("contratada", responsavel.Nome, cpfResponsavel, null)
+            new("contratada", responsavel.Nome, cpfResponsavel, NormalizarEmail(contratada.Email))
         ]);
     }
 

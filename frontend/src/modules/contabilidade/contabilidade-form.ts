@@ -17,12 +17,14 @@ export function validarEndereco(e: EnderecoCadastro): string {
   return ''
 }
 export function validarDados(d: DadosContabilidade): string {
+  if (d.crc && somenteDigitos(d.crc).length !== 11) return 'Informe o CRC com 11 digitos no formato 123456789/0-1.'
   if (!d.razaoSocial.trim()) return 'Informe a razão social.'
   if (somenteDigitos(d.cnpj).length !== 14) return 'Informe um CNPJ com 14 dígitos.'
   if (d.email && !/^\S+@\S+\.\S+$/.test(d.email)) return 'Informe um e-mail válido.'
   if (d.endereco) { const erro = validarEndereco(d.endereco); if (erro) return `Contabilidade: ${erro}` }
   const r = d.responsavelTecnico
   if (r) {
+    if (somenteDigitos(r.crc).length !== 11) return 'Informe o CRC do responsavel tecnico com 11 digitos no formato 123456789/0-1.'
     if (!r.nome.trim() || !r.profissao.trim() || !r.crc.trim()) return 'Complete nome, profissão e CRC do responsável técnico.'
     if (somenteDigitos(r.cpf).length !== 11) return 'Informe um CPF com 11 dígitos para o responsável técnico.'
     if (r.endereco) { const erro = validarEndereco(r.endereco); if (erro) return `Responsável técnico: ${erro}` }

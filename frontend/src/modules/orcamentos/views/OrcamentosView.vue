@@ -457,7 +457,7 @@ onBeforeUnmount(() => { controller?.abort(); catalogController?.abort() })
   <OrcamentoDetalheDialog v-model:visible="detailOpen" :orcamento="selected" :busy="!!actionId" @editar="abrirEdicao" @aceitar="aceitar" @converter="abrirConversao" />
 
   <Dialog v-model:visible="aceitarSubstituicaoOpen" modal header="Substituir orçamento aceito" class="workflow-dialog" :style="{ width: 'min(500px, 94vw)' }" :closable="false" :close-on-escape="false">
-    <p class="confirmation-copy">Já existe um orçamento aceito para este prospecto. Deseja substituí-lo pelo novo orçamento?</p>
+    <p class="confirmation-copy">O orçamento aceito atual será marcado como substituído. Se ele tiver um contrato em rascunho ou aguardando assinatura, o contrato será cancelado e o documento será bloqueado na Autentique. Contratos assinados ou ativos não serão cancelados por esta ação.</p>
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
     <template #footer>
       <BaseButton label="Cancelar" variant="text" :disabled="!!actionId" @click="cancelarAceiteSubstituicao" />

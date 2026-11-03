@@ -34,17 +34,19 @@ describe('dados da contabilidade', () => {
   })
   it('permite salvar cadastro sem responsável e valida CNPJ e e-mail', () => {
     expect(validarDados(dados())).toBe('')
+    expect(validarDados({ ...dados(), crc: '123' })).toContain('CRC')
+    expect(validarDados({ ...dados(), crc: '123456789/0-1' })).toBe('')
     expect(validarDados({ ...dados(), cnpj: '123' })).toContain('CNPJ')
     expect(validarDados({ ...dados(), email: 'email inválido' })).toContain('e-mail')
   })
   it('impede responsável parcial e CPF incompleto', () => {
     const r = { nome: 'Ana', cpf: '123', profissao: 'Contadora', crc: '', endereco: null }
     expect(validarDados({ ...dados(), responsavelTecnico: r })).toContain('CRC')
-    expect(validarDados({ ...dados(), responsavelTecnico: { ...r, crc: 'SP-1' } })).toContain('CPF')
+    expect(validarDados({ ...dados(), responsavelTecnico: { ...r, crc: '123456789/0-1' } })).toContain('CPF')
   })
   it('valida endereço incompleto em cada bloco', () => {
     expect(validarDados({ ...dados(), endereco: { ...novoEndereco(), bairro: 'Centro' } })).toContain('Contabilidade')
-    expect(validarDados({ ...dados(), responsavelTecnico: { nome: 'Ana', cpf: '12345678901', profissao: 'Contadora', crc: 'SP-1',
+    expect(validarDados({ ...dados(), responsavelTecnico: { nome: 'Ana', cpf: '12345678901', profissao: 'Contadora', crc: '123456789/0-1',
       endereco: { ...novoEndereco(), cep: '123' } } })).toContain('Responsável técnico')
   })
 })

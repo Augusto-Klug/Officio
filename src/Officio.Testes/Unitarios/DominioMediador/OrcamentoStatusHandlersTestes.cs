@@ -101,7 +101,7 @@ public class OrcamentoStatusHandlersTestes
     }
 
     [Fact]
-    public async Task AceitarOrcamento_BloqueiaSubstituicaoSeAceitoAnteriorPossuiContrato()
+    public async Task AceitarOrcamento_ContratoRascunhoAnteriorCancelaEPermiteSubstituicaoConfirmada()
     {
         var tenantId = Guid.NewGuid();
         await using var contexto = CriarContexto(tenantId);
@@ -113,22 +113,149 @@ public class OrcamentoStatusHandlersTestes
         contexto.Budgets.AddRange(anterior, novo);
         contexto.Contracts.Add(Contrato.CriarDeOrcamento(anterior, prospecto, DateTime.Today, null, null));
         await contexto.SaveChangesAsync();
-        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
+        var assinatura = new ServicoAssinaturaOrcamentoFake();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId, assinatura));
 
         var semConfirmacao = await handler.Handle(
             new AceitarOrcamentoComando(novo.Id),
             CancellationToken.None);
 
         Assert.False(semConfirmacao.Sucesso);
-        Assert.Equal(OrcamentoErros.SubstituicaoBloqueadaContrato, semConfirmacao.Erro);
+        Assert.Equal(OrcamentoErros.AceiteRequerConfirmacao, semConfirmacao.Erro);
 
         var resultado = await handler.Handle(
             new AceitarOrcamentoComando(novo.Id, ConfirmarSubstituicao: true),
             CancellationToken.None);
 
-        Assert.False(resultado.Sucesso);
-        Assert.Equal(OrcamentoErros.SubstituicaoBloqueadaContrato, resultado.Erro);
+        Assert.True(resultado.Sucesso, resultado.Erro);
         contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusOrcamento.Substituido, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
+        Assert.Equal(StatusContrato.Cancelado, (await contexto.Contracts.SingleAsync()).Status);
+        Assert.Equal(0, assinatura.DocumentosBloqueados);
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_ContratoAguardandoAssinaturaBloqueiaAutentiqueAntesDeSubstituir()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var anterior = Orcamento.Criar(tenantId, prospecto.Id, "Proposta anterior", 10, null);
+        var novo = Orcamento.Criar(tenantId, prospecto.Id, "Nova proposta", 10, null);
+        anterior.Aceitar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(anterior, novo);
+        var contrato = Contrato.CriarDeOrcamento(anterior, prospecto, DateTime.Today, null, null);
+        contrato.MarcarAguardandoAssinatura();
+        var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, Guid.NewGuid(), "autentique");
+        solicitacao.DefinirIdentificadorExterno("documento-antigo");
+        solicitacao.AdicionarSignatario("Sócio", "socio@empresa.test", "contratante", 1);
+        solicitacao.AdicionarSignatario("Contador", "contador@contabilidade.test", "contratada", 2);
+        contrato.SolicitacoesAssinatura.Add(solicitacao);
+        contexto.Contracts.Add(contrato);
+        await contexto.SaveChangesAsync();
+
+        var assinatura = new ServicoAssinaturaOrcamentoFake();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId, assinatura));
+        var resultado = await handler.Handle(
+            new AceitarOrcamentoComando(novo.Id, ConfirmarSubstituicao: true),
+            CancellationToken.None);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.Equal(1, assinatura.DocumentosBloqueados);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusContrato.Cancelado, (await contexto.Contracts.SingleAsync()).Status);
+        Assert.Equal(StatusOrcamento.Substituido, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_ContratoAtivoAnteriorPermaneceAtivoDuranteAceiteDoNovoOrcamento()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var anterior = Orcamento.Criar(tenantId, prospecto.Id, "Proposta anterior", 10, null);
+        var novo = Orcamento.Criar(tenantId, prospecto.Id, "Nova proposta", 10, null);
+        anterior.Aceitar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(anterior, novo);
+        var contrato = Contrato.CriarDeOrcamento(anterior, prospecto, DateTime.Today, null, null);
+        contrato.MarkAsSigned();
+        contexto.Contracts.Add(contrato);
+        await contexto.SaveChangesAsync();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(
+            new AceitarOrcamentoComando(novo.Id, ConfirmarSubstituicao: true),
+            CancellationToken.None);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusContrato.Ativo, (await contexto.Contracts.SingleAsync()).Status);
+        Assert.Equal(StatusOrcamento.Substituido, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_ContratoJaCanceladoNaoImpedeSubstituicaoConfirmada()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var anterior = Orcamento.Criar(tenantId, prospecto.Id, "Proposta anterior", 10, null);
+        var novo = Orcamento.Criar(tenantId, prospecto.Id, "Nova proposta", 10, null);
+        anterior.Aceitar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(anterior, novo);
+        var contrato = Contrato.CriarDeOrcamento(anterior, prospecto, DateTime.Today, null, null);
+        contrato.Cancelar();
+        contexto.Contracts.Add(contrato);
+        await contexto.SaveChangesAsync();
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId));
+
+        var resultado = await handler.Handle(
+            new AceitarOrcamentoComando(novo.Id, ConfirmarSubstituicao: true),
+            CancellationToken.None);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusContrato.Cancelado, (await contexto.Contracts.SingleAsync()).Status);
+        Assert.Equal(StatusOrcamento.Substituido, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
+        Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
+    }
+
+    [Fact]
+    public async Task AceitarOrcamento_FalhaAoBloquearAutentiqueMantemOrcamentosEContratoInalterados()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        var prospecto = Prospecto.Create(tenantId, "Empresa Teste", "11222333000144", null);
+        var anterior = Orcamento.Criar(tenantId, prospecto.Id, "Proposta anterior", 10, null);
+        var novo = Orcamento.Criar(tenantId, prospecto.Id, "Nova proposta", 10, null);
+        anterior.Aceitar();
+        contexto.Prospects.Add(prospecto);
+        contexto.Budgets.AddRange(anterior, novo);
+        var contrato = Contrato.CriarDeOrcamento(anterior, prospecto, DateTime.Today, null, null);
+        contrato.MarcarAguardandoAssinatura();
+        var solicitacao = AssinaturaSolicitacao.Criar(tenantId, contrato.Id, Guid.NewGuid(), "autentique");
+        solicitacao.DefinirIdentificadorExterno("documento-antigo");
+        solicitacao.AdicionarSignatario("Socio", "socio@empresa.test", "contratante", 1);
+        solicitacao.AdicionarSignatario("Contador", "contador@contabilidade.test", "contratada", 2);
+        contrato.SolicitacoesAssinatura.Add(solicitacao);
+        contexto.Contracts.Add(contrato);
+        await contexto.SaveChangesAsync();
+
+        var assinatura = new ServicoAssinaturaOrcamentoFake { BloqueioSucesso = false };
+        var handler = new AceitarOrcamentoHandler(CriarServico(contexto, tenantId, assinatura));
+        var resultado = await handler.Handle(
+            new AceitarOrcamentoComando(novo.Id, ConfirmarSubstituicao: true),
+            CancellationToken.None);
+
+        Assert.False(resultado.Sucesso);
+        contexto.ChangeTracker.Clear();
+        Assert.Equal(StatusContrato.AguardandoAssinatura, (await contexto.Contracts.SingleAsync()).Status);
         Assert.Equal(StatusOrcamento.Aceito, (await contexto.Budgets.SingleAsync(item => item.Id == anterior.Id)).Status);
         Assert.Equal(StatusOrcamento.Rascunho, (await contexto.Budgets.SingleAsync(item => item.Id == novo.Id)).Status);
     }
@@ -279,9 +406,14 @@ public class OrcamentoStatusHandlersTestes
         return new ContextoAplicacao(options, CriarEmpresaAtual(tenantId), new PublicadorEventosFake());
     }
 
-    private static IOrcamentoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
+    private static IOrcamentoServico CriarServico(
+        ContextoAplicacao contexto,
+        Guid tenantId,
+        IServicoAssinatura? assinatura = null)
         => new OrcamentoServico(
             new OrcamentoRepositorio(contexto),
+            new ContratoRepositorio(contexto),
+            assinatura ?? new ServicoAssinaturaOrcamentoFake(),
             new ProspectoRepositorio(contexto),
             CriarEmpresaAtual(tenantId),
             new PublicadorAtualizacaoTempoRealNulo());

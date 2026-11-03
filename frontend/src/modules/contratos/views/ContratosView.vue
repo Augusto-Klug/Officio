@@ -263,7 +263,8 @@ onBeforeUnmount(() => {
         </section>
         <section v-if="signatarioContratada" class="signature-party">
           <div class="signature-party-heading"><strong>CONTRATADA</strong><span>{{ signatarioContratada.nome }} · CPF {{ formatarCpf(signatarioContratada.cpf) }}</span></div>
-          <div class="field"><label for="signer-accounting-email">E-mail do responsável técnico</label><InputText id="signer-accounting-email" v-model="emailContratada" type="email" autocomplete="email" /></div>
+          <p v-if="signatarioContratada.email" class="signature-email">Assinatura enviada para {{ signatarioContratada.email }}</p>
+          <div v-else class="field"><label for="signer-accounting-email">E-mail do responsável técnico</label><InputText id="signer-accounting-email" v-model="emailContratada" type="email" autocomplete="email" /></div>
         </section>
         <p class="signature-note">A ordem de assinatura é livre. O contrato será ativado somente após as duas assinaturas.</p>
         <div class="field"><label for="signature-message">Mensagem (opcional)</label><Textarea id="signature-message" v-model="mensagemPersonalizada" rows="3" auto-resize /></div>
