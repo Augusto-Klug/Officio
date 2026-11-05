@@ -32,6 +32,8 @@ public interface IContratoServico
 
     Task<Resultado<SignatariosContratoDto>> ObterSignatariosAsync(Guid contratoId, CancellationToken ct = default);
 
+    Task<Resultado<LinksAssinaturaContratoDto>> ObterLinksAssinaturaAsync(Guid contratoId, CancellationToken ct = default);
+
     Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(
         Guid contratoId,
         CancellationToken ct = default);

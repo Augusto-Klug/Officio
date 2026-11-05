@@ -26,6 +26,15 @@ export interface SignatarioAssinaturaStatus {
   nome: string
   assinado: boolean
   assinadoEm: string | null
+  possuiLinkAssinatura: boolean
+}
+
+export interface LinkAssinaturaSignatarioInfo {
+  tipo: string
+  nome: string
+  email: string
+  assinado: boolean
+  link: string | null
 }
 
 export interface EmpresaContratoFiltro {

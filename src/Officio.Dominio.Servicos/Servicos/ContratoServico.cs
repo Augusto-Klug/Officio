@@ -254,6 +254,31 @@ public class ContratoServico(
             : Resultado<SignatariosContratoDto>.CriarFalha(signatarios.Erro!);
     }
 
+    public async Task<Resultado<LinksAssinaturaContratoDto>> ObterLinksAssinaturaAsync(
+        Guid contratoId,
+        CancellationToken ct = default)
+    {
+        var contrato = await contratoRepositorio.ObterDetalheAsync(contratoId, ct);
+        if (contrato is null || contrato.TenantId != empresaAtual.TenantId)
+            return Resultado<LinksAssinaturaContratoDto>.CriarFalha("Contrato nao encontrado.");
+
+        var solicitacao = contrato.SolicitacoesAssinatura
+            .OrderByDescending(item => item.SolicitadoEm)
+            .FirstOrDefault();
+        var assinaturaAtiva = contrato.Status == StatusContrato.AguardandoAssinatura && solicitacao?.ConcluidoEm is null;
+        var signatarios = solicitacao?.Signatarios
+            .OrderBy(item => item.Ordem)
+            .Select(item => new LinkAssinaturaSignatarioDto(
+                item.Papel,
+                item.Nome,
+                item.Email,
+                item.AssinadoEm.HasValue,
+                assinaturaAtiva && !item.AssinadoEm.HasValue ? item.LinkAssinatura : null))
+            .ToArray() ?? [];
+
+        return Resultado<LinksAssinaturaContratoDto>.CriarSucesso(new(signatarios));
+    }
+
     public async Task<Resultado<ResultadoPdfContratoDto>> GerarPdfAsync(Guid contratoId, CancellationToken cancellationToken = default)
     {
         var contrato = await contratoRepositorio.ObterParaGeracaoPdfAsync(contratoId, cancellationToken);
@@ -399,7 +424,9 @@ public class ContratoServico(
                 signatario.Email,
                 signatario.Tipo,
                 ordemSignatario++,
-                signatario.Cpf);
+                signatario.Cpf,
+                resultado.LinksAssinantes.FirstOrDefault(link =>
+                    string.Equals(link.Email, signatario.Email, StringComparison.OrdinalIgnoreCase))?.Link);
 
             var assinatura = Assinatura.Create(
                 contrato.TenantId,
@@ -880,7 +907,11 @@ public class ContratoServico(
                 signatario.Papel,
                 signatario.Nome,
                 signatario.AssinadoEm.HasValue || documentoConcluido,
-                signatario.AssinadoEm))
+                signatario.AssinadoEm,
+                contrato.Status == StatusContrato.AguardandoAssinatura &&
+                !documentoConcluido &&
+                !signatario.AssinadoEm.HasValue &&
+                !string.IsNullOrWhiteSpace(signatario.LinkAssinatura)))
             .ToList() ?? [];
 
         return new ContratoDto(

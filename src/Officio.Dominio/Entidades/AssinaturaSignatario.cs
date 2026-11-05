@@ -9,6 +9,7 @@ public class AssinaturaSignatario : EntidadeAuditavel
     public string Nome { get; private set; } = default!;
     public string Email { get; private set; } = default!;
     public string? Cpf { get; private set; }
+    public string? LinkAssinatura { get; private set; }
     public string Papel { get; private set; } = default!;
     public int Ordem { get; private set; }
     public DateTime? AssinadoEm { get; private set; }
@@ -24,7 +25,8 @@ public class AssinaturaSignatario : EntidadeAuditavel
         string email,
         string papel,
         int ordem,
-        string? cpf = null)
+        string? cpf = null,
+        string? linkAssinatura = null)
         => new()
         {
             TenantId = tenantId,
@@ -33,12 +35,16 @@ public class AssinaturaSignatario : EntidadeAuditavel
             Email = email,
             Papel = papel,
             Ordem = ordem,
-            Cpf = cpf
+            Cpf = cpf,
+            LinkAssinatura = linkAssinatura
         };
 
     public void MarcarAssinado(DateTime assinadoEm)
     {
         if (!AssinadoEm.HasValue || assinadoEm < AssinadoEm.Value)
             AssinadoEm = assinadoEm;
+        LimparLinkAssinatura();
     }
+
+    public void LimparLinkAssinatura() => LinkAssinatura = null;
 }

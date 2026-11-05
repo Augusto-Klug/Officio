@@ -276,6 +276,7 @@ internal static class MapeamentoModelagemOfficio
         builder.Entity<AssinaturaSignatario>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.LinkAssinatura).HasMaxLength(2048);
             entity.HasOne(e => e.AssinaturaSolicitacao).WithMany(e => e.Signatarios).HasForeignKey(e => e.AssinaturaSolicitacaoId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Pessoa).WithMany().HasForeignKey(e => e.PessoaId).OnDelete(DeleteBehavior.Restrict);
         });

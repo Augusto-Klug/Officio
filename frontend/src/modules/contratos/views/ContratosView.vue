@@ -16,8 +16,8 @@ import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatCurrency, formatDate } from '../../../utils/format'
 import { formatarCpf } from '../../../utils/inputMasks'
-import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, obterPdfAssinado, obterSignatariosContrato } from '../services/contratos.service'
-import type { Contrato, EmpresaContratoFiltro, SignatarioContratoInfo } from '../types/contrato'
+import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, obterLinksAssinaturaContrato, obterPdfAssinado, obterSignatariosContrato } from '../services/contratos.service'
+import type { Contrato, EmpresaContratoFiltro, LinkAssinaturaSignatarioInfo, SignatarioContratoInfo } from '../types/contrato'
 import { usePageRefresh, type PageRefreshReason } from '../../../composables/usePageRefresh'
 import { useRealtimePageRefresh } from '../../../composables/useRealtimePageRefresh'
 
@@ -32,6 +32,11 @@ const empresasError = ref('')
 const success = ref('')
 const actionId = ref('')
 const signOpen = ref(false)
+const linksOpen = ref(false)
+const linksLoading = ref(false)
+const linksError = ref('')
+const linksContrato = ref<Contrato | null>(null)
+const linksSignatarios = ref<LinkAssinaturaSignatarioInfo[]>([])
 const signerLoading = ref(false)
 const selected = ref<Contrato | null>(null)
 const formError = ref('')
@@ -173,13 +178,49 @@ async function enviarAssinatura() {
     })
     signOpen.value = false
     success.value = result.metodo === 'digital_api' ? 'Contrato enviado para assinatura.' : (result.mensagem || 'PDF disponível para assinatura manual.')
-    resultLinks.value = [
-      ...(result.signatarios || []).map((item) => ({ label: `Assinar como ${item.nome || item.email} (${rotuloPapel(item.tipo)})`, url: item.link })),
-      ...(result.pdfUrl ? [{ label: 'Abrir PDF para assinatura manual', url: result.pdfUrl }] : []),
-    ]
+    resultLinks.value = result.metodo === 'digital_api'
+      ? []
+      : (result.pdfUrl ? [{ label: 'Abrir PDF para assinatura manual', url: result.pdfUrl }] : [])
     await load()
   } catch (cause) { formError.value = normalizeError(cause).message }
   finally { actionId.value = '' }
+}
+
+function possuiLinksAtivos(item: Contrato) {
+  return item.status === 'AguardandoAssinatura' && item.signatariosAssinatura.some((signatario) => signatario.possuiLinkAssinatura)
+}
+
+async function abrirLinksAssinatura(item: Contrato) {
+  linksContrato.value = item
+  linksSignatarios.value = []
+  linksError.value = ''
+  linksLoading.value = true
+  linksOpen.value = true
+  try {
+    const resultado = await obterLinksAssinaturaContrato(item.id)
+    if (linksContrato.value?.id === item.id) linksSignatarios.value = resultado
+  } catch (cause) {
+    if (linksContrato.value?.id === item.id) linksError.value = normalizeError(cause).message
+  } finally {
+    if (linksContrato.value?.id === item.id) linksLoading.value = false
+  }
+}
+
+function fecharLinksAssinatura() {
+  linksOpen.value = false
+  linksContrato.value = null
+  linksSignatarios.value = []
+  linksError.value = ''
+}
+
+async function copiarLinkAssinatura(item: LinkAssinaturaSignatarioInfo) {
+  if (!item.link) return
+  try {
+    await navigator.clipboard.writeText(item.link)
+    success.value = `Link de assinatura de ${item.nome} copiado.`
+  } catch {
+    linksError.value = 'Não foi possível copiar o link. Abra a assinatura pelo botão ao lado.'
+  }
 }
 
 async function abrirPdfAssinado(item: Contrato) {
@@ -208,6 +249,23 @@ function estadoAssinatura(assinado: boolean) {
 }
 
 watch(() => [route.query.empresaId, route.query.status], () => void load(), { immediate: true })
+watch(contratos, (itens) => {
+  if (!linksOpen.value || !linksContrato.value) return
+  const contratoAtual = itens.find((item) => item.id === linksContrato.value?.id)
+  if (!contratoAtual || !possuiLinksAtivos(contratoAtual)) {
+    fecharLinksAssinatura()
+    return
+  }
+  linksContrato.value = contratoAtual
+  linksSignatarios.value = linksSignatarios.value.map((signatario) => {
+    const estado = contratoAtual.signatariosAssinatura.find((item) => item.tipo === signatario.tipo)
+    if (!estado || estado.assinado || !estado.possuiLinkAssinatura)
+      return { ...signatario, assinado: estado?.assinado ?? signatario.assinado, link: null }
+    return signatario
+  })
+  if (!linksLoading.value && linksSignatarios.value.length > 0 && linksSignatarios.value.every((item) => item.link === null))
+    fecharLinksAssinatura()
+})
 void loadEmpresas()
 onBeforeUnmount(() => {
   ++generation
@@ -247,7 +305,7 @@ onBeforeUnmount(() => {
       <Column header="Assinaturas"><template #body="{ data }"><div v-if="data.signatariosAssinatura.length" class="signature-status-list"><div v-for="item in data.signatariosAssinatura" :key="`${item.tipo}-${item.nome}`"><strong>{{ rotuloPapel(item.tipo) }}</strong><span>{{ item.nome }} · {{ estadoAssinatura(item.assinado) }}</span></div></div><span v-else class="muted">—</span></template></Column>
       <Column field="valorTotal" header="Valor"><template #body="{ data }"><span class="numeric">{{ formatCurrency(data.valorTotal) }}</span></template></Column>
       <Column field="dataInicio" header="Início"><template #body="{ data }"><span class="numeric">{{ formatDate(data.dataInicio) }}</span></template></Column>
-      <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton v-if="data.status === 'Rascunho' && !data.pdfGerado" label="Gerar PDF" icon="pi pi-file-pdf" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="gerarPdf(data)" /><BaseButton v-else-if="data.status === 'Rascunho' && data.pdfGerado" label="Enviar" icon="pi pi-send" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirAssinatura(data)" /><BaseButton v-if="data.pdfAssinadoDisponivel" label="Assinado" icon="pi pi-download" variant="text" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirPdfAssinado(data)" /></div></template></Column>
+      <Column header="Ações"><template #body="{ data }"><div class="row-actions"><BaseButton v-if="data.status === 'Rascunho' && !data.pdfGerado" label="Gerar PDF" icon="pi pi-file-pdf" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="gerarPdf(data)" /><BaseButton v-else-if="data.status === 'Rascunho' && data.pdfGerado" label="Enviar" icon="pi pi-send" variant="secondary" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirAssinatura(data)" /><BaseButton v-if="possuiLinksAtivos(data)" icon="pi pi-link" variant="text" title="Ver links de assinatura" aria-label="Ver links de assinatura" :disabled="!!actionId" @click="abrirLinksAssinatura(data)" /><BaseButton v-if="data.pdfAssinadoDisponivel" label="Assinado" icon="pi pi-download" variant="text" :loading="actionId === data.id" :disabled="!!actionId && actionId !== data.id" @click="abrirPdfAssinado(data)" /></div></template></Column>
       <template #empty><div class="empty-state"><i class="pi pi-file" /><h3>{{ empresaId ? 'Nenhum contrato para esta empresa' : statusFiltro ? 'Nenhum contrato com este status' : 'Nenhum contrato criado' }}</h3><p>{{ empresaId || statusFiltro ? 'Ajuste ou limpe os filtros para ver outros contratos.' : 'Contratos gerados a partir de orçamentos aceitos aparecerão aqui.' }}</p><BaseButton v-if="empresaId || statusFiltro" label="Limpar filtros" variant="secondary" @click="limparFiltros" /></div></template>
     </DataTable>
   </BaseCard>
@@ -271,5 +329,26 @@ onBeforeUnmount(() => {
       </template>
     </form>
     <template #footer><BaseButton label="Cancelar" variant="text" @click="signOpen = false" /><BaseButton label="Enviar para ambos" icon="pi pi-send" type="submit" form="signature-form" :loading="!!actionId" :disabled="signerLoading || !signatarioContratante || !signatarioContratada" /></template>
+  </Dialog>
+
+  <Dialog v-model:visible="linksOpen" modal header="Links de assinatura" class="workflow-dialog" :style="{ width: 'min(560px, 94vw)' }" @hide="fecharLinksAssinatura">
+    <div class="signature-links-dialog">
+      <p v-if="linksContrato" class="muted">{{ linksContrato.numero }} · {{ linksContrato.razaoSocial }}</p>
+      <Message v-if="linksError" severity="error" :closable="false">{{ linksError }}</Message>
+      <div v-if="linksLoading" class="list-state compact-state" aria-live="polite"><i class="pi pi-spinner loading-spinner" /><p>Carregando links…</p></div>
+      <div v-else class="signature-link-list">
+        <p v-if="linksSignatarios.length === 0 && !linksError" class="muted">Nenhum link de assinatura ativo.</p>
+        <section v-for="item in linksSignatarios" :key="item.tipo" class="signature-link-item">
+          <div class="signature-link-person"><strong>{{ rotuloPapel(item.tipo) }}</strong><span>{{ item.nome }}</span><span>{{ item.email }}</span></div>
+          <span v-if="item.assinado" class="signature-link-status">Assinado</span>
+          <div v-else-if="item.link" class="signature-link-actions">
+            <a :href="item.link" target="_blank" rel="noopener noreferrer" class="signature-open-link"><i class="pi pi-external-link" aria-hidden="true" />Abrir</a>
+            <BaseButton icon="pi pi-copy" variant="text" title="Copiar link" :aria-label="`Copiar link de ${item.nome}`" @click="copiarLinkAssinatura(item)" />
+          </div>
+          <span v-else class="signature-link-status">Link indisponível</span>
+        </section>
+        <p v-if="!linksSignatarios.length" class="muted">Não há links ativos para este contrato.</p>
+      </div>
+    </div>
   </Dialog>
 </template>

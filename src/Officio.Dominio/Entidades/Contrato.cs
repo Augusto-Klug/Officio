@@ -174,6 +174,8 @@ public class Contrato : EntidadeAuditavel
         if (Status is not (StatusContrato.Rascunho or StatusContrato.AguardandoAssinatura))
             throw new InvalidOperationException("Somente contratos em rascunho ou aguardando assinatura podem ser cancelados.");
         Status = StatusContrato.Cancelado;
+        foreach (var solicitacao in SolicitacoesAssinatura)
+            solicitacao.LimparLinksAssinatura();
     }
 
     public void VincularCliente(Guid clientId)
