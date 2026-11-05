@@ -36,6 +36,7 @@ describe('dados da contabilidade', () => {
     expect(validarDados(dados())).toBe('')
     expect(validarDados({ ...dados(), crc: '123' })).toContain('CRC')
     expect(validarDados({ ...dados(), crc: '123456789/0-1' })).toBe('')
+    expect(validarDados({ ...dados(), crc: '12ABC3456/X-y' })).toBe('')
     expect(validarDados({ ...dados(), cnpj: '123' })).toContain('CNPJ')
     expect(validarDados({ ...dados(), email: 'email inválido' })).toContain('e-mail')
   })
