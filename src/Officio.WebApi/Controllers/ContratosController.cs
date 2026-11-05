@@ -8,6 +8,7 @@ using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ListarEmpresa
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterContratoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterPdfAssinadoContrato;
 using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterSignatariosContrato;
+using Officio.Dominio.Mediador.Funcionalidades.Contratos.Consultas.ObterLinksAssinaturaContrato;
 using Officio.ViewModels.Contratos;
 using Officio.WebApi.Conversores;
 
@@ -78,6 +79,17 @@ public class ContratosController(
     public async Task<IActionResult> ObterSignatarios(Guid id, CancellationToken cancellationToken)
     {
         var resultado = await mediator.Send(new ObterSignatariosContratoConsulta(id), cancellationToken);
+        return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
+    }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> ObterLinksAssinatura(Guid id, CancellationToken cancellationToken)
+    {
+        Response.Headers["Cache-Control"] = "no-store";
+        var resultado = await mediator.Send(new ObterLinksAssinaturaContratoConsulta(id), cancellationToken);
         return resultado.Sucesso ? Ok(resultado.Valor) : ResultadoErro(resultado.Erro);
     }
 

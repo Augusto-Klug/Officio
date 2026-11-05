@@ -657,6 +657,12 @@ public class ContratoServicoTestes
         Assert.Equal("doc-autentique-1", solicitacao.IdExterno);
         Assert.Equal(2, solicitacao.Signatarios.Count);
         Assert.Equal(["contratante", "contratada"], solicitacao.Signatarios.OrderBy(item => item.Ordem).Select(item => item.Papel).ToArray());
+        Assert.Equal("https://assinatura.test/1", solicitacao.Signatarios.Single(item => item.Papel == "contratante").LinkAssinatura);
+        Assert.Equal("https://assinatura.test/2", solicitacao.Signatarios.Single(item => item.Papel == "contratada").LinkAssinatura);
+
+        var links = await servico.ObterLinksAssinaturaAsync(contrato.Id);
+        Assert.True(links.Sucesso, links.Erro);
+        Assert.Equal(2, links.Valor!.Signatarios.Count(item => item.Link is not null));
     }
 
     [Fact]
@@ -1272,8 +1278,11 @@ public class ContratoServicoTestes
 
         Assert.True(primeiroEvento.Sucesso, primeiroEvento.Erro);
         Assert.Equal(StatusContrato.Rascunho, contrato.Status);
-        Assert.NotNull(Assert.Single(solicitacao.Signatarios, item => item.Email == "cliente@teste.com").AssinadoEm);
+        var signatarioAssinado = Assert.Single(solicitacao.Signatarios, item => item.Email == "cliente@teste.com");
+        Assert.NotNull(signatarioAssinado.AssinadoEm);
+        Assert.Null(signatarioAssinado.LinkAssinatura);
         Assert.Null(Assert.Single(solicitacao.Signatarios, item => item.Email == "contador@teste.com").AssinadoEm);
+        Assert.Equal("https://assinatura.test/2", Assert.Single(solicitacao.Signatarios, item => item.Email == "contador@teste.com").LinkAssinatura);
 
         var segundoEvento = await servico.ProcessarWebhookAutentiqueAsync("""
             {"event":"signature.accepted","document":{"id":"doc-autentique-1"},"signer":{"email":"contador@teste.com"},"created_at":"2026-08-30T11:16:00Z"}
@@ -1282,6 +1291,25 @@ public class ContratoServicoTestes
         Assert.True(segundoEvento.Sucesso, segundoEvento.Erro);
         Assert.Equal(StatusContrato.Rascunho, contrato.Status);
         Assert.All(solicitacao.Signatarios, item => Assert.NotNull(item.AssinadoEm));
+        Assert.All(solicitacao.Signatarios, item => Assert.Null(item.LinkAssinatura));
+    }
+
+    [Fact]
+    public async Task CancelarContrato_LimpaLinksDeTodosOsSignatarios()
+    {
+        var tenantId = Guid.NewGuid();
+        await using var contexto = CriarContexto(tenantId);
+        await CriarContratoComSolicitacaoAsync(contexto, tenantId, incluirSignatario: true);
+        var contrato = await contexto.Contracts
+            .Include(item => item.SolicitacoesAssinatura)
+                .ThenInclude(item => item.Signatarios)
+            .SingleAsync();
+
+        contrato.Cancelar();
+        await contexto.SaveChangesAsync();
+
+        Assert.All(contrato.SolicitacoesAssinatura.SelectMany(item => item.Signatarios),
+            item => Assert.Null(item.LinkAssinatura));
     }
 
     private static IContratoServico CriarServico(ContextoAplicacao contexto, Guid tenantId)
@@ -1510,8 +1538,8 @@ public class ContratoServicoTestes
         solicitacao.DefinirIdentificadorExterno("doc-autentique-1");
         if (incluirSignatario)
         {
-            solicitacao.AdicionarSignatario("Cliente Teste", "cliente@teste.com", "contratante", 1, "12345678901");
-            solicitacao.AdicionarSignatario("Contador Teste", "contador@teste.com", "contratada", 2, "98765432100");
+            solicitacao.AdicionarSignatario("Cliente Teste", "cliente@teste.com", "contratante", 1, "12345678901", "https://assinatura.test/1");
+            solicitacao.AdicionarSignatario("Contador Teste", "contador@teste.com", "contratada", 2, "98765432100", "https://assinatura.test/2");
         }
 
         contexto.Prospects.Add(prospecto);

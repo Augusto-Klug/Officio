@@ -23,11 +23,12 @@ describe('mascaras de campos brasileiros', () => {
     expect(formatarPis('12345678901234')).toBe('123.45678.90-1')
   })
 
-  it('formata CRC com 9 digitos, barra e dois digitos finais', () => {
+  it('formata CRC com caracteres alfanumericos sem restringir letras por posicao', () => {
     expect(formatarCrc('12345678901')).toBe('123456789/0-1')
     expect(formatarCrc('12345678901234')).toBe('123456789/0-1')
     expect(formatarCrc('123456789/0-1')).toBe('123456789/0-1')
-    expect(formatarCrc('12ABC3456')).toBe('123456')
+    expect(formatarCrc('12ABC3456Xy')).toBe('12ABC3456/X-y')
+    expect(formatarCrc('123456789/A-B')).toBe('123456789/A-B')
   })
 
   it('identifica CPF ou CNPJ para exibicao e preserva outros documentos', () => {

@@ -161,6 +161,18 @@ h2 { font-size: 1rem; font-weight: 650; margin: 0; }
 .signature-status-list > div { display: grid; gap: 2px; min-width: 0; }
 .signature-status-list strong { color: var(--officio-muted); font-size: 10px; font-weight: 600; }
 .signature-status-list span { font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.signature-links-dialog { display: grid; gap: 14px; }
+.signature-links-dialog > p { margin: 0; }
+.signature-link-list { display: grid; }
+.signature-link-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--officio-border); }
+.signature-link-person { display: grid; gap: 3px; min-width: 0; }
+.signature-link-person strong { font-size: 11px; }
+.signature-link-person span { overflow-wrap: anywhere; font-size: 13px; }
+.signature-link-person span:last-child, .signature-link-status { color: var(--officio-muted); font-size: 12px; }
+.signature-link-actions { display: flex; align-items: center; gap: 6px; }
+.signature-open-link { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 10px; border: 1px solid var(--officio-border); border-radius: 6px; color: var(--officio-brand); font-size: 13px; font-weight: 600; text-decoration: none; }
+.signature-open-link:hover { background: #f4f8f5; }
+.signature-open-link:focus-visible { outline: 2px solid var(--officio-brand); outline-offset: 2px; }
 .signature-party { display: grid; gap: 12px; padding: 4px 0 16px; border-bottom: 1px solid var(--officio-border); }
 .signature-party-heading { display: grid; gap: 4px; }
 .signature-party-heading strong { font-size: 11px; font-weight: 700; }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from '../../../api/http'
-import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, normalizeContratos, normalizeEmpresasContrato, normalizeSignatariosContrato, obterPdfAssinado, obterSignatariosContrato } from './contratos.service'
+import { enviarContratoParaAssinatura, gerarPdfContrato, listarContratos, listarEmpresasContrato, normalizeContratos, normalizeEmpresasContrato, normalizeSignatariosContrato, obterLinksAssinaturaContrato, obterPdfAssinado, obterSignatariosContrato } from './contratos.service'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -29,7 +29,7 @@ describe('contrato HTTP de contratos', () => {
 
   it('normaliza signatários e seus estados, mantendo compatibilidade com respostas antigas', () => {
     expect(normalizeContratos([{ ...contract, signatariosAssinatura: [{ tipo: 'contratante', nome: 'Ana', assinado: true, assinadoEm: null }] }])[0]?.signatariosAssinatura)
-      .toEqual([{ tipo: 'contratante', nome: 'Ana', assinado: true, assinadoEm: null }])
+      .toEqual([{ tipo: 'contratante', nome: 'Ana', assinado: true, assinadoEm: null, possuiLinkAssinatura: false }])
     expect(normalizeContratos([contract])[0]?.signatariosAssinatura).toEqual([])
     expect(normalizeSignatariosContrato({ signatarios: [{ tipo: 'contratada', nome: 'Contador', cpf: '12345678901', email: null }] }))
       .toEqual([{ tipo: 'contratada', nome: 'Contador', cpf: '12345678901', email: null }])
@@ -75,6 +75,18 @@ describe('contrato HTTP de contratos', () => {
     ] } })
     await expect(obterSignatariosContrato('con-1')).resolves.toHaveLength(2)
     expect(get).toHaveBeenCalledWith('/v1/contratos/ObterSignatarios/con-1')
+  })
+
+  it('consulta apenas os dados e links ativos de assinatura do contrato', async () => {
+    const get = vi.spyOn(http, 'get').mockResolvedValue({ data: { signatarios: [
+      { tipo: 'contratante', nome: 'Ana', email: 'ana@empresa.com', assinado: false, link: 'https://assina.test/ana' },
+      { tipo: 'contratada', nome: 'Contador', email: 'contador@empresa.com', assinado: true, link: null },
+    ] } })
+    await expect(obterLinksAssinaturaContrato('con-1')).resolves.toEqual([
+      { tipo: 'contratante', nome: 'Ana', email: 'ana@empresa.com', assinado: false, link: 'https://assina.test/ana' },
+      { tipo: 'contratada', nome: 'Contador', email: 'contador@empresa.com', assinado: true, link: null },
+    ])
+    expect(get).toHaveBeenCalledWith('/v1/contratos/ObterLinksAssinatura/con-1')
   })
 
   it('obtém os links dos PDFs gerado e assinado', async () => {

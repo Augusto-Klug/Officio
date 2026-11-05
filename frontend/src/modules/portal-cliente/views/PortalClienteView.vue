@@ -18,7 +18,7 @@ import PageHeader from '../../../components/layout/PageHeader.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import { normalizeError } from '../../../api/errors'
 import { formatCnpj, formatCurrency, formatDate } from '../../../utils/format'
-import { formatarCpf, formatarPis, somenteDigitos } from '../../../utils/inputMasks'
+import { formatarCpf, formatarPis, formatarTelefone, somenteDigitos } from '../../../utils/inputMasks'
 import type { AdmissaoResumo } from '../../admissoes/types/admissao'
 import type { Contrato } from '../../contratos/types/contrato'
 import { tiposContaAdmissao } from '../../admissoes/types/opcoesAdmissao'
@@ -61,6 +61,14 @@ const statusLabel = (codigo: string) => ({
 }[codigo] ?? codigo)
 const statusSeverity = (codigo: string) => ['CONCLUIDA', 'LIBERADO_PARA_REVISAO_FINAL'].includes(codigo)
   ? 'success' : codigo === 'CANCELADA' ? 'danger' : 'warn'
+
+function exibirValor(valor: string | null | undefined) {
+  return valor?.trim() || 'Não informado'
+}
+
+function exibirOpcao(valor: boolean | null | undefined) {
+  return valor == null ? 'Não informado' : valor ? 'Sim' : 'Não'
+}
 
 async function carregar() {
   loading.value = true
@@ -272,6 +280,38 @@ onMounted(() => void carregar())
       <div class="portal-detail-summary"><div><strong>{{ detalhe.nomeFuncionario }}</strong><span>{{ formatarCpf(detalhe.cpf) || 'CPF não informado' }}</span></div><StatusBadge :label="statusLabel(detalhe.status)" :severity="statusSeverity(detalhe.status)" /></div>
       <Message v-if="!fichaFuncionarioEnviada" severity="info" :closable="false">O funcionário ainda precisa preencher a ficha e enviar os documentos. Os dados do empregador serão liberados depois do envio.</Message>
       <Message v-else-if="empregadorConcluiu" severity="success" :closable="false">Dados enviados. A contabilidade fará a revisão final da admissão.</Message>
+      <section v-if="fichaFuncionarioEnviada" class="portal-employee-readonly" aria-labelledby="employee-info-heading">
+        <div class="portal-readonly-heading">
+          <div><h3 id="employee-info-heading">Dados enviados pelo funcionário</h3><p>Ficha preenchida pelo funcionário; consulta somente leitura.</p></div>
+        </div>
+        <dl class="portal-employee-grid">
+          <div><dt>Nome completo</dt><dd>{{ exibirValor(detalhe.nomeFuncionario) }}</dd></div>
+          <div><dt>CPF</dt><dd>{{ formatarCpf(detalhe.cpf) || 'Não informado' }}</dd></div>
+          <div><dt>RG</dt><dd>{{ exibirValor(detalhe.rg) }}</dd></div>
+          <div><dt>Data de nascimento</dt><dd>{{ formatDate(detalhe.dataNascimento) }}</dd></div>
+          <div><dt>Sexo</dt><dd>{{ exibirValor(detalhe.sexo) }}</dd></div>
+          <div><dt>Etnia</dt><dd>{{ exibirValor(detalhe.etnia) }}</dd></div>
+          <div><dt>Estado civil</dt><dd>{{ exibirValor(detalhe.estadoCivil) }}</dd></div>
+          <div><dt>Escolaridade</dt><dd>{{ exibirValor(detalhe.escolaridade) }}</dd></div>
+          <div><dt>Telefone</dt><dd>{{ formatarTelefone(detalhe.telefone) || 'Não informado' }}</dd></div>
+          <div><dt>E-mail</dt><dd>{{ exibirValor(detalhe.email) }}</dd></div>
+          <div><dt>Banco</dt><dd>{{ exibirValor(detalhe.banco) }}</dd></div>
+          <div><dt>Agência</dt><dd>{{ exibirValor(detalhe.agencia) }}</dd></div>
+          <div><dt>Conta</dt><dd>{{ exibirValor(detalhe.conta) }}</dd></div>
+          <div><dt>Tipo de conta</dt><dd>{{ exibirValor(detalhe.tipoConta) }}</dd></div>
+        </dl>
+        <div class="portal-dependents-readonly">
+          <h4>Dependentes</h4>
+          <div v-if="detalhe.dependentes.length" class="portal-dependent-list">
+            <article v-for="dependente in detalhe.dependentes" :key="dependente.id" class="portal-dependent-row">
+              <strong>{{ exibirValor(dependente.nome) }}</strong>
+              <span>CPF: {{ formatarCpf(dependente.cpf) || 'Não informado' }} | Nascimento: {{ formatDate(dependente.dataNascimento) }}</span>
+              <span>Parentesco: {{ exibirValor(dependente.parentesco) }} | Dependente IRPF: {{ exibirOpcao(dependente.dependenteIr) }} | Salário-família: {{ exibirOpcao(dependente.salarioFamilia) }}</span>
+            </article>
+          </div>
+          <p v-else class="muted">Nenhum dependente informado.</p>
+        </div>
+      </section>
       <section class="portal-employer-form"><h3>Dados da empresa</h3>
         <fieldset :disabled="!empregadorEditavel || saving" class="portal-form-grid">
           <div class="field"><label for="employer-pis">PIS/PASEP</label><InputText id="employer-pis" :model-value="employerForm.pis" inputmode="numeric" maxlength="14" placeholder="000.00000.00-0" @update:model-value="employerForm.pis = formatarPis($event)" /></div>
@@ -280,7 +320,7 @@ onMounted(() => void carregar())
           <div class="field"><label for="employer-function">Função *</label><InputText id="employer-function" v-model="employerForm.funcao" required maxlength="200" /></div>
           <div class="field"><label for="employer-commission">Comissão</label><InputText id="employer-commission" v-model="employerForm.comissao" /></div>
           <div class="field"><label for="employer-trial">Experiência (dias)</label><InputNumber input-id="employer-trial" v-model="employerForm.contratoExperienciaDias" :min="0" :max="90" /></div>
-          <div class="field"><label for="employer-vt">Vale-transporte</label><Select input-id="employer-vt" v-model="employerForm.utilizaValeTransporte" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]" option-label="label" option-value="value" placeholder="Selecione" /></div>
+          <div class="field"><label for="employer-vt">Vale-transporte</label><Select input-id="employer-vt" v-model="employerForm.utilizaValeTransporte" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]" option-label="label" option-value="value" placeholder="Selecione" :disabled="!empregadorEditavel || saving" /></div>
           <div class="field field-span-2"><label for="employer-hours">Horário de trabalho</label><InputText id="employer-hours" v-model="employerForm.horarioTrabalho" maxlength="500" /></div>
         </fieldset>
         <footer v-if="empregadorEditavel" class="portal-dialog-actions"><BaseButton label="Salvar" icon="pi pi-save" variant="secondary" :loading="saving" @click="salvarEmpregador(false)" /><BaseButton label="Enviar à contabilidade" icon="pi pi-send" :loading="saving" @click="salvarEmpregador(true)" /></footer>
@@ -309,6 +349,20 @@ onMounted(() => void carregar())
 .portal-detail-summary { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .portal-detail-summary div { display: grid; gap: .2rem; }
 .portal-detail-summary span { color: var(--text-color-secondary); font-size: .9rem; }
+.portal-employee-readonly { border-top: 1px solid var(--surface-border); padding-top: 1rem; }
+.portal-readonly-heading { margin-bottom: .85rem; }
+.portal-readonly-heading h3, .portal-dependents-readonly h4 { margin: 0; font-size: 1rem; }
+.portal-readonly-heading p { margin: .25rem 0 0; color: var(--text-color-secondary); font-size: .875rem; }
+.portal-employee-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem 1rem; margin: 0; }
+.portal-employee-grid div { min-width: 0; }
+.portal-employee-grid dt { color: var(--text-color-secondary); font-size: .8rem; }
+.portal-employee-grid dd { margin: .2rem 0 0; overflow-wrap: anywhere; }
+.portal-dependents-readonly { margin-top: 1.2rem; }
+.portal-dependents-readonly h4 { margin-bottom: .65rem; }
+.portal-dependent-list { display: grid; gap: .6rem; }
+.portal-dependent-row { display: grid; gap: .2rem; padding: .7rem 0; border-top: 1px solid var(--surface-border); }
+.portal-dependent-row span { color: var(--text-color-secondary); font-size: .875rem; overflow-wrap: anywhere; }
+.portal-dependents-readonly > p { margin: 0; }
 .portal-employer-form { border-top: 1px solid var(--surface-border); padding-top: 1rem; }
 .portal-employer-form h3 { margin: 0 0 1rem; font-size: 1rem; }
 .portal-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -327,10 +381,12 @@ onMounted(() => void carregar())
 .field-span-2 { grid-column: span 2; }
 @media (max-width: 720px) {
   .portal-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .portal-employee-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .portal-detail-summary { align-items: flex-start; }
 }
 @media (max-width: 480px) {
   .portal-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .portal-employee-grid { grid-template-columns: minmax(0, 1fr); }
   .field-span-2 { grid-column: auto; }
 }
 </style>

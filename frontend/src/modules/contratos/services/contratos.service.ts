@@ -1,6 +1,6 @@
 import { http } from '../../../api/http'
 import { field, optionalString, record, requiredString } from '../../../api/contracts'
-import type { Contrato, EmpresaContratoFiltro, EnviarAssinaturaPayload, EnvioAssinaturaResultado, SignatarioAssinaturaStatus, SignatarioContratoInfo } from '../types/contrato'
+import type { Contrato, EmpresaContratoFiltro, EnviarAssinaturaPayload, EnvioAssinaturaResultado, LinkAssinaturaSignatarioInfo, SignatarioAssinaturaStatus, SignatarioContratoInfo } from '../types/contrato'
 
 function booleanValue(value: unknown): boolean {
   if (typeof value !== 'boolean') throw new Error('A API retornou um indicador inválido.')
@@ -23,7 +23,26 @@ function normalizeSignatarioStatus(value: unknown): SignatarioAssinaturaStatus {
     nome: requiredString(field(item, 'nome')),
     assinado: booleanValue(field(item, 'assinado')),
     assinadoEm: optionalString(field(item, 'assinadoEm')),
+    possuiLinkAssinatura: typeof field(item, 'possuiLinkAssinatura') === 'boolean'
+      ? field(item, 'possuiLinkAssinatura') as boolean
+      : false,
   }
+}
+
+function normalizeLinksAssinatura(value: unknown): LinkAssinaturaSignatarioInfo[] {
+  const response = record(value)
+  const signatarios = field(response, 'signatarios')
+  if (!Array.isArray(signatarios)) throw new Error('A API retornou os links de assinatura em formato inesperado.')
+  return signatarios.map((value) => {
+    const item = record(value)
+    return {
+      tipo: requiredString(field(item, 'tipo')),
+      nome: requiredString(field(item, 'nome')),
+      email: requiredString(field(item, 'email')),
+      assinado: booleanValue(field(item, 'assinado')),
+      link: optionalString(field(item, 'link')),
+    }
+  })
 }
 
 function normalizeContrato(value: unknown): Contrato {
@@ -112,6 +131,11 @@ export async function gerarPdfContrato(id: string): Promise<{ pdfUrl: string }> 
 export async function obterSignatariosContrato(id: string): Promise<SignatarioContratoInfo[]> {
   const { data } = await http.get<unknown>(`/v1/contratos/ObterSignatarios/${id}`)
   return normalizeSignatariosContrato(data)
+}
+
+export async function obterLinksAssinaturaContrato(id: string): Promise<LinkAssinaturaSignatarioInfo[]> {
+  const { data } = await http.get<unknown>(`/v1/contratos/ObterLinksAssinatura/${id}`)
+  return normalizeLinksAssinatura(data)
 }
 
 export async function enviarContratoParaAssinatura(id: string, payload: EnviarAssinaturaPayload): Promise<EnvioAssinaturaResultado> {

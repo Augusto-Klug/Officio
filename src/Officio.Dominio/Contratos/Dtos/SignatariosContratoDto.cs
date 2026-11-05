@@ -13,4 +13,5 @@ public sealed record AssinaturaSignatarioResumoDto(
     string Tipo,
     string Nome,
     bool Assinado,
-    DateTime? AssinadoEm);
+    DateTime? AssinadoEm,
+    bool PossuiLinkAssinatura = false);

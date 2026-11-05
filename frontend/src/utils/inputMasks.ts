@@ -42,11 +42,11 @@ export function formatarPis(value: string | null | undefined): string {
 }
 
 export function formatarCrc(value: string | null | undefined): string {
-  const digits = somenteDigitos(value).slice(0, 11)
-  let resultado = digits.slice(0, 9)
-  if (digits.length >= 9) resultado += '/'
-  if (digits.length > 9) resultado += digits[9]
-  if (digits.length > 10) resultado += `-${digits[10]}`
+  const caracteres = (value ?? '').replace(/[^a-z\d]/gi, '').slice(0, 11)
+  let resultado = caracteres.slice(0, 9)
+  if (caracteres.length >= 9) resultado += '/'
+  if (caracteres.length > 9) resultado += caracteres[9]
+  if (caracteres.length > 10) resultado += `-${caracteres[10]}`
   return resultado
 }
 
