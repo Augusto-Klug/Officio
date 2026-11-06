@@ -5,6 +5,7 @@ import BaseButton from '../../../components/base/BaseButton.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 import type { AdmissaoResumo } from '../types/admissao'
 import AdmissaoDocumentosSection from './AdmissaoDocumentosSection.vue'
+import { hasRole } from '../../../stores/session'
 
 const visible = defineModel<boolean>('visible', { required: true })
 const props = defineProps<{ admissao: AdmissaoResumo | null; loading?: boolean; linkLoading?: boolean }>()
@@ -13,9 +14,12 @@ const emit = defineEmits<{ gerarLink: [admissaoId: string, papel: 'funcionario']
 const terminal = computed(() => props.admissao?.status === 'CONCLUIDA' || props.admissao?.status === 'CANCELADA')
 const funcionarioConcluiu = computed(() => props.admissao?.preenchimentoFuncionarioConcluido === true)
 const empresaConcluiu = computed(() => props.admissao?.preenchimentoEmpresaConcluido === true)
-const aguardandoValidacao = computed(() => ['AGUARDANDO_VALIDACAO', 'LIBERADO_PARA_REVISAO_FINAL'].includes(props.admissao?.status ?? '') && funcionarioConcluiu.value && empresaConcluiu.value)
+const permissaoOperacional = computed(() => hasRole('Admin') || hasRole('Operacional'))
+const aguardandoValidacao = computed(() => permissaoOperacional.value && ['AGUARDANDO_VALIDACAO', 'LIBERADO_PARA_REVISAO_FINAL'].includes(props.admissao?.status ?? '') && funcionarioConcluiu.value && empresaConcluiu.value)
 const documentosValidados = computed(() => ['DOCUMENTOS_VALIDADOS', 'CONCLUIDA'].includes(props.admissao?.status ?? ''))
-const documentosEditaveis = computed(() => ['RASCUNHO', 'AGUARDANDO_ADMITIDO', 'AGUARDANDO_VALIDACAO'].includes(props.admissao?.status ?? ''))
+const documentosEditaveis = computed(() =>
+  permissaoOperacional.value &&
+  ['RASCUNHO', 'AGUARDANDO_ADMITIDO', 'AGUARDANDO_VALIDACAO', 'DOCUMENTOS_VALIDADOS', 'AGUARDANDO_EMPREGADOR', 'LIBERADO_PELO_EMPREGADOR', 'LIBERADO_PARA_REVISAO_FINAL'].includes(props.admissao?.status ?? ''))
 const severity = computed(() => {
   if (props.admissao?.status === 'CONCLUIDA') return 'success'
   if (props.admissao?.status === 'CANCELADA') return 'danger'
@@ -37,6 +41,9 @@ const severity = computed(() => {
         <div><span>Empregador</span><StatusBadge :label="empresaConcluiu ? 'Concluído' : 'Pendente'" :severity="empresaConcluiu ? 'success' : 'warn'" /></div>
         <div><span>Revisão documental</span><StatusBadge :label="documentosValidados ? 'Concluída' : funcionarioConcluiu && empresaConcluiu ? 'Pendente' : 'Aguardando fichas'" :severity="documentosValidados ? 'success' : funcionarioConcluiu && empresaConcluiu ? 'warn' : 'secondary'" /></div>
       </div>
+      <Message v-if="documentosEditaveis && funcionarioConcluiu" severity="info" :closable="false">
+        Alterar um documento enviado pelo funcionário exige nova validação. Se a revisão já havia sido concluída, a admissão será reaberta para revisão final.
+      </Message>
       <AdmissaoDocumentosSection :admissao-id="admissao.id" :editable="!terminal && documentosEditaveis" :can-validate="aguardandoValidacao" />
     </div>
     <div v-else class="list-state compact-state"><p>Não foi possível carregar a admissão.</p></div>

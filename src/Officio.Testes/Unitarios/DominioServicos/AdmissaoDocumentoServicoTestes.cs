@@ -53,7 +53,7 @@ public class AdmissaoDocumentoServicoTestes
     }
 
     [Fact]
-    public async Task AlterarDocumento_AposRevisaoDocumentalConcluida_Falha()
+    public async Task SubstituirDocumento_AposRevisaoDocumentalConcluida_ReabreRevisao()
     {
         var cenario = await CriarCenarioAsync();
         await using var contexto = cenario.Contexto;
@@ -62,10 +62,61 @@ public class AdmissaoDocumentoServicoTestes
             CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
         Assert.True(envioInicial.Sucesso);
 
+        await PrepararRevisaoConcluidaAsync(contexto, cenario.AdmissaoId);
+
+        var substituicao = await cenario.Servico.EnviarAsync(
+            CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade-atualizada.pdf"));
+
+        Assert.True(substituicao.Sucesso, substituicao.Erro);
+        var admissaoAtualizada = await contexto.Admissoes
+            .Include(registro => registro.StatusAdmissao)
+            .SingleAsync(registro => registro.Id == cenario.AdmissaoId);
+        Assert.Equal(StatusAdmissaoCodigos.LiberadoParaRevisaoFinal, admissaoAtualizada.StatusAdmissao.Codigo);
+        var documentoAtualizado = await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id);
+        Assert.True(documentoAtualizado.RevisaoPendente);
+        Assert.Equal("identidade-atualizada.pdf", substituicao.Valor!.Documento.NomeArquivo);
+        Assert.Contains(cenario.Armazenamento.Excluidos, caminho => caminho.Contains("identidade.pdf"));
+    }
+
+    [Fact]
+    public async Task RemoverDocumento_AposRevisaoDocumentalConcluida_ReabreRevisao()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        var envio = await cenario.Servico.EnviarAsync(
+            CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        Assert.True(envio.Sucesso);
+        await PrepararRevisaoConcluidaAsync(contexto, cenario.AdmissaoId);
+
+        var remocao = await cenario.Servico.RemoverAsync(cenario.AdmissaoId, item.Id);
+
+        Assert.True(remocao.Sucesso, remocao.Erro);
+        var admissaoAtualizada = await contexto.Admissoes
+            .Include(registro => registro.StatusAdmissao)
+            .SingleAsync(registro => registro.Id == cenario.AdmissaoId);
+        Assert.Equal(StatusAdmissaoCodigos.LiberadoParaRevisaoFinal, admissaoAtualizada.StatusAdmissao.Codigo);
+        var documentoAtualizado = await contexto.AdmissaoDocumentos.SingleAsync(registro => registro.Id == item.Id);
+        Assert.Null(documentoAtualizado.DocumentoId);
+        Assert.False(documentoAtualizado.RevisaoPendente);
+        Assert.Empty(await contexto.Documents.ToListAsync());
+        Assert.Contains(cenario.Armazenamento.Excluidos, caminho => caminho.Contains("identidade.pdf"));
+    }
+
+    [Theory]
+    [InlineData(StatusAdmissaoCodigos.Concluida)]
+    [InlineData(StatusAdmissaoCodigos.Cancelada)]
+    public async Task AlterarDocumento_EmAdmissaoTerminal_Falha(string codigoStatus)
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        var envio = await cenario.Servico.EnviarAsync(
+            CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        Assert.True(envio.Sucesso);
         var repositorio = new AdmissaoRepositorio(contexto);
         var admissao = await repositorio.ObterParaAlteracaoAsync(cenario.AdmissaoId);
-        var status = await repositorio.ObterOuCriarStatusAsync(
-            StatusAdmissaoCodigos.DocumentosValidados, "Documentos validados", 4);
+        var status = await repositorio.ObterOuCriarStatusAsync(codigoStatus, codigoStatus, 99);
         admissao!.AlterarStatus(status.Id);
         await contexto.SaveChangesAsync();
 
@@ -75,8 +126,8 @@ public class AdmissaoDocumentoServicoTestes
 
         Assert.False(substituicao.Sucesso);
         Assert.False(remocao.Sucesso);
-        Assert.Contains("revisao documental", substituicao.Erro);
-        Assert.Contains("revisao documental", remocao.Erro);
+        Assert.Contains("concluida ou cancelada", substituicao.Erro);
+        Assert.Contains("concluida ou cancelada", remocao.Erro);
     }
 
     [Fact]
@@ -309,6 +360,18 @@ public class AdmissaoDocumentoServicoTestes
             6);
         admissao!.MarcarPreenchimentoFuncionarioConcluido();
         admissao.MarcarPreenchimentoEmpresaConcluido();
+        admissao.AlterarStatus(status.Id);
+        await repositorio.SalvarAlteracoesAsync();
+    }
+
+    private static async Task PrepararRevisaoConcluidaAsync(ContextoAplicacao contexto, Guid admissaoId)
+    {
+        var repositorio = new AdmissaoRepositorio(contexto);
+        var admissao = await repositorio.ObterParaAlteracaoAsync(admissaoId);
+        admissao!.MarcarPreenchimentoFuncionarioConcluido();
+        admissao.MarcarPreenchimentoEmpresaConcluido();
+        var status = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.DocumentosValidados, "Documentos validados", 7);
         admissao.AlterarStatus(status.Id);
         await repositorio.SalvarAlteracoesAsync();
     }

@@ -40,6 +40,7 @@ public class AdmissaoDocumento : EntidadeBase
     {
         Documento = null;
         DocumentoId = null;
+        RevisaoPendente = false;
         AtualizadoEm = DateTime.UtcNow;
     }
 

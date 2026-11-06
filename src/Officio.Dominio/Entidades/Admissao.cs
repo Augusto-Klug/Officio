@@ -61,6 +61,25 @@ public class Admissao : EntidadeAuditavel
         };
     }
 
+    public static Admissao CriarParaPreenchimentoFuncionario(
+        Guid tenantId,
+        Guid empresaId,
+        Guid statusAdmissaoId,
+        string emailFuncionario)
+    {
+        if (string.IsNullOrWhiteSpace(emailFuncionario))
+            throw new ArgumentException("E-mail do funcionario e obrigatorio.", nameof(emailFuncionario));
+
+        return new()
+        {
+            TenantId = tenantId,
+            EmpresaId = empresaId,
+            StatusAdmissaoId = statusAdmissaoId,
+            NomeFuncionario = string.Empty,
+            Email = emailFuncionario.Trim().ToLowerInvariant()
+        };
+    }
+
     public void AtualizarDados(
         string nomeFuncionario,
         string? cpf,

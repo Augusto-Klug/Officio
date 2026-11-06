@@ -66,6 +66,10 @@ public sealed class PortalClienteApiTestes(OfficioWebApplicationFactory factory)
         Assert.True(criada["linkFuncionarioEnviado"]!.GetValue<bool>());
         var email = Assert.Single(factory.ServicoEmail.Emails);
         Assert.Equal("nova.funcionaria@integracao.test", email.Destinatario);
+        Assert.Equal("Ficha de admissao disponivel para preenchimento", email.Assunto);
+        Assert.Contains("Sua ficha de admissao esta disponivel para preenchimento.", email.Corpo);
+        Assert.DoesNotContain("Aguardando preenchimento", email.Assunto);
+        Assert.DoesNotContain("Aguardando preenchimento", email.Corpo);
 
         using var scope = factory.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<IEmpresaAtual>().SetTenant(tenantId);
@@ -73,7 +77,7 @@ public sealed class PortalClienteApiTestes(OfficioWebApplicationFactory factory)
         var admissao = await contexto.Admissoes
             .Include(item => item.StatusAdmissao)
             .SingleAsync(item => item.Id == criada["id"]!.GetValue<Guid>());
-        Assert.Equal("Aguardando preenchimento", admissao.NomeFuncionario);
+        Assert.Empty(admissao.NomeFuncionario);
         Assert.Null(admissao.Cpf);
         Assert.Equal("nova.funcionaria@integracao.test", admissao.Email);
         Assert.Equal("AGUARDANDO_ADMITIDO", admissao.StatusAdmissao.Codigo);

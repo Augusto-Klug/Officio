@@ -242,11 +242,10 @@ public sealed class FichaAdmissaoServico(
             return Resultado<bool>.CriarFalha("A URL do frontend nao esta configurada para envio de e-mails.");
 
         var url = $"{frontend}/ficha-admissao/{Uri.EscapeDataString(requisicao.Token)}";
-        const string papel = "admitido";
         var expiraEmBrasil = new DateTimeOffset(expiraEm.Value, TimeSpan.Zero)
             .ToOffset(TimeSpan.FromHours(-3));
-        var corpo = $"Ola,\n\nA ficha de {papel} para {admissao.NomeFuncionario} esta disponivel para preenchimento.\n\nAcesse: {url}\n\nEste link expira em {expiraEmBrasil:dd/MM/yyyy HH:mm} (horario de Brasilia).";
-        await servicoEmail.SendAsync(endereco.Address, $"Ficha de admissao de {admissao.NomeFuncionario}", corpo, ct);
+        var corpo = $"Ola,\n\nSua ficha de admissao esta disponivel para preenchimento.\n\nAcesse: {url}\n\nEste link expira em {expiraEmBrasil:dd/MM/yyyy HH:mm} (horario de Brasilia).";
+        await servicoEmail.SendAsync(endereco.Address, "Ficha de admissao disponivel para preenchimento", corpo, ct);
         return Resultado<bool>.CriarSucesso(true);
     }
 

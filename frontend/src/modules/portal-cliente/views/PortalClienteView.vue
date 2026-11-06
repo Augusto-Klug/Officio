@@ -222,7 +222,7 @@ onMounted(() => void carregar())
     <BaseCard class="portal-table">
       <div v-if="loading" class="portal-loading" aria-busy="true"><i class="pi pi-spinner loading-spinner" />Carregando admissões...</div>
       <DataTable v-else :value="admissoes" data-key="id" :table-props="{ 'aria-label': 'Admissões da empresa' }">
-        <Column field="nomeFuncionario" header="Funcionário" />
+        <Column field="nomeFuncionario" header="Funcionário"><template #body="{ data }">{{ data.nomeFuncionario || 'Não informado' }}</template></Column>
         <Column field="cpf" header="CPF"><template #body="{ data }">{{ formatarCpf(data.cpf) || 'Não informado' }}</template></Column>
         <Column field="status" header="Situação"><template #body="{ data }"><StatusBadge :label="statusLabel(data.status)" :severity="statusSeverity(data.status)" /></template></Column>
         <Column field="dataAdmissaoPrevista" header="Admissão"><template #body="{ data }">{{ formatDate(data.dataAdmissaoPrevista) }}</template></Column>
