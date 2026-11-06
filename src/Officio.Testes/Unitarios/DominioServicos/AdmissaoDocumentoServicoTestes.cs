@@ -169,6 +169,30 @@ public class AdmissaoDocumentoServicoTestes
         Assert.False(atualizado.RevisaoPendente);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Validar_ResultadoNaoAprovado_LimpaRevisaoPendente(bool fallbackManual)
+    {
+        var resultadoOcr = new ValidationResultDto(false, 0.2m, [], fallbackManual, "Documento exige revisao.");
+        var cenario = await CriarCenarioAsync(Resultado<ValidationResultDto>.CriarSucesso(resultadoOcr));
+        await using var contexto = cenario.Contexto;
+        var item = await contexto.AdmissaoDocumentos.OrderBy(documento => documento.Ordem).FirstAsync();
+        await cenario.Servico.EnviarAsync(CriarRequisicao(cenario.AdmissaoId, item.Id, "identidade.pdf"));
+        await PrepararParaRevisaoAsync(contexto, cenario.AdmissaoId);
+        item.MarcarRevisaoPendente();
+        await contexto.SaveChangesAsync();
+
+        var resultado = await cenario.Servico.ValidarAsync(cenario.AdmissaoId, item.Id);
+
+        Assert.True(resultado.Sucesso, resultado.Erro);
+        Assert.False(resultado.Valor!.Valido);
+        Assert.Equal(fallbackManual, resultado.Valor.FallbackManual);
+        contexto.ChangeTracker.Clear();
+        var atualizado = await contexto.AdmissaoDocumentos.SingleAsync(documento => documento.Id == item.Id);
+        Assert.False(atualizado.RevisaoPendente);
+    }
+
     [Fact]
     public async Task AprovarManualmente_AprovaUltimaValidacao()
     {

@@ -245,7 +245,7 @@ public sealed class AdmissaoDocumentoServico(
         if (!resultado.Sucesso)
             return resultado;
 
-        if (resultado.Valor?.Valido == true)
+        if (resultado.Valor is not null)
         {
             item.ConcluirRevisao();
             await repositorio.SalvarAlteracoesAsync(ct);
