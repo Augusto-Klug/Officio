@@ -53,7 +53,7 @@ function normalizeResumo(value: unknown): AdmissaoResumo {
     id: requiredString(field(item, 'id')),
     empresaId: requiredString(field(item, 'empresaId')),
     empresaNome: requiredString(field(item, 'empresaNome')),
-    nomeFuncionario: requiredString(field(item, 'nomeFuncionario')),
+    nomeFuncionario: optionalString(field(item, 'nomeFuncionario')) ?? '',
     cpf: optionalString(field(item, 'cpf')),
     status: requiredString(field(item, 'status')),
     statusDescricao: requiredString(field(item, 'statusDescricao')),
@@ -263,7 +263,7 @@ export function normalizeFichaFuncionario(value: unknown): FichaFuncionarioPubli
   return {
     id: requiredString(field(item, 'id')),
     empresaNome: requiredString(field(item, 'empresaNome')),
-    nomeFuncionario: requiredString(field(item, 'nomeFuncionario')),
+    nomeFuncionario: optionalString(field(item, 'nomeFuncionario')) ?? '',
     cpf: optionalString(field(item, 'cpf')),
     rg: optionalString(field(item, 'rg')),
     etnia: optionalString(field(item, 'etnia')),

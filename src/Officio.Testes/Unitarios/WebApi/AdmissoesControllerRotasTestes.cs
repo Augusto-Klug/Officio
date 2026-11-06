@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Officio.Dominio.Seguranca;
 using Officio.WebApi.Controllers;
 
 namespace Officio.Testes.Unitarios.WebApi;
@@ -40,5 +42,18 @@ public class AdmissoesControllerRotasTestes
         var metodo = typeof(AdmissoesController).GetMethod(nomeMetodo);
         var atributo = Assert.Single(metodo!.GetCustomAttributes(false).OfType<HttpMethodAttribute>());
         Assert.Equal(rotaEsperada, atributo.Template);
+    }
+
+    [Theory]
+    [InlineData(nameof(AdmissoesController.EnviarDocumento))]
+    [InlineData(nameof(AdmissoesController.ValidarDocumento))]
+    [InlineData(nameof(AdmissoesController.AprovarDocumento))]
+    [InlineData(nameof(AdmissoesController.RemoverDocumento))]
+    public void AlteracaoDocumento_ExigePerfilComPermissaoOperacional(string nomeMetodo)
+    {
+        var metodo = typeof(AdmissoesController).GetMethod(nomeMetodo);
+        var atributo = Assert.Single(metodo!.GetCustomAttributes(false).OfType<AuthorizeAttribute>());
+
+        Assert.Equal(PerfisAcesso.PerfisOperacaoTenantCsv, atributo.Roles);
     }
 }

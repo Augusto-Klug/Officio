@@ -91,12 +91,8 @@ public sealed class PortalClienteServico(
 
         var status = await admissaoRepositorio.ObterOuCriarStatusAsync(
             StatusAdmissaoCodigos.Rascunho, "Rascunho", 1, ct);
-        const string nomePendente = "Aguardando preenchimento";
-        var admissao = Admissao.Criar(empresaAtual.TenantId, requisicao.EmpresaId, status.Id, nomePendente);
-        admissao.AtualizarDados(
-            nomePendente, null, null, null, null, null, null,
-            null, requisicao.EmailFuncionario, null, null, null, null, null,
-            null, null, null, null, null, null, null, null);
+        var admissao = Admissao.CriarParaPreenchimentoFuncionario(
+            empresaAtual.TenantId, requisicao.EmpresaId, status.Id, requisicao.EmailFuncionario);
         var configuracoes = await admissaoRepositorio.ObterOuCriarConfiguracoesDocumentoPadraoAsync(ct);
         admissao.AdicionarDocumentos(configuracoes.Select(configuracao => AdmissaoDocumento.Criar(
             admissao.Id, configuracao.TipoDocumentoId, configuracao.Obrigatorio,

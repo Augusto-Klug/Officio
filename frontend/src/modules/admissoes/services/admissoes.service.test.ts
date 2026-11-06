@@ -150,7 +150,7 @@ describe('contrato HTTP de admissões', () => {
 
   it('usa acesso anonimo e campos limitados no fluxo do admitido', async () => {
     const ficha = {
-      ...resumo, expiraEm: '2026-09-26T10:00:00Z', preenchimentoConcluido: false,
+      ...resumo, nomeFuncionario: '', expiraEm: '2026-09-26T10:00:00Z', preenchimentoConcluido: false,
       rg: null, dataNascimento: null, sexo: null, estadoCivil: null, escolaridade: null,
       telefone: null, email: null, pis: null, banco: null, agencia: null, conta: null,
       tipoConta: null, utilizaValeTransporte: false, comissao: null, contratoExperienciaDias: null,
@@ -169,7 +169,8 @@ describe('contrato HTTP de admissões', () => {
     const arquivo = new File(['pdf'], 'cpf.pdf', { type: 'application/pdf' })
 
     await expect(obterFichaAdmissao('tok/en+')).resolves.toMatchObject({ id: 'adm-1' })
-    expect(normalizeFichaFuncionario(ficha)).toMatchObject({ empresaNome: 'Empresa Teste' })
+    expect(normalizeFichaFuncionario(ficha)).toMatchObject({ empresaNome: 'Empresa Teste', nomeFuncionario: '' })
+    expect(normalizeAdmissoes([{ ...resumo, nomeFuncionario: '' }])[0]?.nomeFuncionario).toBe('')
     await atualizarFichaAdmissao('tok/en+', payload)
     await concluirFichaAdmissao('tok/en+')
     await enviarDocumentoFichaAdmissao('tok/en+', 'item-1', [arquivo])

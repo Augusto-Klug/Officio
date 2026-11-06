@@ -181,6 +181,7 @@ public sealed class AdmissaoDocumentoServico(
         try
         {
             item.VincularDocumento(documento);
+            await PrepararRevisaoAposAlteracaoAsync(item, ct);
             await repositorio.AdicionarDocumentoAsync(documento, ct);
             if (documentoAnterior is not null)
                 await repositorio.RemoverDocumentoAsync(documentoAnterior, ct);
@@ -303,6 +304,7 @@ public sealed class AdmissaoDocumentoServico(
 
         var documento = item.Documento;
         item.RemoverDocumento();
+        await PrepararRevisaoAposAlteracaoAsync(item, ct);
         await repositorio.RemoverDocumentoAsync(documento, ct);
         await repositorio.SalvarAlteracoesAsync(ct);
         await PublicarAtualizacaoAsync(item, ct);
@@ -318,6 +320,26 @@ public sealed class AdmissaoDocumentoServico(
                 item.AdmissaoId),
             ct);
 
+    private async Task PrepararRevisaoAposAlteracaoAsync(AdmissaoDocumento item, CancellationToken ct)
+    {
+        var admissao = item.Admissao;
+        if (!admissao.PreenchimentoFuncionarioConcluidoEm.HasValue)
+            return;
+
+        if (item.DocumentoId.HasValue)
+            item.MarcarRevisaoPendente();
+
+        if (admissao.StatusAdmissao.Codigo != StatusAdmissaoCodigos.DocumentosValidados)
+            return;
+
+        var statusRevisao = await repositorio.ObterOuCriarStatusAsync(
+            StatusAdmissaoCodigos.LiberadoParaRevisaoFinal,
+            "Liberado para revisao final",
+            6,
+            ct);
+        admissao.AlterarStatus(statusRevisao.Id);
+    }
+
     private static string? ValidarItemEditavel(AdmissaoDocumento? item)
     {
         if (item is null)
@@ -327,8 +349,13 @@ public sealed class AdmissaoDocumentoServico(
             return "Documentos de uma admissao concluida ou cancelada nao podem ser alterados.";
         return status is StatusAdmissaoCodigos.Rascunho
             or StatusAdmissaoCodigos.AguardandoAdmitido
+            or StatusAdmissaoCodigos.AguardandoValidacao
+            or StatusAdmissaoCodigos.DocumentosValidados
+            or StatusAdmissaoCodigos.AguardandoEmpregador
+            or StatusAdmissaoCodigos.LiberadoPeloEmpregador
+            or StatusAdmissaoCodigos.LiberadoParaRevisaoFinal
                 ? null
-                : "Documentos nao podem ser alterados apos a conclusao da revisao documental.";
+                : "Documentos nao podem ser alterados nesta etapa da admissao.";
     }
 
     private static string? ValidarDocumentoParaRevisao(AdmissaoDocumento? item)

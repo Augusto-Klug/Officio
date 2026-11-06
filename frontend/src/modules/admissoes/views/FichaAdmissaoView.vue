@@ -167,7 +167,7 @@ onMounted(() => void carregar())
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando ficha...</p></div>
     <div v-else-if="!ficha" class="public-admission-state"><i class="pi pi-link" /><h1>Link indisponível</h1><p>{{ error || 'Este link não está mais disponível.' }}</p></div>
     <form v-else class="public-admission-form" @submit.prevent="salvar">
-      <div class="public-admission-title"><div><h1>{{ ficha.nomeFuncionario }}</h1><p>{{ ficha.empresaNome }}</p></div><StatusBadge :label="finalizado ? 'Enviada' : 'Em preenchimento'" :severity="finalizado ? 'success' : 'warn'" /></div>
+      <div class="public-admission-title"><div><h1>{{ ficha.nomeFuncionario || 'Ficha de admissão' }}</h1><p>{{ ficha.empresaNome }}</p></div><StatusBadge :label="finalizado ? 'Enviada' : 'Em preenchimento'" :severity="finalizado ? 'success' : 'warn'" /></div>
       <Message v-if="success" severity="success" :closable="true" @close="success = ''">{{ success }}</Message>
       <Message v-if="error" severity="error" :closable="true" @close="error = ''">{{ error }}</Message>
       <div v-if="finalizado" class="public-admission-complete"><i class="pi pi-check-circle" /><div><h2>Ficha enviada</h2><p>O empregador já pode preencher os dados de contratação. A contabilidade revisará os documentos depois que as duas fichas forem enviadas.</p></div></div>

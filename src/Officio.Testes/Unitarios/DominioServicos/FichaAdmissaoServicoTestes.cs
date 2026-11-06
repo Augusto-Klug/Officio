@@ -161,6 +161,28 @@ public class FichaAdmissaoServicoTestes
     }
 
     [Fact]
+    public async Task EnviarDocumentoPorLinkPublico_AposEnvioDoFuncionario_RejeitaAlteracao()
+    {
+        var cenario = await CriarCenarioAsync();
+        await using var contexto = cenario.Contexto;
+        var link = await cenario.Servico.GerarLinkAsync(cenario.AdmissaoId);
+        await PreencherDocumentosObrigatoriosAsync(contexto, cenario);
+        Assert.True((await cenario.Servico.ConcluirAsync(link.Valor!.Token)).Sucesso);
+        var itemId = await contexto.AdmissaoDocumentos
+            .OrderBy(documento => documento.Ordem)
+            .Select(documento => documento.Id)
+            .FirstAsync();
+
+        var resultado = await cenario.Servico.EnviarDocumentoAsync(
+            link.Valor.Token,
+            itemId,
+            [new(new MemoryStream([1, 2, 3]), "identidade.pdf", "application/pdf", 3)]);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("ficha do admitido ja foi finalizada", resultado.Erro);
+    }
+
+    [Fact]
     public async Task FichaEmpregadorPortal_AguardaEnvioDoFuncionario()
     {
         var cenario = await CriarCenarioAsync();

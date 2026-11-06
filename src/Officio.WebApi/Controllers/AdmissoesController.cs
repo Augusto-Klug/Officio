@@ -17,6 +17,7 @@ using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ListarEmpresa
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ObterAdmissaoPorId;
 using Officio.Dominio.Mediador.Funcionalidades.Admissoes.Consultas.ObterUrlDocumentoAdmissao;
 using Officio.Dominio.Contratos;
+using Officio.Dominio.Seguranca;
 using Officio.ViewModels.Admissoes;
 using Officio.WebApi.Conversores;
 
@@ -154,6 +155,7 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}/itens/{itemId:guid}")]
+    [Authorize(Roles = PerfisAcesso.PerfisOperacaoTenantCsv)]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -197,6 +199,7 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}/itens/{itemId:guid}")]
+    [Authorize(Roles = PerfisAcesso.PerfisOperacaoTenantCsv)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -211,6 +214,7 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("{id:guid}/itens/{itemId:guid}")]
+    [Authorize(Roles = PerfisAcesso.PerfisOperacaoTenantCsv)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -227,6 +231,7 @@ public class AdmissoesController(IMediator mediator) : ControllerBase
     }
 
     [HttpDelete("{id:guid}/itens/{itemId:guid}")]
+    [Authorize(Roles = PerfisAcesso.PerfisOperacaoTenantCsv)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -266,7 +266,7 @@ onBeforeUnmount(() => {
     <div class="list-heading"><h2>Admissões cadastradas</h2><span>{{ loading ? 'Carregando...' : `${admissoes.length} ${admissoes.length === 1 ? 'admissão' : 'admissões'}` }}</span></div>
     <div v-if="loading" class="list-state" aria-busy="true"><i class="pi pi-spinner loading-spinner" /><p>Carregando admissões...</p></div>
     <DataTable v-else :value="admissoes" data-key="id" class="work-table admissions-table" :table-props="{ 'aria-label': 'Lista de admissões' }">
-      <Column field="nomeFuncionario" header="Funcionário"><template #body="{ data }"><div class="company-cell"><strong>{{ data.nomeFuncionario }}</strong><span>{{ formatarCpf(data.cpf) || 'CPF não informado' }}</span></div></template></Column>
+      <Column field="nomeFuncionario" header="Funcionário"><template #body="{ data }"><div class="company-cell"><strong>{{ data.nomeFuncionario || 'Não informado' }}</strong><span>{{ formatarCpf(data.cpf) || 'CPF não informado' }}</span></div></template></Column>
       <Column field="statusDescricao" header="Situação"><template #body="{ data }"><StatusBadge :label="data.statusDescricao" :severity="statusSeverity(data.status)" /></template></Column>
       <Column header="Vínculo"><template #body="{ data }"><div class="company-cell"><strong>{{ data.funcao || 'Função não informada' }}</strong><span>{{ formatDate(data.dataAdmissaoPrevista) }} · {{ data.salario == null ? 'Salário não informado' : formatCurrency(data.salario) }}</span></div></template></Column>
       <Column header="Ações"><template #body="{ data }"><div class="admission-row-actions">
